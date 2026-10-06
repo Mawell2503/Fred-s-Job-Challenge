@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin sign in</title>
+    <style>
+        :root {
+            --bg: #eef1f4;
+            --card: #ffffff;
+            --ink: #14202b;
+            --muted: #5d6b78;
+            --line: #cdd5dc;
+            --accent: #0f5c63;
+            --accent-ink: #ffffff;
+            --error: #b3261e;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0e151b;
+                --card: #172029;
+                --ink: #e8eef2;
+                --muted: #94a3b0;
+                --line: #2c3a46;
+                --accent: #4fc3cc;
+                --accent-ink: #08262a;
+                --error: #ff8a80;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--ink);
+            font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 400px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 36px 32px 28px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin: 0 0 6px;
+            font-weight: 650;
+        }
+
+        .sub {
+            margin: 0 0 24px;
+            color: var(--muted);
+            font-size: .95rem;
+            line-height: 1.5;
+        }
+
+        label {
+            display: block;
+            font-size: .9rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .field {
+            margin-bottom: 18px;
+        }
+
+        input[type=text],
+        input[type=password],
+        input[type=email] {
+            width: 100%;
+            padding: 11px 12px;
+            font: inherit;
+            color: var(--ink);
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        input:focus-visible,
+        button:focus-visible,
+        a:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .pw {
+            position: relative;
+        }
+
+        .pw input {
+            padding-right: 64px;
+        }
+
+        .toggle {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: 0;
+            color: var(--accent);
+            font: inherit;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 6px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-size: .9rem;
+        }
+
+        .row label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-weight: 400;
+        }
+
+        .row a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .row a:hover {
+            text-decoration: underline;
+        }
+
+        .submit {
+            width: 100%;
+            padding: 12px;
+            font: inherit;
+            font-weight: 650;
+            background: var(--accent);
+            color: var(--accent-ink);
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .submit:disabled {
+            opacity: .6;
+            cursor: progress;
+        }
+
+        .msg {
+            min-height: 1.3em;
+            margin: 14px 0 0;
+            font-size: .9rem;
+            color: var(--error);
+        }
+
+        .back {
+            display: block;
+            text-align: center;
+            margin-top: 18px;
+            font-size: .9rem;
+            color: var(--muted);
+            text-decoration: none;
+        }
+
+        .back:hover {
+            color: var(--ink);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card">
+        <h1>Admin sign in</h1>
+        <p class="sub">Enter your administrator credentials to open the dashboard.</p>
+
+        <form id="login" novalidate>
+            <div class="field">
+                <label for="user">Username or email</label>
+                <input id="user" name="user" type="text" autocomplete="username" required>
+            </div>
+            <div class="field">
+                <label for="pass">Password</label>
+                <div class="pw">
+                    <input id="pass" name="pass" type="password" autocomplete="current-password" required>
+                    <button type="button" class="toggle" id="toggle" aria-label="Show password">Show</button>
+                </div>
+            </div>
+            <div class="row">
+                <label><input type="checkbox" id="remember"> Keep me signed in</label>
+                <a href="#">Forgot password?</a>
+            </div>
+            <button class="submit" id="submit" type="submit">Sign in</button>
+            <p class="msg" id="msg" role="alert" aria-live="polite"></p>
+        </form>
+
+        <a class="back" href="index.html">Back to main page</a>
+    </main>
+
+    <script>
+        const form = document.getElementById('login');
+        const pass = document.getElementById('pass');
+        const msg = document.getElementById('msg');
+        const btn = document.getElementById('submit');
+
+        document.getElementById('toggle').addEventListener('click', (e) => {
+            const show = pass.type === 'password';
+            pass.type = show ? 'text' : 'password';
+            e.currentTarget.textContent = show ? 'Hide' : 'Show';
+            e.currentTarget.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            msg.textContent = '';
+            const user = form.user.value.trim();
+            const password = form.pass.value;
+            if (!user || !password) {
+                msg.textContent = 'Enter both your username and password.';
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Signing in…';
+            try {
+                // TODO: replace with your real backend endpoint.
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user, password, remember: form.remember.checked })
+                });
+                if (!res.ok) throw new Error('Incorrect username or password.');
+                window.location.href = 'admin.html'; // where to go after login
+            } catch (err) {
+                msg.textContent = err.message || 'Could not sign in. Check your connection and try again.';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Sign in';
+            }
+        });
+    </script>
+</body>
+
+</html>

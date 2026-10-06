@@ -1,0 +1,41 @@
+<!-- Main Page -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>My Page</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 40rem;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Submit Your Application</h1>
+    <nav class="nav-primary">
+        <a href="LOGO.html" class="button">LOGO</a>
+        <a href="pages/adminlogin.html" class="button">ADMIN Log in</a>
+    </nav>
+    <!-- Upload CV -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <label for="resume">Upload CV:</label>
+        <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
+    </div>
+    <!-- Instagram URL -->
+    <input type="url" placeholder="Instagram URL">
+    <!-- LinkedIn URL -->
+    <input type="url" placeholder="LinkedIn URL">
+    <main>
+        <p>Welcome! Use the buttons above to go to another page.</p>
+    </main>
+</body>
+
+</html>

@@ -1,0 +1,33 @@
+/* Desktop layout (default) */
+.container {
+    display: flex;
+    flex-direction: row;
+}
+
+/* Mobile layout (screens under 768px) */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+}
+
+nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.button {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    background: #2563eb;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+}
+
+.button:hover,
+.button:focus-visible {
+    background: #1d4ed8;
+}
