@@ -21,7 +21,8 @@
 <body>
     <h1>Submit Your Application</h1>
     <nav class="nav-primary">
-        <a href="LOGO.html" class="button">LOGO</a>
+        <!-- A Nav button tht relocates to the INSYNIUM website -->
+        <a href="https://insyniumgroup.com">LOGO</a>
         <a href="pages/adminlogin.html" class="button">ADMIN Log in</a>
     </nav>
     <!-- Upload CV -->
@@ -29,10 +30,11 @@
         <label for="resume">Upload CV:</label>
         <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
     </div>
-    <!-- Instagram URL -->
-    <input type="url" placeholder="Instagram URL">
-    <!-- LinkedIn URL -->
-    <input type="url" placeholder="LinkedIn URL">
+    <form>
+        <input type="url" id="instagramUrl" name="instagramUrl" placeholder="Instagram URL" required>
+        <input type="url" id="linkedinUrl" name="linkedinUrl" placeholder="LinkedIn URL" required>
+        <button type="submit">Submit</button>
+    </form>
     <main>
         <p>Welcome! Use the buttons above to go to another page.</p>
     </main>
