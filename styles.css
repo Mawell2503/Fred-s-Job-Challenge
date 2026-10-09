@@ -1,3 +1,5 @@
+/* ------------------------------------------------------------------------------------------- */
+
 /* Desktop layout (default) */
 .container {
     display: flex;
@@ -30,4 +32,80 @@ nav {
 .button:hover,
 .button:focus-visible {
     background: #1d4ed8;
+}
+
+/* ------------------------------------------------------------------------------------------- */
+
+.progress {
+    position: relative;
+    container-type: inline-size;
+    width: 100%;
+    aspect-ratio: 680 / 188;
+    /* the pill's proportions */
+    border-radius: 5.3cqw;
+    /* ≈ 36px at 680px */
+    overflow: hidden;
+    /* clips the canvas to the pill → no corner maths in the shader */
+    background: #131211;
+    /* near-black warm; also what shows if WebGL fails */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 18px 40px -18px rgba(0, 0, 0, .35);
+    isolation: isolate;
+}
+
+.progress__fx {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+}
+
+.progress__text {
+    position: absolute;
+    left: 8.4cqw;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    color: #fff;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .55);
+    /* legibility over bright green */
+    font-family: Inter, Geist, "SF Pro Display", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.progress__title {
+    margin: 0;
+    font-size: 3.3cqw;
+    /* ≈ 22px */
+    font-weight: 800;
+    letter-spacing: .01em;
+    text-transform: uppercase;
+    line-height: 1.1;
+}
+
+.progress__sub {
+    margin: .9cqw 0 0;
+    font-size: 1.55cqw;
+    /* ≈ 10.5px */
+    font-weight: 700;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .34);
+}
+
+.progress__value {
+    position: absolute;
+    right: 8.4cqw;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    color: #fff;
+    font-family: Inter, Geist, "SF Pro Display", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 6.3cqw;
+    /* ≈ 43px */
+    font-weight: 600;
+    letter-spacing: -.01em;
+    font-variant-numeric: tabular-nums;
+    /* equal-width digits → no jitter while counting */
+    text-shadow: 0 1px 8px rgba(0, 0, 0, .5);
 }
