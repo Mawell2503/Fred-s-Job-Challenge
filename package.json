@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch --watch-ignore=data index.js",
+    "create-admin": "node scripts/create-admin.js"
   },
   "keywords": [],
   "author": "",

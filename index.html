@@ -110,7 +110,10 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user: form.user.value.trim(), password: form.pass.value })
                 });
-                if (!res.ok) throw new Error(`${action} failed (${res.status})`);
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.error || `${action} failed (${res.status})`);
+                }
                 msg.textContent = action === 'login' ? 'Logged in.' : 'Account created.';
                 window.location.href = 'pages/adminlobby.html';
             } catch (err) {
