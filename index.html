@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
-    <title>My Page</title>
+    <title>CV Sorting System</title>
     <style>
         body {
             font-family: system-ui, sans-serif;
@@ -15,29 +15,135 @@
             padding: 0 1rem;
             line-height: 1.6;
         }
+
+        .views {
+            display: grid;
+        }
+
+        .view {
+            grid-area: 1 / 1;
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity .35s ease, transform .35s ease, visibility 0s linear 0s;
+        }
+
+        .view.is-hidden {
+            opacity: 0;
+            transform: translateY(12px);
+            visibility: hidden;
+            pointer-events: none;
+            /* delay hiding until the fade finishes */
+            transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s;
+        }
+
+        #auth {
+            display: grid;
+            gap: .5rem;
+            max-width: 20rem;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            .view,
+            .view.is-hidden {
+                transition: none;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <h1>Submit Your Application</h1>
-    <nav class="nav-primary">
-        <!-- A Nav button tht relocates to the INSYNIUM website -->
-        <a href="https://insyniumgroup.com">LOGO</a>
-        <a href="pages/adminlogin.html" class="button">ADMIN Log in</a>
-    </nav>
-    <!-- Upload CV -->
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <label for="resume">Upload CV:</label>
-        <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
+    <div class="views">
+        <!-- main view -->
+        <section id="view-main" class="view" aria-hidden="false">
+            <h1>Submit Your Application</h1>
+            <nav class="nav-primary">
+                <!-- Relocates to the INSYNIUM website -->
+                <a href="https://insyniumgroup.com" class="nav-LOGO" <button type="button"
+                    class="nav-btn nav-btn-left">LOGO</button>
+                </a>
+                <!-- Opens LogIn/SignIn card -->
+                <button type="button" class="nav-btn nav-btn-left nav-admin" data-goto="admin">ADMIN LogIn</button>
+            </nav>
+            <!-- Upload CV -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="resume">Upload CV:</label>
+                <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
+            </div>
+            <form>
+                <input type="url" id="instagramUrl" name="instagramUrl" placeholder="Instagram URL" required>
+                <input type="url" id="linkedinUrl" name="linkedinUrl" placeholder="LinkedIn URL" required>
+                <button type="submit">Submit</button>
+            </form>
+        </section>
+        <!-- admin login view -->
+        <section id="view-admin" class="view is-hidden" aria-hidden="true" inert>
+            <h1>Admin</h1>
+            <button type="button" class="nav-btn nav-btn-left" data-goto="main">&larr; Back</button>
+
+            <form id="auth">
+                <label for="user">Username</label>
+                <input id="user" name="user" type="text" autocomplete="username" required>
+
+                <label for="pass">Password</label>
+                <input id="pass" name="pass" type="password" autocomplete="current-password" required>
+
+                <button type="submit" value="login">Log in</button>
+                <button type="submit" value="signup">Sign up</button>
+
+                <p id="msg" role="alert"></p>
+            </form>
+        </section>
     </div>
-    <form>
-        <input type="url" id="instagramUrl" name="instagramUrl" placeholder="Instagram URL" required>
-        <input type="url" id="linkedinUrl" name="linkedinUrl" placeholder="LinkedIn URL" required>
-        <button type="submit">Submit</button>
-    </form>
-    <main>
-        <p>Welcome! Use the buttons above to go to another page.</p>
-    </main>
+    <script>
+        // login/sign up logic
+        const form = document.getElementById('auth');
+        const msg = document.getElementById('msg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const action = e.submitter.value;
+            msg.textContent = '';
+            try {
+                const res = await fetch(`/api/admin/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: form.user.value.trim(), password: form.pass.value })
+                });
+                if (!res.ok) throw new Error(`${action} failed (${res.status})`);
+                msg.textContent = action === 'login' ? 'Logged in.' : 'Account created.';
+                window.location.href = 'pages/adminlobby.html';
+            } catch (err) {
+                msg.textContent = err.message;
+            }
+        });
+
+        // view switch
+        const views = {
+            main: document.getElementById('view-main'),
+            admin: document.getElementById('view-admin')
+        };
+
+        function show(name, { push = true } = {}) {
+            for (const [key, el] of Object.entries(views)) {
+                const active = key === name;
+                el.classList.toggle('is-hidden', !active);
+                el.setAttribute('aria-hidden', String(!active));
+                el.inert = !active;
+            }
+            if (push) history.pushState({ view: name }, '', name === 'admin' ? '#admin' : location.pathname);
+            if (name === 'admin') setTimeout(() => document.getElementById('user').focus(), 350);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        document.querySelectorAll('[data-goto]').forEach(btn =>
+            btn.addEventListener('click', () => show(btn.dataset.goto)));
+
+        window.addEventListener('popstate', () =>
+            show(location.hash === '#admin' ? 'admin' : 'main', { push: false }));
+
+        if (location.hash === '#admin') show('admin', { push: false });
+    </script>
 </body>
 
 </html>
