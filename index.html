@@ -65,16 +65,21 @@
                 <!-- Opens LogIn/SignIn card -->
                 <button type="button" class="nav-btn nav-btn-left nav-admin" data-goto="admin">ADMIN LogIn</button>
             </nav>
-            <!-- Upload CV -->
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <label for="resume">Upload CV:</label>
-                <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
+            <!-- name -->
+            <div>
+                <input type="text" id="name" name="name" placeholder="Name" required>
             </div>
+            <!-- URLs -->
             <form>
                 <input type="url" id="instagramUrl" name="instagramUrl" placeholder="Instagram URL" required>
                 <input type="url" id="linkedinUrl" name="linkedinUrl" placeholder="LinkedIn URL" required>
                 <button type="submit">Submit</button>
             </form>
+            <!-- Upload CV -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="resume">Upload CV:</label>
+                <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
+            </div>
         </section>
         <!-- admin login view -->
         <section id="view-admin" class="view is-hidden" aria-hidden="true" inert>
