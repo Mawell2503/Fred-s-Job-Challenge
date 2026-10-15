@@ -108,7 +108,7 @@ export async function checkLogin(rawUser, password) {
 }
 
 export function listUsers() {
-    return users.map(({ id, user, createdAt }) => ({ id, user, createdAt }));
+    return users.map(({ id, createdAt, user }) => ({ id, createdAt, user }));
 }
 
 // ---------- sessions (token in an httpOnly cookie; only a hash of it is stored on disk) ----------
