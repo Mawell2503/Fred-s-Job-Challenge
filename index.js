@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { applyRoutes } from './apply.js';
 import {
     SESSION_TTL_MS,
     createUser,
@@ -106,7 +107,7 @@ app.post('/api/admin/logout', (req, res) => {
 
 // Who am I? Useful for admin pages to check they're logged in
 app.get('/api/admin/me', requireAuth, (req, res) => res.json({ user: req.user }));
-
+app.use(applyRoutes({ requireAuth }));
 // ---------- pages ----------
 // Only these public files are served (not index.js, package.json, data/, .git, etc.)
 const publicFile = file => (req, res) => res.sendFile(path.join(__dirname, file));

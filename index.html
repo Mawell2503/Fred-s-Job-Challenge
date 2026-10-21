@@ -63,21 +63,14 @@
                 <!-- Opens LogIn/SignIn card -->
                 <button type="button" class="nav-btn nav-btn-left nav-admin" data-goto="admin">ADMIN LogIn</button>
             </nav>
-            <!-- name -->
-            <div>
-                <input type="text" id="name" name="name" placeholder="Name" required>
-            </div>
-            <!-- URLs -->
-            <form>
-                <input type="url" id="instagramUrl" name="instagramUrl" placeholder="Instagram URL" required>
-                <input type="url" id="linkedinUrl" name="linkedinUrl" placeholder="LinkedIn URL" required>
+            <form id="apply">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="url" name="instagramUrl" placeholder="Instagram URL">
+                <input type="url" name="linkedinUrl" placeholder="LinkedIn URL">
+                <label>Upload CV: <input type="file" name="resume" accept=".pdf,.docx,.txt" required></label>
                 <button type="submit">Submit</button>
+                <p id="apply-msg" role="status"></p>
             </form>
-            <!-- Upload CV -->
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <label for="resume">Upload CV:</label>
-                <input type="file" id="resume" name="resume" accept=".pdf, .docx, .txt">
-            </div>
         </section>
         <!-- admin login view -->
         <section id="view-admin" class="view is-hidden" aria-hidden="true" inert>
@@ -149,6 +142,18 @@
             show(location.hash === '#admin' ? 'admin' : 'main', { push: false }));
 
         if (location.hash === '#admin') show('admin', { push: false });
+
+        document.getElementById('apply').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const out = document.getElementById('apply-msg');
+            out.textContent = 'Sending...';
+            try {
+                const res = await fetch('/api/apply', { method: 'POST', body: new FormData(e.target) });
+                const data = await res.json().catch(() => ({}));
+                out.textContent = res.ok ? 'Application received. Thank you!' : (data.error || 'Upload failed.');
+                if (res.ok) e.target.reset();
+            } catch { out.textContent = 'Could not reach the server.'; }
+        });
     </script>
 </body>
 
