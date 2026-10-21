@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# DEFAULT (PLACEHOLDER) RULES
+#
+# Rules are DATA, not code. This file defines the shape; a UI can send the same
+# structure as JSON (see NOTES.md). Any key you leave out falls back to the value
+# in this file, so a UI only has to send what the user changed.
+#
+# Philosophy of the placeholder set: keep everything, drop only obvious junk.
+# Everything dropped is written to dropped_log.json with the rule that fired.
+# ---------------------------------------------------------------------------
+version: 1
+default_section_action: keep          # keep | drop ....per section type: keep | drop.
+# `unknown` = a heading the segmenter did not recognise
+sections:
+  header: keep
+  unsorted: keep
+  summary: keep
+  experience: keep
+  education: keep
+  skills: keep
+  languages: keep
+  certifications: keep
+  training: keep
+  projects: keep
+  awards: keep
+  publications: keep
+  volunteering: keep
+  interests: keep          
+  references: keep         
+  personal: keep           
+  declaration: drop        
+  unknown: keep
+drop_headings: []
+
+
+drop_line_patterns:
+  - '^\s*page\s*\d+(\s*(of|/)\s*\d+)?\s*$'            
+  - '^\s*\d+\s*(of|/)\s*\d+\s*$'                      
+  - '^\s*-?\s*\d{1,2}\s*-?\s*$'                       
+  - '^\s*(curriculum\s+vitae|resume|r[ée]sum[ée]|cv)\s*$'  
+  - '^\s*references?\s+(are\s+)?(available\s+)?(on|upon)\s+(request|demand)\.?\s*$'
+  - '^\s*\[CANDIDATE\]\s*([-–|:]\s*(curriculum\s+vitae|resume|cv))?\s*$'   
+
+keep_line_patterns: []
+drop_blocks_containing: []
+
+# Mechanical clean-up switches
+drop_empty_blocks: true               
+drop_repeated_headers_footers: true   
+drop_decorative_lines: true           
+drop_docx_footers: true               
+
+replace_default_lists: false
+
+min_block_chars: 0

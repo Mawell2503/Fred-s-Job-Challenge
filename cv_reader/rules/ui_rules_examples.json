@@ -1,0 +1,14 @@
+{
+    "sections": {
+        "interests": "drop",
+        "references": "drop"
+    },
+    "drop_headings": [
+        "^social media"
+    ],
+    "drop_line_patterns": [
+        "^confidential$"
+    ],
+    "keep_line_patterns": [],
+    "min_block_chars": 0
+}
