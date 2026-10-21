@@ -1,0 +1,1 @@
+STEPS 1-2: open the file and extract text
