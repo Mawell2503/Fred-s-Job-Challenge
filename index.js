@@ -35,15 +35,14 @@ function readCookie(req, name) {
 
 function setSessionCookie(res, token) {
     res.cookie(COOKIE, token, {
-        httpOnly: true,       // JS on the page can't read it
-        sameSite: 'lax',      // not sent on cross-site POSTs (basic CSRF protection)
-        secure: IS_PROD,      // HTTPS only in production
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: IS_PROD,
         maxAge: SESSION_TTL_MS,
         path: '/',
     });
 }
 
-// Simple in-memory brute-force limiter: 10 failed attempts per IP+username per 15 minutes
 const attempts = new Map();
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 10;

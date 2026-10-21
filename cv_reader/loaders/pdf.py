@@ -13,9 +13,12 @@ from .errors import LoaderError
 _BOLD_RE = re.compile(r"bold|black|heavy|semibold|demi", re.I)
 
 GUTTER_MIN_PT = 8.0          # >minimum width of a column gap
-SIDE_MIN_EXTENT = 0.18       # >each column must be at least this share of the page width
+# >each column must be at least this share of the page width
+SIDE_MIN_EXTENT = 0.18
 SIDE_MIN_LINES = 5           # >... and contain at least this many lines
-SIDE_MIN_RATIO = 0.20        # >shorter column must have >= 20% of the longer one's lines
+# >shorter column must have >= 20% of the longer one's lines
+SIDE_MIN_RATIO = 0.20
+
 
 def ocr_available() -> bool:
     if not shutil.which("tesseract"):
@@ -100,10 +103,6 @@ def _find_gutter(words: list[dict], pw: float):
     width = xmax - xmin
     if width < 0.4 * pw:
         return None
-
-    # Coverage per x position = number of visual rows that have a word there. A gutter is a
-    # strip covered by (almost) no row; a few full-width rows (name banner, footer line)
-    # are tolerated instead of cutting the page into header / body / footer zones.
     rows = _cluster(words)
     if len(rows) < 6:
         return None
@@ -152,9 +151,12 @@ def _hint_gutter(words: list[dict], hints: list) -> tuple | None:
     rows = _cluster(words)
     for gx0, gx1 in hints:
         mid = (gx0 + gx1) / 2
-        crossing = sum(1 for r in rows if any(w["x0"] < gx1 and w["x1"] > gx0 for w in r))
-        left = sum(1 for r in rows if any((w["x0"] + w["x1"]) / 2 < mid for w in r))
-        right = sum(1 for r in rows if any((w["x0"] + w["x1"]) / 2 >= mid for w in r))
+        crossing = sum(1 for r in rows if any(
+            w["x0"] < gx1 and w["x1"] > gx0 for w in r))
+        left = sum(1 for r in rows if any(
+            (w["x0"] + w["x1"]) / 2 < mid for w in r))
+        right = sum(1 for r in rows if any(
+            (w["x0"] + w["x1"]) / 2 >= mid for w in r))
         if crossing <= max(1, len(rows) // 8) and left >= 2 and right >= 2:
             return gx0, gx1
     return None
@@ -202,9 +204,11 @@ def _join(words: list[dict]) -> str:
         gap = w["x0"] - prev["x1"]
         size = max(prev["size"], 1.0)
         if gap < 0.15 * size:
-            parts.append(w["text"])            # touching (font change, punctuation)
+            # touching (font change, punctuation)
+            parts.append(w["text"])
         elif gap > 1.0 * size:
-            parts.append("  " + w["text"])     # big gap (tab / column inside a line)
+            # big gap (tab / column inside a line)
+            parts.append("  " + w["text"])
         else:
             parts.append(" " + w["text"])
     return "".join(parts)
@@ -224,22 +228,24 @@ def _to_lines(ordered: list[list[dict]], page_no: int, page_h: float) -> list[Li
             p_top, p_bottom, p_h = prev
             gap = top - p_bottom
             if top < p_top - 0.3 * p_h or gap > 0.6 * max(p_h, h):
-                out.append(Line("", page=page_no))      # paragraph / column break
-        edge = "top" if bottom < 0.09 * page_h else ("bottom" if top > 0.91 * page_h else None)
-        out.append(Line(text, page=page_no, size=round(size, 1), bold=bold, edge=edge))
+                # paragraph / column break
+                out.append(Line("", page=page_no))
+        edge = "top" if bottom < 0.09 * \
+            page_h else ("bottom" if top > 0.91 * page_h else None)
+        out.append(Line(text, page=page_no, size=round(
+            size, 1), bold=bold, edge=edge))
         prev = (top, bottom, h)
     return out
-
-
-# ----------------------------------------------------------------------------
 # OCR
-# ----------------------------------------------------------------------------
+
+
 def _ocr_words(page, cfg: Config) -> list[dict]:
     import pytesseract
     from pytesseract import Output
 
     img = page.to_image(resolution=cfg.ocr_dpi).original
-    data = pytesseract.image_to_data(img, lang=cfg.ocr_lang, output_type=Output.DICT)
+    data = pytesseract.image_to_data(
+        img, lang=cfg.ocr_lang, output_type=Output.DICT)
     scale = 72.0 / cfg.ocr_dpi
     words = []
     for i, text in enumerate(data["text"]):
@@ -264,11 +270,9 @@ def _garbled(words: list[dict]) -> bool:
         return False
     bad = sum(1 for w in words if "(cid:" in w["text"] or "�" in w["text"])
     return bad / len(words) > 0.3
+# Entry point
 
 
-# ----------------------------------------------------------------------------
-# entry point
-# ----------------------------------------------------------------------------
 def load_pdf(path: Path, cfg: Config) -> ExtractedDoc:
     import pdfplumber
 
@@ -317,7 +321,8 @@ def load_pdf(path: Path, cfg: Config) -> ExtractedDoc:
                             "warning", "NO_TEXT_LAYER",
                             f"Page {pno} has no text layer (scanned?) and {ocr_off_reason}."))
 
-                ordered = _order_region(words, float(page.width), hints=gutter_hints)
+                ordered = _order_region(words, float(
+                    page.width), hints=gutter_hints)
                 doc.lines.extend(_to_lines(ordered, pno, float(page.height)))
                 if pno < n:
                     doc.lines.append(Line("", page=pno))

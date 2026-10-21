@@ -3,9 +3,7 @@ Personal-information split
 
 Everything that identifies the candidate (name, email, phone, links, date of
 birth, nationality, marital status, address, national ID ...) is moved OUT of
-the CV text into a separate record. The main text keeps only the placeholder
-[CANDIDATE] where the name appeared. The record is written to pii_store.json
-by the pipeline, keyed by candidate_id, so the two can be re-joined later..
+the CV text into a separate record.
 """
 from __future__ import annotations
 

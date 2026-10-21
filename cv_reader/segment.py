@@ -8,10 +8,7 @@ from collections import Counter
 
 from .models import Block, Line
 
-# ---------------------------------------------------------------------------
-# Heading vocabulary (UI hook: this dictionary is a good candidate to expose
-# for editing later - "add a synonym for a section type").
-# ---------------------------------------------------------------------------
+# Dictionary
 HEADING_SYNONYMS: dict[str, list[str]] = {
     "summary": ["summary", "professional summary", "career summary", "executive summary",
                 "profile", "personal profile", "professional profile", "about me", "about",

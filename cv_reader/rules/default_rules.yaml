@@ -1,13 +1,3 @@
-# ---------------------------------------------------------------------------
-# DEFAULT (PLACEHOLDER) RULES
-#
-# Rules are DATA, not code. This file defines the shape; a UI can send the same
-# structure as JSON (see NOTES.md). Any key you leave out falls back to the value
-# in this file, so a UI only has to send what the user changed.
-#
-# Philosophy of the placeholder set: keep everything, drop only obvious junk.
-# Everything dropped is written to dropped_log.json with the rule that fired.
-# ---------------------------------------------------------------------------
 version: 1
 default_section_action: keep          # keep | drop ....per section type: keep | drop.
 # `unknown` = a heading the segmenter did not recognise

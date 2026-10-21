@@ -21,13 +21,11 @@ class Line:
     """One line of text plus whatever layout hints the extractor could recover."""
     text: str
     page: int = 1
-    # font size in points (PDF/DOCX), None for TXT
     size: Optional[float] = None
     bold: bool = False
-    # PDF: "top"/"bottom" margin zone. DOCX: "header"/"footer" part.
     edge: Optional[str] = None
-    heading_style: bool = False       # DOCX paragraph style is Heading/Title
-    # same header/footer text already seen on an earlier page
+    heading_style: bool = False
+
     repeated: bool = False
 
     def with_text(self, text: str) -> "Line":

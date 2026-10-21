@@ -193,11 +193,6 @@ def run_pipeline(inputs, rules=None, config=None, out_dir=None, id_start: int = 
     out_dir : if given, results are written there (see write_outputs)
     """
     cfg = config if isinstance(config, Config) else Config.from_dict(config)
-
-    # >>> RULES_INPUT_HOOK: UI-supplied rules enter here <<<
-    # `rules` is the JSON/dict your rules menu sends (same shape as rules/default_rules.yaml).
-    # load_rules() merges it over the defaults and raises RulesError BEFORE any file is
-    # touched if something is malformed (bad regex, unknown key, ...).
     rules_dict = load_rules(rules)
     engine = RuleEngine(rules_dict)
 
