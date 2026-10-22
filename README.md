@@ -12,7 +12,7 @@ Seperating admins from CV applicants
 - the rest of the site can only be accessed by admins through admin log in/sign up.
 
 Sorting/Cleaning of the CVs to bring it down to a text block that AIs can easily go through
-- `cv_reader` has the whole logic
+    - `cv_reader` has the whole logic
     - `loaders\__init__.py` holds stage 1 and 2 > Loading CV and Extracting
     - `normalize.py` cleans up the extractions/stage 3
     - `segment.py` sorts the extraction /stage 4
