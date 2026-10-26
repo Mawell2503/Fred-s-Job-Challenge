@@ -1,0 +1,82 @@
+# Vocabulary standardisation (Oscar).
+#
+# Each entry:   Canonical name: [other ways people write it]
+# Matching ignores case, accents and punctuation, so "ReactJS", "react.js" and
+# "React JS" all become the same skill. The canonical name is also matched itself,
+# so you never need to repeat it in the list.
+#
+# The SAME dictionary is used for CVs (Oscar) and for job criteria (Clara/Remi),
+# which is what makes "dev front" on a CV match "React" in a job description only
+# if you decide they mean the same thing here. Edit freely; add your own domains.
+
+# ---------------- software / web ----------------
+React: [reactjs, react.js, react js]
+Front-end development: [front end, frontend, front-end, dev front, developpeur front, developpement front, front end developer, frontend developer, front-end developer, ui development]
+Back-end development: [back end, backend, back-end, dev back, developpeur back, backend developer, back-end developer, server side development]
+Full-stack development: [full stack, fullstack, full-stack, dev fullstack, full stack developer, fullstack developer]
+JavaScript: [js, javascript es6, es6, ecmascript]
+TypeScript: [ts]
+Node.js: [nodejs, node js]
+Vue.js: [vue, vuejs, vue js]
+Angular: [angularjs, angular js]
+Next.js: [nextjs, next js]
+Python: [python3, python 3]
+Java: [java se, java ee, j2ee]
+C#: [c sharp, csharp]
+.NET: [dotnet, dot net, asp.net, asp net, .net core, net core]
+PHP: [php7, php 8]
+SQL: [structured query language, t-sql, tsql, pl/sql, plsql]
+PostgreSQL: [postgres, postgre sql, psql]
+MySQL: [my sql, mariadb]
+MongoDB: [mongo, mongo db]
+HTML: [html5, html 5]
+CSS: [css3, css 3, scss, sass]
+Git: [github, gitlab, version control]
+Docker: [containers, containerisation, containerization]
+Kubernetes: [k8s]
+AWS: [amazon web services]
+Azure: [microsoft azure]
+Google Cloud: [gcp, google cloud platform]
+REST API: [restful, rest apis, restful api, restful apis]
+Machine learning: [ml, apprentissage automatique]
+Data analysis: [data analytics, analyse de donnees, data analyst]
+Power BI: [powerbi, power-bi]
+Tableau: []
+Agile: [scrum, kanban, agile methodology, methodologie agile]
+UI/UX design: [ux, ui, ux design, ui design, user experience, user interface design]
+Figma: []
+
+# ---------------- office / business ----------------
+Microsoft Excel: [excel, ms excel, advanced excel]
+Microsoft Office: [ms office, office 365, microsoft 365, microsoft word, ms word, powerpoint, microsoft outlook]
+SAP: [sap erp, sap fico, sap fi, sap s/4hana, s4hana]
+Sage: [sage 50, sage accounting]
+QuickBooks: [quickbooks online, qbo]
+Project management: [gestion de projet, project manager, pmp]
+Customer service: [service client, customer support, client service]
+Sales: [vente, ventes, business development]
+Marketing: [digital marketing, marketing digital]
+
+# ---------------- finance / accounting ----------------
+Accounting: [comptabilite, accountancy, accountant, accountants, comptable, comptables, chartered accountant, bookkeeping, tenue de comptes]
+IFRS: [international financial reporting standards]
+ACCA: [association of chartered certified accountants, chartered certified accountant]
+Audit: [auditing, external audit, internal audit, audit externe, audit interne]
+Taxation: [tax, fiscalite, tax compliance]
+Payroll: [paie, gestion de la paie]
+Financial reporting: [financial statements, etats financiers, reporting financier]
+
+# ---------------- languages ----------------
+English: [anglais, eng]
+French: [francais]
+Mauritian Creole: [creole, kreol, kreol morisien, morisien, creole mauricien]
+Hindi: []
+Mandarin: [chinese, chinois]
+Spanish: [espagnol]
+German: [allemand]
+
+# ---------------- degrees ----------------
+Bachelor's degree: [bachelor, bachelors, bsc, b.sc, b.a, bachelor of science, bachelor of arts, beng, b.eng]
+Master's degree: [masters, master degree, masters degree, msc, m.sc, mba, m.a, master of science, master of arts, meng]
+PhD: [doctorate, doctorat, ph.d, dphil]
+HSC: [higher school certificate, a level, a levels, a-levels, baccalaureat, bac]

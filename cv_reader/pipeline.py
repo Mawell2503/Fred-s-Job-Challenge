@@ -7,6 +7,7 @@
       (+ PII split: personal info moved to a separate record)   pii.py
     5 Rules     keep / drop per block and per line              rules/
     6 Assemble  one output text block per CV                    assemble.py
+    7 Record    structured JSON + embedding per CV              structure.py, embed.py
 
 Every file is processed in isolation: one bad CV is reported, never stops the batch.
 """
@@ -20,12 +21,15 @@ from pathlib import Path
 
 from .assemble import assemble
 from .config import Config
+from .embed import embed
 from .loaders import EXT_TYPES, LoaderError, load
 from .models import CVResult, DroppedItem
 from .normalize import normalize
 from .pii import split_pii
 from .rules import RuleEngine, load_rules
+from .rules.engine import KNOWN_SECTION_TYPES
 from .segment import segment
+from .structure import build_record
 
 _SCAN_EXTS = set(EXT_TYPES) | {".doc", ".rtf", ".odt"}
 _ERROR_RELATED = {"NO_TEXT_LAYER", "OCR_FAILED",
@@ -64,6 +68,15 @@ class BatchResult:
         }
 
 
+def mechanical_engine(rules: dict) -> RuleEngine:
+    """Same clean-up as `rules` (page numbers, footers, decorative lines ...) but keeps
+    EVERY section. Used for the full text that Jules reads and citations are checked on."""
+    r = dict(rules)
+    r.update(default_section_action="keep", sections={t: "keep" for t in KNOWN_SECTION_TYPES},
+             drop_headings=[], drop_blocks_containing=[], min_block_chars=0)
+    return RuleEngine(r)
+
+
 # ---------------------------------------------------------------------------
 def collect_files(inputs) -> tuple[list[Path], list[str]]:
     """Expand folders (recursively). Explicitly named files are always processed;
@@ -93,7 +106,8 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def process_file(path, candidate_id: str, engine: RuleEngine, cfg: Config) -> CVResult:
+def process_file(path, candidate_id: str, engine: RuleEngine, cfg: Config,
+                 full_engine: RuleEngine | None = None) -> CVResult:
     path = Path(path)
     res = CVResult(candidate_id=candidate_id, source_file=path.name)
 
@@ -159,6 +173,7 @@ def process_file(path, candidate_id: str, engine: RuleEngine, cfg: Config) -> CV
     # 5 Rules
     kept, dropped = engine.apply(blocks, candidate_id)
     res.dropped.extend(dropped)
+    full_kept, _ = (full_engine or mechanical_engine(engine.rules)).apply(blocks, candidate_id)
 
     # 6 Assemble
     chars_after = sum(len(ln.text.strip()) for b in kept for ln in b.lines)
@@ -176,6 +191,14 @@ def process_file(path, candidate_id: str, engine: RuleEngine, cfg: Config) -> CV
                 f"(minimum is {cfg.min_output_chars}). No output was produced; check dropped_log.json.")
     else:
         res.output_text = assemble(kept, candidate_id)
+        res.full_text = assemble(full_kept, candidate_id)
+        # 7 Record (+ embedding)
+        res.record = build_record(kept, candidate_id)
+        if cfg.embed_enabled:
+            try:
+                res.embedding = embed(res.output_text)
+            except Exception as e:      # a missing model must not lose the CV
+                res.add("warning", "EMBEDDING_FAILED", f"{type(e).__name__}: {e}")
         if chars_before and (chars_before - chars_after) / chars_before > 0.6:
             res.add("warning", "RULES_DROPPED_MOST",
                     f"The rules removed {100 * (chars_before - chars_after) // chars_before}% of the text.")
@@ -195,6 +218,7 @@ def run_pipeline(inputs, rules=None, config=None, out_dir=None, id_start: int = 
     cfg = config if isinstance(config, Config) else Config.from_dict(config)
     rules_dict = load_rules(rules)
     engine = RuleEngine(rules_dict)
+    full_engine = mechanical_engine(rules_dict)
 
     files, skipped = collect_files(inputs)
     batch = BatchResult(
@@ -204,7 +228,7 @@ def run_pipeline(inputs, rules=None, config=None, out_dir=None, id_start: int = 
     for n, path in enumerate(files, start=id_start):
         cid = f"C{n:04d}"
         try:
-            res = process_file(path, cid, engine, cfg)
+            res = process_file(path, cid, engine, cfg, full_engine)
         except Exception as e:     # a bug on one file must never stop the batch
             res = CVResult(candidate_id=cid, source_file=Path(path).name)
             res.add("error", "UNEXPECTED_ERROR", f"{type(e).__name__}: {e}")
@@ -227,15 +251,22 @@ def run_pipeline(inputs, rules=None, config=None, out_dir=None, id_start: int = 
 
 def write_outputs(batch: BatchResult, out_dir) -> None:
     out = Path(out_dir)
-    text_dir = out / "cv_text"
-    text_dir.mkdir(parents=True, exist_ok=True)
-    # never leave stale outputs from a previous run
-    for old in text_dir.glob("*.txt"):
-        old.unlink()
+    folders = {"cv_text": ".txt", "cv_full": ".txt", "cv_json": ".json", "embeddings": ".json"}
+    for name, ext in folders.items():
+        (out / name).mkdir(parents=True, exist_ok=True)
+        for old in (out / name).glob("*" + ext):     # never leave stale outputs from a previous run
+            old.unlink()
     for r in batch.results:
-        if r.status != "failed" and r.output_text:
-            (text_dir /
-             f"{r.candidate_id}.txt").write_text(r.output_text, encoding="utf-8")
+        if r.status == "failed" or not r.output_text:
+            continue
+        cid = r.candidate_id
+        (out / "cv_text" / f"{cid}.txt").write_text(r.output_text, encoding="utf-8")
+        (out / "cv_full" / f"{cid}.txt").write_text(r.full_text, encoding="utf-8")
+        if r.record is not None:
+            (out / "cv_json" / f"{cid}.json").write_text(
+                json.dumps(r.record, indent=2, ensure_ascii=False), encoding="utf-8")
+        if r.embedding is not None:
+            (out / "embeddings" / f"{cid}.json").write_text(json.dumps(r.embedding), encoding="utf-8")
 
     def dump(name: str, data) -> None:
         (out / name).write_text(json.dumps(data,

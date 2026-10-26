@@ -43,6 +43,8 @@ def main(argv=None) -> int:
                     help="disable OCR for scanned PDFs")
     ap.add_argument(
         "--ocr-lang", help="Tesseract language code (default: eng)")
+    ap.add_argument("--no-embed", action="store_true",
+                    help="skip computing the profile embedding")
     ap.add_argument("--id-start", type=int, default=1,
                     help="first candidate number (default 1)")
     ap.add_argument("--print", dest="show_text",
@@ -56,6 +58,8 @@ def main(argv=None) -> int:
         cfg["ocr_enabled"] = False
     if args.ocr_lang:
         cfg["ocr_lang"] = args.ocr_lang
+    if args.no_embed:
+        cfg["embed_enabled"] = False
 
     try:
         batch = run_pipeline(args.inputs, rules=args.rules, config=cfg, out_dir=args.out,

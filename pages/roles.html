@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hiring Pipeline</title>
+    <style>
+        :root {
+            --bg: #f4f4f6; --card: #fff; --ink: #1b1b1f; --muted: #6b6b76; --line: #e2e2e8;
+            --accent: #2563eb; --accent-ink: #fff; --pass: #1f7a3a; --pass-bg: #e3f4e8;
+            --fail: #b42318; --fail-bg: #fde8e6; --unk: #8a5a00; --unk-bg: #fff3d6; --radius: 10px;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #121215; --card: #1b1b20; --ink: #ececf1; --muted: #9a9aa6; --line: #2c2c34;
+                --accent: #5b8cff; --pass: #6fd08c; --pass-bg: #163322; --fail: #ff8a80; --fail-bg: #3a1a18;
+                --unk: #f3c25b; --unk-bg: #3a2e12;
+            }
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        header { display: flex; align-items: center; gap: 1rem; padding: .8rem 1.2rem; border-bottom: 1px solid var(--line); background: var(--card); position: sticky; top: 0; z-index: 2; }
+        header h1 { font-size: 1.05rem; margin: 0; flex: 1; }
+        header a, header button { font: inherit; color: var(--accent); background: none; border: 0; cursor: pointer; text-decoration: none; }
+        .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 1.2rem; padding: 1.2rem; max-width: 1400px; margin: 0 auto; }
+        @media (max-width: 860px) { .layout { grid-template-columns: minmax(0, 1fr); padding: 1rem; } }
+        aside, .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; }
+        aside h2, .card h2 { font-size: .95rem; margin: 0 0 .6rem; }
+        .card h2 small { font-weight: 400; color: var(--muted); }
+        .role-list { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .3rem; }
+        .role-list button { width: 100%; text-align: left; padding: .5rem .6rem; border-radius: 8px; border: 1px solid transparent; background: none; color: inherit; font: inherit; cursor: pointer; }
+        .role-list button:hover { background: var(--bg); }
+        .role-list button[aria-current="true"] { border-color: var(--accent); background: var(--bg); }
+        .role-list .meta { display: block; font-size: .8rem; color: var(--muted); }
+        main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; min-width: 0; }
+        #role { min-width: 0; }
+        input, select, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: .45rem .55rem; width: 100%; }
+        textarea { min-height: 6rem; resize: vertical; }
+        label { display: block; font-size: .85rem; color: var(--muted); margin: .5rem 0 .2rem; }
+        .btn { font: inherit; padding: .45rem .9rem; border-radius: 7px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; white-space: nowrap; }
+        .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .7rem; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+        @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+        .muted { color: var(--muted); font-size: .88rem; }
+        .status { font-size: .88rem; margin: .5rem 0 0; min-height: 1.3em; }
+        .status.err { color: var(--fail); }
+        .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+        @media (max-width: 700px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+        .step { border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem; background: var(--card); }
+        .step b { display: block; font-size: .9rem; }
+        .step span { font-size: .8rem; color: var(--muted); }
+        .chip { display: inline-block; font-size: .75rem; font-weight: 600; padding: .05rem .45rem; border-radius: 99px; margin: 0 .2rem .2rem 0; cursor: default; }
+        .PASS, .met { background: var(--pass-bg); color: var(--pass); }
+        .FAIL, .not_met, .unverified { background: var(--fail-bg); color: var(--fail); }
+        .UNKNOWN, .not_mentioned { background: var(--unk-bg); color: var(--unk); }
+        .running { background: var(--unk-bg); color: var(--unk); }
+        .done { background: var(--pass-bg); color: var(--pass); }
+        .failed { background: var(--fail-bg); color: var(--fail); }
+        table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+        th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+        th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+        .scroll { overflow-x: auto; }
+        .crit { display: grid; grid-template-columns: 1fr 130px 1fr 80px 34px; gap: .4rem; margin-bottom: .4rem; align-items: start; }
+        @media (max-width: 860px) { .crit { grid-template-columns: 1fr 1fr; } }
+        .crit .x { padding: .4rem; }
+        .sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .4rem; }
+        .sections label { display: flex; gap: .5rem; align-items: center; margin: 0; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); cursor: pointer; }
+        .sections input { width: auto; }
+        .banner { border: 1px solid var(--accent); border-radius: 8px; padding: .6rem .8rem; margin-top: .7rem; display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
+        .progress { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: .6rem; }
+        .progress div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+        .finalist { border: 1px solid var(--line); border-radius: 8px; padding: .8rem; margin-top: .8rem; }
+        .finalist h3 { margin: 0; font-size: 1rem; display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+        .finalist .score { margin-left: auto; font-size: 1.1rem; }
+        blockquote { margin: .2rem 0; padding-left: .6rem; border-left: 3px solid var(--line); color: var(--muted); font-size: .85rem; }
+        dialog { width: min(900px, 94vw); max-height: 86vh; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); color: var(--ink); padding: 0; }
+        dialog header { position: static; }
+        dialog pre { margin: 0; padding: 1rem; white-space: pre-wrap; font-size: .85rem; overflow: auto; max-height: 72vh; }
+        .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+        [hidden] { display: none !important; }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Hiring pipeline</h1>
+        <a href="adminlobby.html">Lobby</a>
+        <button type="button" id="logout">Log out</button>
+    </header>
+
+    <div class="layout">
+        <aside>
+            <h2>Roles</h2>
+            <ul class="role-list" id="role-list"></ul>
+            <form id="new-role">
+                <label for="new-title">New role: what profession are you looking for?</label>
+                <input id="new-title" placeholder="e.g. Senior Accountant" maxlength="120" required>
+                <div class="row"><button class="btn primary">Create role</button></div>
+                <p class="status" id="new-status"></p>
+            </form>
+        </aside>
+
+        <main>
+            <div class="card empty" id="no-role">Create or choose a role to start.</div>
+
+            <div id="role" hidden>
+                <!-- role header -->
+                <section class="card">
+                    <div class="grid2">
+                        <div>
+                            <label for="title">Profession (Admin input #1)</label>
+                            <input id="title" maxlength="120">
+                        </div>
+                        <div>
+                            <label for="state">Applications</label>
+                            <select id="state">
+                                <option value="open">Open: shown on the application form</option>
+                                <option value="closed">Closed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row"><button class="btn" id="save-role">Save</button><span class="muted" id="role-meta"></span></div>
+                    <div class="steps" id="steps" style="margin-top:1rem"></div>
+                </section>
+
+                <!-- CLARA -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>1. Clara: job &amp; criteria <small>proposes the criteria; you check and save them</small></h2>
+                    <label for="ad">Job description (free text, e.g. the job ad)</label>
+                    <textarea id="ad" maxlength="20000"></textarea>
+                    <div class="grid2">
+                        <div>
+                            <label for="must">Your must-haves (Admin input #2, optional, one per line)</label>
+                            <textarea id="must" maxlength="5000"></textarea>
+                        </div>
+                        <div>
+                            <label for="nice">Your nice-to-haves (Admin input #3, optional, one per line)</label>
+                            <textarea id="nice" maxlength="5000"></textarea>
+                        </div>
+                    </div>
+                    <div class="row"><button class="btn primary" id="run-clara">Ask Clara</button></div>
+                    <p class="status" id="clara-status"></p>
+                    <div class="banner" id="proposal" hidden>
+                        <span id="proposal-text"></span>
+                        <button class="btn primary" id="load-proposal">Load into the editor</button>
+                    </div>
+
+                    <label for="summary" style="margin-top:1rem">Summary of the role</label>
+                    <textarea id="summary" style="min-height:3.5rem"></textarea>
+                    <h2 style="margin-top:1rem">Must-haves <small>missing one = eliminated by Remi</small></h2>
+                    <div class="muted">Criterion · type · keywords (comma-separated, any one counts) · min years</div>
+                    <div id="must-list" style="margin-top:.4rem"></div>
+                    <button class="btn" id="add-must">+ Must-have</button>
+                    <h2 style="margin-top:1rem">Nice-to-haves <small>count for points, never eliminate</small></h2>
+                    <div id="nice-list"></div>
+                    <button class="btn" id="add-nice">+ Nice-to-have</button>
+                    <div class="row"><button class="btn primary" id="save-job">Save criteria</button><span class="muted" id="job-meta"></span></div>
+                    <p class="status" id="job-status"></p>
+                </section>
+
+                <!-- OSCAR -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>2. Oscar: CV sections to keep <small>unticked sections are dropped from this role's CVs</small></h2>
+                    <div class="sections" id="sections"></div>
+                    <div class="row">
+                        <button class="btn" id="use-suggestion">Use Clara's suggestion</button>
+                        <button class="btn primary" id="save-rules">Save sections</button>
+                        <button class="btn" id="run-oscar">Re-process this role's CVs</button>
+                    </div>
+                    <p class="status" id="oscar-status"></p>
+                    <h2 style="margin-top:1rem">Applicants <small id="app-count"></small></h2>
+                    <div class="scroll"><table id="applicants"></table></div>
+                </section>
+
+                <!-- REMI -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>3. Remi: must-have check + top 20</h2>
+                    <div class="row">
+                        <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                            <input type="checkbox" id="llm-gate" style="width:auto">
+                            Ask Claude to double-check "not mentioned" must-haves (slower)
+                        </label>
+                        <button class="btn primary" id="run-remi">Run Remi</button>
+                    </div>
+                    <p class="status" id="remi-status"></p>
+                    <div class="progress" id="remi-progress" hidden><div></div></div>
+                    <div id="remi-out"></div>
+                </section>
+
+                <!-- JULES -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>4. Jules: full read of the 20 + top 5</h2>
+                    <div class="row"><button class="btn primary" id="run-jules">Run Jules</button></div>
+                    <p class="status" id="jules-status"></p>
+                    <div class="progress" id="jules-progress" hidden><div></div></div>
+                    <div id="jules-out"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <dialog id="viewer">
+        <header><h1 id="viewer-title"></h1><button type="button" id="viewer-close">Close</button></header>
+        <pre id="viewer-body"></pre>
+    </dialog>
+
+    <script>
+        const SECTIONS = ['summary', 'experience', 'education', 'skills', 'languages', 'certifications', 'training',
+            'projects', 'awards', 'publications', 'volunteering', 'interests', 'references', 'personal', 'declaration', 'unknown'];
+        const TYPES = ['skill', 'language', 'years', 'degree', 'certification', 'other'];
+        const VERDICT = { met: 'Met', not_met: 'Not met', not_mentioned: 'Not mentioned', unverified: 'Quote not found' };
+        const $ = id => document.getElementById(id);
+
+        // Build DOM nodes without innerHTML: CV text and LLM output are always shown as plain text.
+        function h(tag, attrs = {}, ...kids) {
+            const el = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs || {})) {
+                if (v === undefined || v === null || v === false) continue;
+                if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+                else if (k === 'text') el.textContent = v;
+                else el.setAttribute(k, v === true ? '' : v);
+            }
+            for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+                el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+            return el;
+        }
+
+        async function api(method, url, body) {
+            const res = await fetch(url, {
+                method, headers: body ? { 'Content-Type': 'application/json' } : {},
+                body: body ? JSON.stringify(body) : undefined,
+            });
+            if (res.status === 401) { location.href = '/#admin'; throw new Error('Logged out.'); }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            return data;
+        }
+
+        function say(id, text, isError = false) {
+            $(id).textContent = text || '';
+            $(id).classList.toggle('err', !!isError);
+        }
+
+        let roles = [], current = null, results = null, editJob = null, editRules = null, pollTimer = null;
+
+        // ---------------- roles list ----------------
+        async function loadRoles(selectId) {
+            roles = await api('GET', '/api/admin/roles');
+            const list = $('role-list');
+            list.replaceChildren(...roles.map(r => h('li', {}, h('button', {
+                type: 'button', 'aria-current': String(r.id === (selectId || current?.id)),
+                onclick: () => openRole(r.id),
+            }, r.title, h('span', { class: 'meta', text: `${r.id} · ${r.status} · ${r.applicants} applicant(s)` })))));
+            if (!roles.length) list.append(h('li', { class: 'muted', text: 'No roles yet.' }));
+        }
+
+        $('new-role').addEventListener('submit', async e => {
+            e.preventDefault();
+            try {
+                const role = await api('POST', '/api/admin/roles', { title: $('new-title').value });
+                $('new-title').value = '';
+                say('new-status', '');
+                await loadRoles(role.id);
+                openRole(role.id);
+            } catch (err) { say('new-status', err.message, true); }
+        });
+
+        async function openRole(id) {
+            clearTimeout(pollTimer);
+            results = await api('GET', `/api/admin/roles/${id}/results`);
+            current = results.role;
+            editJob = structuredClone(current.job);
+            editRules = structuredClone(current.rules || { sections: {} });
+            $('no-role').hidden = true;
+            $('role').hidden = false;
+            $('title').value = current.title;
+            $('state').value = current.status;
+            $('ad').value = current.adText || '';
+            $('must').value = current.mustText || '';
+            $('nice').value = current.niceText || '';
+            for (const id of ['clara-status', 'job-status', 'oscar-status']) say(id, '');
+            renderJob();
+            renderSections();
+            await loadRoles(id);
+            await renderApplicants();
+            renderResults();
+        }
+
+        // ---------------- role header + pipeline steps ----------------
+        function agentLine(name) {
+            const a = current.agents?.[name];
+            if (!a) return 'Not run yet';
+            const when = new Date(a.finishedAt || a.startedAt).toLocaleString();
+            return a.state === 'running' ? 'Running…' : `${a.state === 'done' ? 'Done' : 'Failed'} · ${when}`;
+        }
+
+        function renderSteps() {
+            const steps = [
+                ['clara', 'Clara', 'criteria'], ['oscar', 'Oscar', `${current.readable}/${current.applicants} CVs readable`],
+                ['remi', 'Remi', results.remi ? `${results.remi.counts.shortlisted} shortlisted` : 'top 20'],
+                ['jules', 'Jules', results.jules ? `${results.jules.counts.finalists} finalists` : 'top 5'],
+            ];
+            $('steps').replaceChildren(...steps.map(([k, name, what]) => {
+                const st = current.agents?.[k]?.state;
+                return h('div', { class: 'step' }, h('b', {}, name, ' ', st ? h('span', { class: `chip ${st}`, text: st }) : ''),
+                    h('span', { text: what }), h('br'), h('span', { text: agentLine(k) }));
+            }));
+            $('role-meta').textContent = `${current.id} · created ${new Date(current.createdAt).toLocaleDateString()}`;
+        }
+
+        $('save-role').addEventListener('click', async () => {
+            try {
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { title: $('title').value, status: $('state').value });
+                editJob.title = current.title;
+                await loadRoles();
+                renderSteps();
+            } catch (err) { alert(err.message); }
+        });
+
+        // ---------------- Clara + criteria editor ----------------
+        function critRow(list, c, i) {
+            const kw = h('input', { value: (c.keywords || []).join(', '), placeholder: 'keywords', 'aria-label': 'Keywords',
+                oninput: e => { c.keywords = e.target.value.split(',').map(s => s.trim()).filter(Boolean); } });
+            const years = h('input', { type: 'number', min: 0, max: 60, step: 0.5, value: c.min_years ?? '', placeholder: 'years',
+                'aria-label': 'Minimum years', disabled: c.type !== 'years', oninput: e => { c.min_years = Number(e.target.value); } });
+            const type = h('select', { 'aria-label': 'Type', onchange: e => { c.type = e.target.value; years.disabled = c.type !== 'years'; } },
+                ...TYPES.map(t => h('option', { value: t, selected: c.type === t, text: t })));
+            return h('div', { class: 'crit' },
+                h('input', { value: c.text || '', placeholder: 'e.g. At least 5 years of accounting experience', 'aria-label': 'Criterion',
+                    oninput: e => { c.text = e.target.value; } }),
+                type, kw, years,
+                h('button', { class: 'btn x', type: 'button', title: 'Remove', 'aria-label': 'Remove', text: '×',
+                    onclick: () => { list.splice(i, 1); renderJob(); } }));
+        }
+
+        function renderJob() {
+            $('summary').value = editJob.summary || '';
+            $('must-list').replaceChildren(...editJob.must_haves.map((c, i) => critRow(editJob.must_haves, c, i)));
+            $('nice-list').replaceChildren(...editJob.nice_to_haves.map((c, i) => critRow(editJob.nice_to_haves, c, i)));
+            $('job-meta').textContent = current.jobUpdatedAt ? `Last saved ${new Date(current.jobUpdatedAt).toLocaleString()}` : 'Not saved yet';
+            const p = current.claraProposal;
+            $('proposal').hidden = !p;
+            if (p) $('proposal-text').textContent =
+                `Clara proposed ${p.must_haves.length} must-have(s) and ${p.nice_to_haves.length} nice-to-have(s) on ${new Date(p.proposedAt).toLocaleString()}.`;
+        }
+
+        $('summary').addEventListener('input', e => { editJob.summary = e.target.value; });
+        $('add-must').addEventListener('click', () => { editJob.must_haves.push({ text: '', type: 'skill', keywords: [] }); renderJob(); });
+        $('add-nice').addEventListener('click', () => { editJob.nice_to_haves.push({ text: '', type: 'skill', keywords: [] }); renderJob(); });
+        $('load-proposal').addEventListener('click', () => {
+            const p = current.claraProposal;
+            editJob = { ...editJob, summary: p.summary, must_haves: structuredClone(p.must_haves),
+                nice_to_haves: structuredClone(p.nice_to_haves), suggested_drop_sections: p.suggested_drop_sections };
+            renderJob();
+            say('job-status', 'Loaded. Check every criterion and its keywords, then press "Save criteria".');
+        });
+
+        $('save-job').addEventListener('click', async () => {
+            try {
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { job: editJob });
+                editJob = structuredClone(current.job);
+                renderJob();
+                say('job-status', 'Criteria saved. Run Remi again to use them.');
+            } catch (err) { say('job-status', err.message, true); }
+        });
+
+        $('run-clara').addEventListener('click', async () => {
+            try {
+                await api('PATCH', `/api/admin/roles/${current.id}`, { adText: $('ad').value, mustText: $('must').value, niceText: $('nice').value });
+                await api('POST', `/api/admin/roles/${current.id}/clara`);
+                say('clara-status', 'Clara is reading the job…');
+                poll();
+            } catch (err) { say('clara-status', err.message, true); }
+        });
+
+        // ---------------- Oscar sections ----------------
+        function renderSections() {
+            const s = editRules.sections || (editRules.sections = {});
+            $('sections').replaceChildren(...SECTIONS.map(t => h('label', {},
+                h('input', { type: 'checkbox', checked: s[t] !== 'drop', onchange: e => { s[t] = e.target.checked ? 'keep' : 'drop'; } }), t)));
+        }
+
+        $('use-suggestion').addEventListener('click', () => {
+            const drop = new Set(editJob.suggested_drop_sections || []);
+            if (!drop.size) return say('oscar-status', 'Clara has no suggestion yet (ask Clara, then save the criteria).', true);
+            editRules.sections = Object.fromEntries(SECTIONS.map(t => [t, drop.has(t) ? 'drop' : 'keep']));
+            renderSections();
+            say('oscar-status', 'Suggestion applied. Press "Save sections" to keep it.');
+        });
+
+        $('save-rules').addEventListener('click', async () => {
+            try {
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { rules: editRules });
+                say('oscar-status', 'Saved. New CVs use these settings; press "Re-process" to update CVs already received.');
+            } catch (err) { say('oscar-status', err.message, true); }
+        });
+
+        $('run-oscar').addEventListener('click', async () => {
+            try {
+                await api('POST', `/api/admin/roles/${current.id}/oscar`);
+                say('oscar-status', 'Oscar is re-processing the CVs…');
+                poll();
+            } catch (err) { say('oscar-status', err.message, true); }
+        });
+
+        async function view(id, kind) {
+            try {
+                const res = await fetch(`/api/admin/applicants/${id}/${kind}`);
+                const text = await res.text();
+                $('viewer-title').textContent = `${id} · ${{ text: 'kept sections', full: 'full CV (no personal details)', record: 'structured record' }[kind]}`;
+                $('viewer-body').textContent = kind === 'record' && res.ok ? JSON.stringify(JSON.parse(text), null, 2) : text;
+                $('viewer').showModal();
+            } catch (err) { alert(err.message); }
+        }
+        $('viewer-close').addEventListener('click', () => $('viewer').close());
+
+        async function renderApplicants() {
+            const apps = await api('GET', `/api/admin/applicants?role=${encodeURIComponent(current.id)}`);
+            $('app-count').textContent = `${apps.length} received`;
+            const viewBtn = (id, kind, label) => h('button', { class: 'btn', type: 'button', text: label, onclick: () => view(id, kind) });
+            $('applicants').replaceChildren(
+                h('tr', {}, ...['ID', 'Name', 'Applied', 'CV', 'Notes', ''].map(t => h('th', { text: t }))),
+                ...apps.map(a => h('tr', {},
+                    h('td', { text: a.id }), h('td', { text: a.name }),
+                    h('td', { text: new Date(a.appliedAt).toLocaleDateString() }),
+                    h('td', {}, h('span', { class: `chip ${a.cvStatus === 'failed' ? 'failed' : 'done'}`, text: a.cvStatus })),
+                    h('td', { class: 'muted', text: (a.cvCodes || []).join(', ') }),
+                    h('td', {}, a.cvStatus === 'failed' ? '' : h('div', { class: 'row', style: 'margin:0' },
+                        viewBtn(a.id, 'text', 'Kept'), viewBtn(a.id, 'full', 'Full'), viewBtn(a.id, 'record', 'Record'))))));
+            if (!apps.length) $('applicants').append(h('tr', {}, h('td', { class: 'muted', text: 'No applications for this role yet.' })));
+        }
+
+        // ---------------- Remi ----------------
+        $('run-remi').addEventListener('click', async () => {
+            try {
+                await api('POST', `/api/admin/roles/${current.id}/remi`, { llmGate: $('llm-gate').checked });
+                say('remi-status', 'Remi is comparing the candidates…');
+                poll();
+            } catch (err) { say('remi-status', err.message, true); }
+        });
+
+        const chip = (status, title, label) => h('span', { class: `chip ${status}`, title, text: label || status });
+
+        function renderRemi(r) {
+            const out = $('remi-out');
+            if (!r) return out.replaceChildren();
+            const k = r.counts;
+            out.replaceChildren(
+                h('p', { class: 'muted', text: `${k.candidates} candidates · ${k.eliminated} eliminated · ${k.passed_gate} passed the must-haves · ` +
+                    `${k.shortlisted} shortlisted · generated ${new Date(r.generated_at).toLocaleString()} · meaning model: ${r.embedding_backend}` }),
+                ...(r.warnings || []).map(w => h('p', { class: 'status err', text: w })),
+                h('div', { class: 'scroll' }, h('table', {},
+                    h('tr', {}, ...['#', 'Candidate', 'Headline', 'Years', 'Score', 'Keywords', 'Meaning', 'Nice', 'Must-haves (hover for evidence)']
+                        .map(t => h('th', { text: t }))),
+                    ...r.shortlist.map(s => h('tr', {},
+                        h('td', { text: s.rank }),
+                        h('td', {}, h('button', { class: 'btn', type: 'button', text: s.candidate_id, onclick: () => view(s.candidate_id, 'full') })),
+                        h('td', { text: s.headline }), h('td', { text: s.total_years_experience ?? '–' }),
+                        h('td', {}, h('b', { text: s.score.toFixed(2) })),
+                        h('td', { text: s.breakdown.keywords.toFixed(2) }), h('td', { text: s.breakdown.meaning.toFixed(2) }),
+                        h('td', { text: s.breakdown.nice_to_haves.toFixed(2) }),
+                        h('td', {}, ...s.gate.map(g => chip(g.status, `${g.text}\n\n${g.evidence}`, `${g.id} ${g.status}`))))))),
+                r.eliminated.length ? h('details', { style: 'margin-top:.8rem' },
+                    h('summary', { text: `Eliminated (${r.eliminated.length})` }),
+                    h('table', {}, ...r.eliminated.map(e => h('tr', {}, h('td', { text: e.candidate_id }),
+                        h('td', {}, ...e.failed.map(f => h('div', {}, chip('FAIL', '', f.id), `${f.text}: `, h('span', { class: 'muted', text: f.evidence })))))))) : '');
+        }
+
+        // ---------------- Jules ----------------
+        $('run-jules').addEventListener('click', async () => {
+            try {
+                await api('POST', `/api/admin/roles/${current.id}/jules`);
+                say('jules-status', 'Jules is reading the shortlisted CVs…');
+                poll();
+            } catch (err) { say('jules-status', err.message, true); }
+        });
+
+        function renderJules(j) {
+            const out = $('jules-out');
+            if (!j) return out.replaceChildren();
+            const k = j.counts;
+            out.replaceChildren(
+                h('p', { class: 'muted', text: `${k.read} CVs read · ${k.quotes_checked} quotes checked, ${k.quotes_rejected} rejected by the citation checker · ${j.scoring}` }),
+                ...(j.warnings || []).map(w => h('p', { class: 'status err', text: w })),
+                ...j.finalists.map(f => h('div', { class: 'finalist' },
+                    h('h3', {}, `#${f.rank}`, h('span', { text: f.personal?.name || f.candidate_id }),
+                        h('span', { class: 'muted', text: `${f.candidate_id} ${(f.personal?.emails || [])[0] || ''} ${(f.personal?.phones || [])[0] || ''}` }),
+                        h('span', { class: 'score', text: `${f.score} / ${f.max_score}` })),
+                    f.overall ? h('p', { text: f.overall }) : '',
+                    f.error ? h('p', { class: 'status err', text: f.error }) : '',
+                    h('div', { class: 'scroll' }, h('table', {},
+                        h('tr', {}, ...['', 'Requirement (Clara)', 'Verdict', 'Evidence from the CV'].map(t => h('th', { text: t }))),
+                        ...f.criteria.map(c => h('tr', {},
+                            h('td', { text: c.id }), h('td', { text: c.requirement }),
+                            h('td', {}, chip(c.verdict, '', VERDICT[c.verdict])),
+                            h('td', {}, ...c.cv_quotes.map(q => h('blockquote', { text: `“${q}”` })),
+                                c.reason ? h('div', { class: 'muted', text: c.reason }) : '',
+                                c.rejected_quotes.length ? h('div', { class: 'status err', text: `${c.rejected_quotes.length} quote(s) not found in the CV were ignored.` }) : ''))))),
+                    h('p', { class: 'muted', text: 'Missing: ' + (f.list_missing.map(m => `${m.id} ${m.requirement}`).join(' · ') || 'nothing') }))),
+                j.others.length ? h('p', { class: 'muted', text: 'Others: ' + j.others.map(o => `#${o.rank} ${o.candidate_id} (${o.score}/${o.max_score})`).join(' · ') }) : '');
+        }
+
+        // ---------------- results + polling ----------------
+        function agentStatus(name, statusId) {
+            const a = current.agents?.[name];
+            if (!a) return;
+            if (a.state === 'running') return;
+            say(statusId, a.message || (a.state === 'done' ? 'Done.' : 'Failed.'), a.state === 'failed');
+        }
+
+        function setProgress(id, agent) {
+            const p = results.progress, running = current.agents?.[agent]?.state === 'running';
+            $(id).hidden = !running;
+            if (running && p && p.stage === agent && p.total) $(id).firstChild.style.width = `${(100 * p.done / p.total).toFixed(0)}%`;
+            else $(id).firstChild.style.width = running ? '5%' : '0';
+        }
+
+        function renderResults() {
+            renderSteps();
+            renderRemi(results.remi);
+            renderJules(results.jules);
+            agentStatus('clara', 'clara-status');
+            agentStatus('oscar', 'oscar-status');
+            agentStatus('remi', 'remi-status');
+            agentStatus('jules', 'jules-status');
+            setProgress('remi-progress', 'remi');
+            setProgress('jules-progress', 'jules');
+            const running = Object.values(current.agents || {}).some(a => a.state === 'running');
+            for (const b of ['run-clara', 'run-oscar', 'run-remi', 'run-jules']) $(b).disabled = running;
+            if (running) poll();
+        }
+
+        function poll() {
+            clearTimeout(pollTimer);
+            pollTimer = setTimeout(async () => {
+                if (!current) return;
+                const wasRunning = Object.entries(current.agents || {}).filter(([, a]) => a.state === 'running').map(([k]) => k);
+                results = await api('GET', `/api/admin/roles/${current.id}/results`);
+                current = results.role;
+                // a finished Clara run brings a new proposal; a finished Oscar run changes applicants
+                if (wasRunning.includes('clara') && current.agents.clara?.state !== 'running') renderJob();
+                if (wasRunning.includes('oscar') && current.agents.oscar?.state !== 'running') { renderApplicants(); loadRoles(); }
+                renderResults();
+            }, 2000);
+        }
+
+        $('logout').addEventListener('click', async () => {
+            await fetch('/api/admin/logout', { method: 'POST' });
+            location.href = '/';
+        });
+
+        loadRoles().then(() => { if (roles.length === 1) openRole(roles[0].id); })
+            .catch(err => { $('no-role').textContent = err.message; });
+    </script>
+</body>
+
+</html>

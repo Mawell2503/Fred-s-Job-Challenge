@@ -1,7 +1,9 @@
+import './env.js';                 // .env settings (LLM_BACKEND, PYTHON_BIN, ...) before anything else
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyRoutes } from './apply.js';
+import { roleRoutes } from './roles.js';
 import {
     SESSION_TTL_MS,
     createUser,
@@ -21,7 +23,9 @@ const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP !== 'false';
 const COOKIE = 'sid';
 
 app.disable('x-powered-by');
-app.use(express.json({ limit: '10kb' }));
+const smallJson = express.json({ limit: '10kb' });
+// role routes parse their own (larger) bodies: job descriptions can be long
+app.use((req, res, next) => (req.path.startsWith('/api/admin/roles') ? next() : smallJson(req, res, next)));
 
 // ---------- helpers ----------
 function readCookie(req, name) {
@@ -63,7 +67,7 @@ function requireAuth(req, res, next) {
     const user = getSessionUser(readCookie(req, COOKIE));
     if (!user) {
         // API callers get a 401, page loads get sent back to the login form
-        if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not logged in.' });
+        if (req.originalUrl.startsWith('/api/')) return res.status(401).json({ error: 'Not logged in.' });
         return res.redirect('/#admin');
     }
     req.user = user;
@@ -106,6 +110,7 @@ app.post('/api/admin/logout', (req, res) => {
 
 // Who am I? Useful for admin pages to check they're logged in
 app.get('/api/admin/me', requireAuth, (req, res) => res.json({ user: req.user }));
+app.use(roleRoutes({ requireAuth }));
 app.use(applyRoutes({ requireAuth }));
 // ---------- pages ----------
 // Only these public files are served (not index.js, package.json, data/, .git, etc.)

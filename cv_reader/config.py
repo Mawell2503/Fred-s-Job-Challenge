@@ -16,6 +16,7 @@ class Config:
     ocr_min_chars_per_page: int = 25
     max_file_mb: int = 30
     docx_table_order: str = "row"
+    embed_enabled: bool = True
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "Config":

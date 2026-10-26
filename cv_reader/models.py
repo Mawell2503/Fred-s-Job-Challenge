@@ -83,7 +83,10 @@ class CVResult:
     sha256: str = ""
     status: str = "failed"
     messages: list = field(default_factory=list)
-    output_text: str = ""
+    output_text: str = ""          # kept blocks only (admin keep/drop rules applied)
+    full_text: str = ""            # every section, personal info removed - for Jules + citations
+    record: Optional[dict] = None  # structured candidate record (structure.py)
+    embedding: Optional[dict] = None
     pii: Optional[dict] = None
     dropped: list = field(default_factory=list)
     stats: dict = field(default_factory=dict)

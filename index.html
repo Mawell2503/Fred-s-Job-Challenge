@@ -64,6 +64,11 @@
                 <button type="button" class="nav-btn nav-btn-left nav-admin" data-goto="admin">ADMIN LogIn</button>
             </nav>
             <form id="apply">
+                <label>Position:
+                    <select name="roleId" id="role-select" required>
+                        <option value="">Loading positions...</option>
+                    </select>
+                </label>
                 <input type="text" name="name" placeholder="Name" required>
                 <input type="url" name="instagramUrl" placeholder="Instagram URL">
                 <input type="url" name="linkedinUrl" placeholder="LinkedIn URL">
@@ -142,6 +147,16 @@
             show(location.hash === '#admin' ? 'admin' : 'main', { push: false }));
 
         if (location.hash === '#admin') show('admin', { push: false });
+
+        // open positions for the role picker
+        (async () => {
+            const select = document.getElementById('role-select');
+            try {
+                const roles = await (await fetch('/api/roles')).json();
+                select.replaceChildren(new Option(roles.length ? 'Choose a position' : 'No open positions right now', ''));
+                for (const r of roles) select.add(new Option(r.title, r.id));
+            } catch { select.replaceChildren(new Option('Could not load positions', '')); }
+        })();
 
         document.getElementById('apply').addEventListener('submit', async (e) => {
             e.preventDefault();

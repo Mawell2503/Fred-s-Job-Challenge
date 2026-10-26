@@ -3,3 +3,6 @@ python-docx>=1.0
 PyYAML>=6.0
 pytesseract>=0.3
 Pillow>=10.0
+# Optional, recommended: real multilingual "meaning" model for Remi (large download, ~1-2 GB with torch).
+# Without it, a built-in lightweight fallback is used automatically.
+# sentence-transformers>=3.0
