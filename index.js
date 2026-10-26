@@ -118,7 +118,6 @@ const publicFile = file => (req, res) => res.sendFile(path.join(__dirname, file)
 app.get('/', publicFile('index.html'));
 app.get('/index.html', publicFile('index.html'));
 app.get('/styles.css', publicFile('styles.css'));
-app.get('/progressbar.js', publicFile('progressbar.js'));
 
 // Everything under /pages needs a valid admin session
 app.use('/pages', requireAuth, express.static(path.join(__dirname, 'pages'), { dotfiles: 'deny' }));
