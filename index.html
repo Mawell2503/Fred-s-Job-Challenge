@@ -1,103 +1,290 @@
-<!-- Main Page -->
+<!-- Main Page: the only page applicants see -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>CV Sorting System</title>
+    <title>Submit your application</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
+        :root {
+            --ink: #18181B;
+            --muted: #5F5F69;
+            --field: #F2F2F4;
+            --line: #E2E2E6;
+            --accent: #FFB443;          /* the orange line from the sketch */
+            --accent-strong: #E8961E;   /* drag highlight + focus ring */
+            --accent-soft: #FFF4E0;
+            --accent-ink: #8A5200;
+            --ok: #1F7A3A;
+            --error: #B42318;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: system-ui, sans-serif;
-            max-width: 40rem;
-            margin: 2rem auto;
-            padding: 0 1rem;
-            line-height: 1.6;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #FFFFFF;
+            color: var(--ink);
+            font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.5;
         }
 
-        .views {
-            display: grid;
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
         }
 
+        /* ---------- header: logo top-left, admin button top-right ---------- */
+        .site-header {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 12px; padding: 20px 32px;
+        }
+        .logo {
+            width: 56px; height: 56px; border-radius: 50%; background: #E4E4E8;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600; letter-spacing: .04em;
+            color: var(--ink); text-decoration: none;
+        }
+        .btn {
+            min-height: 44px; padding: 0 20px; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--line); border-radius: 8px; background: var(--field);
+            font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); cursor: pointer;
+        }
+        .btn:hover { background: #E9E9EC; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+        .btn-primary:hover { background: #FFA826; }
+        .btn-light { background: #FFFFFF; border-color: #D5D5DC; }
+        .btn:disabled { opacity: .6; cursor: progress; }
+        a:focus-visible, button:focus-visible, input:focus, select:focus {
+            outline: 2px solid var(--accent-strong); outline-offset: 2px;
+        }
+
+        /* ---------- the two views (application / admin login) ---------- */
+        main { flex: 1; display: grid; padding: 8px 20px 64px; }
         .view {
             grid-area: 1 / 1;
-            opacity: 1;
-            transform: translateY(0);
+            display: flex; flex-direction: column; align-items: center;
+            opacity: 1; transform: translateY(0);
             transition: opacity .35s ease, transform .35s ease, visibility 0s linear 0s;
         }
-
         .view.is-hidden {
-            opacity: 0;
-            transform: translateY(12px);
-            visibility: hidden;
-            pointer-events: none;
-            /* delay hiding until the fade finishes */
+            opacity: 0; transform: translateY(12px); visibility: hidden; pointer-events: none;
             transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s;
         }
+        h1 { margin: 0; font-size: 40px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; text-align: center; }
+        .lead { margin: 12px 0 0; font-size: 16px; color: var(--muted); text-align: center; }
 
-        #auth {
-            display: grid;
-            gap: .5rem;
-            max-width: 20rem;
+        form { width: 100%; display: flex; flex-direction: column; gap: 16px; margin-top: 40px; }
+        #apply { max-width: 600px; }
+        #auth { max-width: 380px; }
+        .row { display: flex; flex-wrap: wrap; gap: 16px; }
+        .row > * { flex: 1 1 240px; }
+        .row > .half { flex: 0 1 calc(50% - 8px); }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field > label:not(.sr-only) { font-size: 14px; font-weight: 500; }
+        input[type=text], input[type=url], input[type=password], select {
+            height: 48px; padding: 0 14px; width: 100%;
+            background: var(--field); border: 1px solid var(--line); border-radius: 8px;
+            font: inherit; font-size: 15px; color: var(--ink);
+        }
+        input::placeholder { color: #6B6B75; }
+
+        /* ---------- CV drop zone ---------- */
+        .zone {
+            position: relative; height: 360px; overflow: hidden;
+            border: 2px dashed #C9C9D1; border-radius: 14px; background: #F7F7F9;
+            transition: background .15s, border-color .15s;
+        }
+        .zone.is-empty { cursor: pointer; }
+        .zone.is-dragging { border-style: solid; border-color: var(--accent-strong); background: var(--accent-soft); }
+        .zone.is-loaded { border-style: solid; border-color: var(--line); background: #EFEFF2; }
+        #cv-input:focus-visible + .zone { outline: 3px solid var(--accent-strong); outline-offset: 3px; }
+
+        .zone-state {
+            position: absolute; inset: 0; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; padding: 24px; text-align: center;
+        }
+        .zone.is-empty .state-empty,
+        .zone.is-dragging .state-dragging { display: flex; }
+        .zone.is-loaded .state-loaded { display: block; padding: 0; text-align: left; }
+        .state-dragging { pointer-events: none; color: var(--accent-ink); font-size: 18px; font-weight: 600; }
+        .zone-title { font-size: 17px; font-weight: 600; }
+        .zone-hint { font-size: 13px; color: var(--muted); }
+
+        /* the CV itself: a page that fades out towards the bottom */
+        .cv-sheet {
+            position: absolute; top: 20px; left: 28px; right: 28px; bottom: 0;
+            -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 88%);
+            mask-image: linear-gradient(to bottom, #000 30%, transparent 88%);
+            pointer-events: none;
+        }
+        #cv-paper {
+            min-height: 100%; background: #FFFFFF; border-radius: 6px 6px 0 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 8px 24px rgba(0, 0, 0, .06);
+            padding: 28px 32px; font-size: 12px; line-height: 1.55; color: #26262B; overflow: hidden;
+        }
+        #cv-paper.is-pdf { padding: 0; }
+        #cv-paper canvas { display: block; width: 100%; height: auto; }
+        #cv-paper .cv-text { white-space: pre-wrap; word-break: break-word; }
+        #cv-paper h1, #cv-paper h2, #cv-paper h3 { font-size: 14px; text-align: left; margin: 10px 0 4px; letter-spacing: 0; }
+        #cv-paper p { margin: 0 0 6px; }
+        #cv-paper ul, #cv-paper ol { margin: 0 0 6px; padding-left: 18px; }
+        #cv-paper table { border-collapse: collapse; }
+        #cv-paper td, #cv-paper th { padding: 2px 6px; vertical-align: top; }
+        #cv-paper .cv-note { color: var(--muted); font-size: 14px; text-align: center; padding: 40px 0; }
+
+        .file-chip {
+            position: absolute; left: 16px; right: 16px; bottom: 16px;
+            display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 14px;
+            background: #FFFFFF; border: 1px solid var(--line); border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+        }
+        .file-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        #file-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #file-size { font-size: 12px; color: var(--muted); }
+        .chip-btn { min-height: 44px; padding: 0 14px; font-size: 14px; }
+        .chip-btn.plain { background: transparent; border-color: transparent; }
+
+        .form-msg { margin: -4px 0 0; font-size: 14px; min-height: 1.5em; }
+        .form-msg.is-error { color: var(--error); }
+        .form-msg.is-ok { color: var(--ok); }
+        .actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: -8px; }
+        .actions .btn-primary { min-height: 48px; padding: 0 28px; }
+        #auth .actions { justify-content: stretch; }
+        #auth .actions .btn { flex: 1; min-height: 48px; }
+        #msg { text-align: center; }
+
+        .accent-bar { height: 8px; background: var(--accent); }
+
+        @media (max-width: 600px) {
+            .site-header { padding: 16px 20px; }
+            h1 { font-size: 32px; }
+            .row > .half { flex-basis: 100%; }
+            .zone { height: 320px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-
-            .view,
-            .view.is-hidden {
-                transition: none;
-            }
+            .view, .view.is-hidden, .zone { transition: none; }
         }
     </style>
 </head>
 
 <body>
-    <div class="views">
-        <!-- main view -->
+    <header class="site-header">
+        <!-- Relocates to the INSYNIUM website -->
+        <a href="https://insyniumgroup.com" class="logo" aria-label="INSYNIUM website">LOGO</a>
+        <!-- Opens the admin login view (or goes back from it) -->
+        <button type="button" class="btn" id="admin-toggle" data-goto="admin">Admin login</button>
+    </header>
+
+    <main>
+        <!-- ===================== application view ===================== -->
         <section id="view-main" class="view" aria-hidden="false">
-            <h1>Submit Your Application</h1>
-            <nav class="nav-primary">
-                <!-- Relocates to the INSYNIUM website -->
-                <a href="https://insyniumgroup.com" class="nav-LOGO nav-btn nav-btn-left">LOGO</a>
-                <!-- Opens LogIn/SignIn card -->
-                <button type="button" class="nav-btn nav-btn-left nav-admin" data-goto="admin">ADMIN LogIn</button>
-            </nav>
-            <form id="apply">
-                <label>Position:
-                    <select name="roleId" id="role-select" required>
-                        <option value="">Loading positions...</option>
-                    </select>
-                </label>
-                <input type="text" name="name" placeholder="Name" required>
-                <input type="url" name="instagramUrl" placeholder="Instagram URL">
-                <input type="url" name="linkedinUrl" placeholder="LinkedIn URL">
-                <label>Upload CV: <input type="file" name="resume" accept=".pdf,.docx,.txt" required></label>
-                <button type="submit">Submit</button>
-                <p id="apply-msg" role="status"></p>
+            <h1>Submit your application</h1>
+            <p class="lead">Choose a position, add your details and drop your CV.</p>
+
+            <form id="apply" novalidate>
+                <div class="row">
+                    <div class="field half">
+                        <label for="f-name" class="sr-only">Name</label>
+                        <input id="f-name" name="name" type="text" placeholder="Name" maxlength="100" autocomplete="name" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="field">
+                        <label for="f-linkedin" class="sr-only">LinkedIn URL</label>
+                        <input id="f-linkedin" name="linkedinUrl" type="url" placeholder="LinkedIn URL">
+                    </div>
+                    <div class="field">
+                        <label for="role-select" class="sr-only">Position you are applying for</label>
+                        <select id="role-select" name="roleId" required>
+                            <option value="">Loading positions…</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- the real file input stays in the page (keyboard + screen readers), visually hidden -->
+                <input id="cv-input" class="sr-only" type="file" accept=".pdf,.docx,.txt"
+                    aria-label="Upload your CV (PDF, DOCX or TXT, up to 5 MB)">
+                <div class="zone is-empty" id="zone">
+                    <div class="zone-state state-empty">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#5F5F69" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                            <path d="M14 3v5h5" /><path d="M12 17v-6" /><path d="M9.5 13.5 12 11l2.5 2.5" />
+                        </svg>
+                        <div class="zone-title">Drag &amp; drop your CV here</div>
+                        <div class="zone-hint" style="font-size:14px">or</div>
+                        <label for="cv-input" class="btn btn-light">Browse files</label>
+                        <div class="zone-hint">PDF, DOCX or TXT · up to 5 MB</div>
+                    </div>
+
+                    <div class="zone-state state-dragging">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 4v11" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M5 20h14" />
+                        </svg>
+                        Drop your CV to upload it
+                    </div>
+
+                    <div class="zone-state state-loaded">
+                        <div class="cv-sheet" aria-hidden="true"><div id="cv-paper"></div></div>
+                        <div class="file-chip">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5F5F69" stroke-width="1.8"
+                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" />
+                            </svg>
+                            <div class="file-meta">
+                                <span id="file-name"></span>
+                                <span id="file-size"></span>
+                            </div>
+                            <label for="cv-input" class="btn chip-btn">Replace</label>
+                            <button type="button" class="btn chip-btn plain" id="cv-remove">Remove</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p id="apply-msg" class="form-msg" role="status" aria-live="polite"></p>
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary" id="apply-submit">Submit application</button>
+                </div>
             </form>
         </section>
-        <!-- admin login view -->
+
+        <!-- ===================== admin login view ===================== -->
         <section id="view-admin" class="view is-hidden" aria-hidden="true" inert>
-            <h1>Admin</h1>
-            <button type="button" class="nav-btn nav-btn-left" data-goto="main">&larr; Back</button>
+            <h1>Admin login</h1>
+            <p class="lead">For the hiring team only.</p>
 
             <form id="auth">
-                <label for="user">Username</label>
-                <input id="user" name="user" type="text" autocomplete="username" required>
-
-                <label for="pass">Password</label>
-                <input id="pass" name="pass" type="password" autocomplete="current-password" required>
-
-                <button type="submit" value="login">Log in</button>
-                <button type="submit" value="signup">Sign up</button>
-
-                <p id="msg" role="alert"></p>
+                <div class="field">
+                    <label for="user">Username</label>
+                    <input id="user" name="user" type="text" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label for="pass">Password</label>
+                    <input id="pass" name="pass" type="password" autocomplete="current-password" required>
+                </div>
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary" value="login">Log in</button>
+                    <button type="submit" class="btn btn-light" value="signup">Sign up</button>
+                </div>
+                <p id="msg" class="form-msg is-error" role="alert"></p>
             </form>
         </section>
-    </div>
+    </main>
+
+    <div class="accent-bar" aria-hidden="true"></div>
+
     <script>
-        // login/sign up logic
+        // ---------------- login / sign up ----------------
         const form = document.getElementById('auth');
         const msg = document.getElementById('msg');
 
@@ -115,18 +302,18 @@
                     const data = await res.json().catch(() => ({}));
                     throw new Error(data.error || `${action} failed (${res.status})`);
                 }
-                msg.textContent = action === 'login' ? 'Logged in.' : 'Account created.';
                 window.location.href = 'pages/adminlobby.html';
             } catch (err) {
                 msg.textContent = err.message;
             }
         });
 
-        // view switch
+        // ---------------- view switch (header button toggles) ----------------
         const views = {
             main: document.getElementById('view-main'),
             admin: document.getElementById('view-admin')
         };
+        const toggle = document.getElementById('admin-toggle');
 
         function show(name, { push = true } = {}) {
             for (const [key, el] of Object.entries(views)) {
@@ -135,39 +322,205 @@
                 el.setAttribute('aria-hidden', String(!active));
                 el.inert = !active;
             }
+            toggle.textContent = name === 'admin' ? '← Back to application' : 'Admin login';
+            toggle.dataset.goto = name === 'admin' ? 'main' : 'admin';
             if (push) history.pushState({ view: name }, '', name === 'admin' ? '#admin' : location.pathname);
             if (name === 'admin') setTimeout(() => document.getElementById('user').focus(), 350);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        document.querySelectorAll('[data-goto]').forEach(btn =>
-            btn.addEventListener('click', () => show(btn.dataset.goto)));
-
+        toggle.addEventListener('click', () => show(toggle.dataset.goto));
         window.addEventListener('popstate', () =>
             show(location.hash === '#admin' ? 'admin' : 'main', { push: false }));
-
         if (location.hash === '#admin') show('admin', { push: false });
 
-        // open positions for the role picker
+        // ---------------- open positions for the role picker ----------------
         (async () => {
             const select = document.getElementById('role-select');
             try {
                 const roles = await (await fetch('/api/roles')).json();
-                select.replaceChildren(new Option(roles.length ? 'Choose a position' : 'No open positions right now', ''));
+                select.replaceChildren(new Option(roles.length ? "Position you're applying for" : 'No open positions right now', ''));
                 for (const r of roles) select.add(new Option(r.title, r.id));
             } catch { select.replaceChildren(new Option('Could not load positions', '')); }
         })();
 
-        document.getElementById('apply').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const out = document.getElementById('apply-msg');
-            out.textContent = 'Sending...';
+        // ---------------- CV: drag & drop, browse, preview ----------------
+        const MAX_BYTES = 5 * 1024 * 1024;
+        const ALLOWED = ['pdf', 'docx', 'txt'];
+        // Libraries that read PDF / Word files in the browser, loaded only when needed.
+        const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const MAMMOTH = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+
+        const zone = document.getElementById('zone');
+        const input = document.getElementById('cv-input');
+        const paper = document.getElementById('cv-paper');
+        const applyMsg = document.getElementById('apply-msg');
+        let cvFile = null;
+        let renderToken = 0;        // ignores a slow preview if another file was chosen meanwhile
+        let dragDepth = 0;
+
+        function say(text, kind = '') {
+            applyMsg.textContent = text;
+            applyMsg.className = 'form-msg' + (kind ? ` is-${kind}` : '');
+        }
+        const setState = s => { zone.className = `zone is-${s}`; };
+        const sizeLabel = n => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+
+        const scripts = {};
+        function loadScript(src) {
+            return scripts[src] ||= new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.crossOrigin = 'anonymous';
+                s.onload = resolve;
+                s.onerror = () => { delete scripts[src]; reject(new Error('could not load ' + src)); };
+                document.head.append(s);
+            });
+        }
+
+        // Word documents become HTML; keep only harmless formatting tags, no attributes, no links or images.
+        const SAFE_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI',
+            'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'BR', 'SPAN', 'DIV']);
+        function safeFragment(html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');      // parsing never runs scripts
+            const out = document.createDocumentFragment();
+            (function copy(from, to) {
+                for (const node of from.childNodes) {
+                    if (node.nodeType === Node.TEXT_NODE) { to.append(node.textContent); continue; }
+                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+                    if (!SAFE_TAGS.has(node.tagName)) { copy(node, to); continue; }
+                    const el = document.createElement(node.tagName);
+                    copy(node, el);
+                    to.append(el);
+                }
+            })(doc.body, out);
+            return out;
+        }
+
+        function note(text) {
+            const p = document.createElement('p');
+            p.className = 'cv-note';
+            p.textContent = text;
+            return p;
+        }
+
+        async function renderPreview(file, ext, token) {
+            paper.className = '';
+            paper.replaceChildren(note('Loading preview…'));
             try {
-                const res = await fetch('/api/apply', { method: 'POST', body: new FormData(e.target) });
+                let node;
+                if (ext === 'txt') {
+                    node = document.createElement('div');
+                    node.className = 'cv-text';
+                    node.textContent = await file.text();
+                } else if (ext === 'pdf') {
+                    await loadScript(PDFJS);
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+                    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                    const page = await pdf.getPage(1);
+                    const width = paper.parentElement.clientWidth || 540;
+                    const base = page.getViewport({ scale: 1 });
+                    const viewport = page.getViewport({ scale: (width / base.width) * (window.devicePixelRatio || 1) });
+                    node = document.createElement('canvas');
+                    node.width = viewport.width;
+                    node.height = viewport.height;
+                    await page.render({ canvasContext: node.getContext('2d'), viewport }).promise;
+                    if (token === renderToken) paper.className = 'is-pdf';
+                } else {
+                    await loadScript(MAMMOTH);
+                    const { value } = await mammoth.convertToHtml({ arrayBuffer: await file.arrayBuffer() });
+                    node = document.createElement('div');
+                    node.append(safeFragment(value));
+                }
+                if (token !== renderToken) return;
+                paper.replaceChildren(node);
+            } catch (err) {
+                console.warn('CV preview failed:', err);
+                if (token !== renderToken) return;
+                paper.className = '';
+                paper.replaceChildren(note('No preview for this file, but it will still be sent with your application.'));
+            }
+        }
+
+        function takeFile(file) {
+            if (!file) return;
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            if (!ALLOWED.includes(ext)) return say('Please use a PDF, DOCX or TXT file.', 'error');
+            if (file.size > MAX_BYTES) return say('That file is larger than 5 MB.', 'error');
+            if (file.size === 0) return say('That file is empty.', 'error');
+            cvFile = file;
+            say('');
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = `${sizeLabel(file.size)} · ready to send`;
+            setState('loaded');
+            renderPreview(file, ext, ++renderToken);
+        }
+
+        function clearFile() {
+            cvFile = null;
+            renderToken++;
+            paper.replaceChildren();
+            setState('empty');
+        }
+
+        // the empty box opens the file picker too
+        zone.addEventListener('click', e => {
+            if (zone.classList.contains('is-empty') && !e.target.closest('label')) input.click();
+        });
+        input.addEventListener('change', () => {
+            takeFile(input.files[0]);
+            input.value = '';                    // picking the same file again still triggers a change
+        });
+        document.getElementById('cv-remove').addEventListener('click', clearFile);
+
+        zone.addEventListener('dragenter', e => {
+            e.preventDefault();
+            if (dragDepth++ === 0) { zone.dataset.before = zone.className; setState('dragging'); }
+        });
+        zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        zone.addEventListener('dragleave', () => {
+            if (--dragDepth <= 0) { dragDepth = 0; zone.className = zone.dataset.before || 'zone is-empty'; }
+        });
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            dragDepth = 0;
+            zone.className = zone.dataset.before || 'zone is-empty';
+            takeFile(e.dataTransfer.files[0]);
+        });
+        // a file dropped next to the box must not make the browser open it instead
+        window.addEventListener('dragover', e => e.preventDefault());
+        window.addEventListener('drop', e => e.preventDefault());
+
+        // ---------------- submit ----------------
+        const applyForm = document.getElementById('apply');
+        const submitBtn = document.getElementById('apply-submit');
+
+        applyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!applyForm.reportValidity()) return;
+            if (!cvFile) return say('Add your CV before submitting.', 'error');
+
+            const body = new FormData();
+            body.append('roleId', document.getElementById('role-select').value);
+            body.append('name', document.getElementById('f-name').value.trim());
+            body.append('linkedinUrl', document.getElementById('f-linkedin').value.trim());
+            body.append('resume', cvFile, cvFile.name);
+
+            submitBtn.disabled = true;
+            say('Sending…');
+            try {
+                const res = await fetch('/api/apply', { method: 'POST', body });
                 const data = await res.json().catch(() => ({}));
-                out.textContent = res.ok ? 'Application received. Thank you!' : (data.error || 'Upload failed.');
-                if (res.ok) e.target.reset();
-            } catch { out.textContent = 'Could not reach the server.'; }
+                if (!res.ok) return say(data.error || 'Upload failed.', 'error');
+                applyForm.reset();
+                clearFile();
+                say('Application received. Thank you!', 'ok');
+            } catch {
+                say('Could not reach the server.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
         });
     </script>
 </body>
