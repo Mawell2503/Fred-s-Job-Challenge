@@ -695,7 +695,12 @@
             location.href = '/';
         });
 
-        loadRoles().then(() => { if (roles.length === 1) openRole(roles[0].id); })
+        // ?role=R001 (from the lobby's Pipeline button) opens that role straight away
+        const wanted = new URLSearchParams(location.search).get('role');
+        loadRoles().then(() => {
+            if (wanted && roles.some(r => r.id === wanted)) openRole(wanted);
+            else if (roles.length === 1) openRole(roles[0].id);
+        })
             .catch(err => { $('no-role').textContent = err.message; });
     </script>
 </body>

@@ -4,46 +4,729 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Lobby</title>
-    <link rel="stylesheet" href="../styles.css">
+    <title>Lobby</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap">
     <style>
-        body {
-            font-family: system-ui, sans-serif;
-            max-width: 40rem;
-            margin: 2rem auto;
-            padding: 0 1rem;
-            line-height: 1.6;
+        :root {
+            --bg: #FBF8F4;
+            --card: #FFFFFF;
+            --ink: #2A2420;
+            --muted: #6F655D;
+            --faint: #8C8178;
+            --line: #EDE5DC;
+            --line-strong: #E3D9CF;
+            --soft: #F4EFE9;
+            /* orange: the same three shades as the applicant page */
+            --accent: #FFB443;
+            --accent-strong: #E8961E;
+            --accent-ink: #8A5200;
+            /* timeline bubbles: important steps dark grey, the others light grey */
+            --major: #3F3A37;
+            --major-hi: #5C5551;
+            --minor: #D6CFC8;
+            --minor-hi: #ECE7E2;
+            --rail-done: #BDB3A9;
+            --rail-next: #DDD5CC;
+            --error: #B42318;
+            --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
 
-        .logout {
-            font: inherit;
-            padding: 0.6rem 1.2rem;
-            border: 1px solid #d5d5dc;
-            border-radius: 6px;
-            background: #fff;
-            cursor: pointer;
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--ink);
+            font: 15px/1.5 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+        }
+
+        a { color: inherit; }
+        :focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            min-height: 44px; padding: 0 20px; border-radius: 99px;
+            border: 1px solid var(--line-strong); background: var(--card); color: var(--ink);
+            font: 700 14px/1 'DM Sans', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap;
+        }
+        .btn:hover { background: var(--soft); }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+        .btn-primary:hover { background: #FFA826; }
+        .btn-dark { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+        .btn-dark:hover { background: #3F3733; }
+        .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+        /* ---------- header ---------- */
+        .topbar {
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+            padding: 14px 28px; border-bottom: 1px solid var(--line);
+        }
+        .topbar .brand { font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
+        .topbar .sep { color: #C9BDB2; }
+        .topbar select {
+            height: 44px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line-strong);
+            background: var(--card); color: var(--ink); font: 500 14px 'DM Sans', sans-serif; max-width: 100%;
+        }
+        .topbar .grow { flex: 1; }
+        .topbar .who { font-size: 13px; color: var(--muted); }
+
+        /* ---------- layout: cards on the left, timeline on the right ---------- */
+        .layout { display: flex; flex-wrap: wrap; flex: 1; min-height: 0; }
+        main {
+            flex: 999 1 560px; min-width: 0; padding: 28px 32px;
+            display: flex; flex-direction: column; gap: 22px;
+        }
+        aside {
+            flex: 1 1 340px; max-width: 400px; display: flex; flex-direction: column;
+            background: var(--card); border-left: 1px solid var(--line);
+        }
+
+        /* ---------- main area ---------- */
+        .headrow { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .headrow > div:first-child { flex: 1 1 360px; }
+        .kicker { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; }
+        .lead { margin: 6px 0 0; color: var(--muted); }
+
+        .stage { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: #F1EAE2; }
+        .stage button {
+            border: 0; cursor: pointer; height: 40px; padding: 0 18px; border-radius: 99px;
+            background: transparent; color: var(--muted); font: 700 14px/1 'DM Sans', sans-serif;
+        }
+        .stage button[aria-pressed="true"] { background: var(--accent); color: var(--ink); }
+        .stage button:disabled { opacity: .45; cursor: not-allowed; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 20px; }
+        .cv {
+            aspect-ratio: 3 / 4; background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+            padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0;
+            box-shadow: 0 4px 14px rgba(42, 36, 32, .06);
+        }
+        .cv.kept { border: 1.5px solid var(--ink); box-shadow: 0 12px 30px rgba(42, 36, 32, .1); }
+        .cv .rank { display: flex; align-items: center; justify-content: space-between; }
+        .cv .rank b { font-size: 22px; line-height: 1; font-weight: 800; }
+        .cv .rank span, .cv .cid { font: 500 11px var(--mono); color: var(--faint); }
+        .cv .name { font-weight: 800; font-size: 17px; line-height: 1.2; margin-top: 4px; overflow-wrap: break-word; }
+        .cv .headline {
+            font-size: 13px; line-height: 1.4; color: var(--muted); white-space: pre-line;
+            display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .cv .bars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .cv .bars i { display: block; height: 5px; border-radius: 3px; background: var(--soft); }
+        .cv .foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+        .cv .foot span { font-size: 12px; color: var(--muted); }
+        .cv .foot b { font: 500 16px var(--mono); white-space: nowrap; }
+        #board.swap { animation: rise .35s ease both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+        .outs { display: flex; flex-direction: column; gap: 12px; }
+        .outs-head { display: flex; align-items: center; gap: 12px; }
+        .outs-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--muted); }
+        .outs-head::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
+        .outs .grid { gap: 14px; }
+        .out {
+            display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px;
+            background: var(--soft); border: 1px dashed #D8CEC4; min-width: 0;
+        }
+        .out .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; }
+        .out .nm {
+            font-weight: 700; font-size: 14px; color: var(--muted); overflow-wrap: break-word; min-width: 0;
+            text-decoration: line-through; text-decoration-color: var(--faint); text-decoration-thickness: 1.5px;
+        }
+        .out .sc { font: 500 13px var(--mono); color: var(--muted); white-space: nowrap; }
+        .out .why { font-size: 12px; line-height: 1.4; color: var(--muted); }
+
+        .empty {
+            border: 1px dashed var(--line-strong); border-radius: 16px; padding: 48px 24px;
+            text-align: center; color: var(--muted); background: var(--card);
+        }
+        .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+        .empty .btn { margin-top: 16px; }
+
+        .bottom { margin-top: auto; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .bottom .hint { font-size: 13px; color: var(--muted); }
+        .notice { margin: 0; font-size: 14px; color: var(--error); }
+
+        /* ---------- timeline ---------- */
+        .tl-head { padding: 24px 24px 6px; }
+        .tl-head h2 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -.01em; }
+        .tl-head p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+        .rail {
+            position: relative; overflow-y: auto; height: min(600px, calc(100vh - 260px)); min-height: 360px;
+            padding: 6px 18px 20px 10px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+            /* steps fade in and out at the edges as the timeline scrolls */
+            -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+        }
+        .rail .cap { height: 22px; margin-left: 44px; border-left: 2px solid var(--rail-done); }
+        .rail .cap.end { height: 40px; border-left: 2px dashed var(--rail-next); }
+
+        .step { display: flex; gap: 16px; align-items: stretch; }
+        .node { position: relative; flex: 0 0 70px; display: flex; align-items: center; justify-content: center; padding: 9px 0; }
+        .node .ln { position: absolute; left: 50%; width: 0; margin-left: -1px; border-left: 2px solid var(--rail-done); }
+        .node .ln.top { top: 0; bottom: 50%; }
+        .node .ln.bottom { top: 50%; bottom: 0; }
+        .next .node .ln, .now .node .ln.bottom, .failed .node .ln.bottom { border-left: 2px dashed var(--rail-next); }
+
+        .bubble {
+            position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; transition: box-shadow .3s ease;
+        }
+        .minor .bubble { width: 44px; height: 44px; border-radius: 50%; color: var(--ink);
+            background: radial-gradient(circle at 35% 30%, var(--minor-hi), var(--minor) 70%); }
+        .major .bubble { width: 64px; border-radius: 32px; color: #F4F1EE;
+            background: radial-gradient(circle at 35% 25%, var(--major-hi), var(--major) 70%); }
+        .bubble svg.ic { position: relative; z-index: 2; }
+        .bubble .grain { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: soft-light; opacity: .5; }
+        .next .bubble { background: var(--card) !important; color: var(--faint); box-shadow: inset 0 0 0 2px var(--line-strong); }
+        .next .bubble .grain { display: none; }
+        .now .bubble {
+            box-shadow: 0 0 0 4px rgba(232, 150, 30, .28), 0 8px 24px rgba(232, 150, 30, .35);
+            animation: pulse 2.2s ease-in-out infinite;
+        }
+        .now.idle .bubble { background: var(--card) !important; color: var(--ink); animation: none;
+            box-shadow: inset 0 0 0 2px var(--accent-strong), 0 0 0 4px rgba(232, 150, 30, .2); }
+        .now.idle .bubble .grain { display: none; }
+        .failed .bubble { box-shadow: 0 0 0 3px rgba(180, 35, 24, .35); }
+        @keyframes pulse { 50% { box-shadow: 0 0 0 9px rgba(232, 150, 30, .1), 0 8px 30px rgba(232, 150, 30, .45); } }
+
+        .group { display: flex; gap: 16px; }
+        .group .node { padding: 0; height: 32px; }
+        .group .node .ln { top: 0; bottom: 0; }
+        .group.next .node .ln { border-left: 2px dashed var(--rail-next); }
+        .group span { align-self: center; font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+
+        .meta { display: flex; flex-direction: column; justify-content: center; padding: 9px 0; min-width: 0; }
+        .meta .time { font: 400 12px/1.4 var(--mono); color: var(--faint); }
+        .meta .lbl { font-weight: 700; font-size: 16px; line-height: 1.3; }
+        .meta .sub { font-size: 13px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+        .next .meta .lbl { color: var(--muted); }
+        .failed .meta .sub { color: var(--error); }
+        .tag {
+            display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: 6px;
+            font: 500 11px/1 var(--mono); color: var(--ink); background: var(--accent); border-radius: 99px; padding: 5px 9px;
+        }
+        .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+
+        .tl-foot { padding: 14px 24px 22px; border-top: 1px solid var(--line); margin-top: auto; }
+        .tl-foot .btn { width: 100%; min-height: 50px; font-size: 15px; }
+
+        @media (max-width: 700px) {
+            .topbar { padding: 12px 16px; }
+            main { padding: 20px 16px; }
+            h1 { font-size: 28px; }
+            aside { max-width: none; border-left: 0; border-top: 1px solid var(--line); }
+            .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+            .cv { aspect-ratio: auto; min-height: 220px; padding: 14px; }
+            .cv .foot b { font-size: 14px; }
+            .topbar .sep { display: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .now .bubble, #board.swap { animation: none; }
+            .rail { scroll-behavior: auto; }
         }
     </style>
 </head>
 
 <body>
-    <h1>ADMINLOBBY</h1>
-    <p id="who"></p>
-    <nav>
-        <a class="button" href="roles.html">Open the hiring pipeline &rarr;</a>
-        <button type="button" class="logout" id="logout">Log out</button>
-    </nav>
-    <p>Create a role, let Clara propose the criteria and check them, set the practical requirements, then press <b>Run full pipeline</b>: Oscar, Remi, Jules, the committee (Hélène, Victor, Nina) and Gaston's report.</p>
+    <header class="topbar">
+        <span class="brand">Lobby</span>
+        <span class="sep" aria-hidden="true">/</span>
+        <select id="role" aria-label="Role">
+            <option value="">Loading roles…</option>
+        </select>
+        <span class="grow"></span>
+        <span class="who" id="who"></span>
+        <button type="button" class="btn" id="logout">Log out</button>
+    </header>
+
+    <div class="layout">
+        <main>
+            <div class="headrow">
+                <div>
+                    <div class="kicker" id="kicker"></div>
+                    <h1 id="heading">Lobby</h1>
+                    <p class="lead" id="lead"></p>
+                </div>
+                <div class="stage" role="group" aria-label="Stage" id="stage" hidden>
+                    <button type="button" data-stage="top10" aria-pressed="false">Top 10</button>
+                    <button type="button" data-stage="top5" aria-pressed="false">Top 5</button>
+                </div>
+            </div>
+
+            <p class="notice" id="notice" role="alert" hidden></p>
+            <div id="board" aria-live="polite"></div>
+
+            <div class="bottom">
+                <!-- "3 · Committee": its own page comes later; for now it opens Gaston's report -->
+                <a class="btn btn-dark" id="committee" href="#" aria-disabled="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                        <circle cx="17" cy="9" r="2.5" /><path d="M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8" />
+                    </svg>
+                    3 · Committee
+                </a>
+                <span class="hint" id="committee-hint"></span>
+            </div>
+        </main>
+
+        <aside aria-labelledby="tl-title">
+            <div class="tl-head">
+                <h2 id="tl-title">A timeline<br>of this hire</h2>
+                <p id="tl-sub">Scroll up for what's done, down for what's left.</p>
+            </div>
+            <div class="rail" id="rail" tabindex="0" aria-label="Pipeline steps"></div>
+            <div class="tl-foot">
+                <a class="btn btn-primary" id="pipeline" href="roles.html">
+                    Pipeline
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                </a>
+            </div>
+        </aside>
+    </div>
+
+    <!-- the film-grain texture on the bubbles -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="grain">
+            <feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+        </filter>
+    </svg>
 
     <script>
-        fetch('/api/admin/me')
-            .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d) document.getElementById('who').textContent = `Logged in as ${d.user}.`; });
+        const $ = id => document.getElementById(id);
+        const SVG = 'http://www.w3.org/2000/svg';
 
-        document.getElementById('logout').addEventListener('click', async () => {
+        // Build DOM nodes without innerHTML: names, CV text and AI output are always plain text.
+        function h(tag, attrs = {}, ...kids) {
+            const el = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs || {})) {
+                if (v === undefined || v === null || v === false) continue;
+                if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+                else if (k === 'text') el.textContent = v;
+                else el.setAttribute(k, v === true ? '' : v);
+            }
+            for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+                el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+            return el;
+        }
+        function s(tag, attrs = {}, ...kids) {
+            const el = document.createElementNS(SVG, tag);
+            for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+            el.append(...kids);
+            return el;
+        }
+
+        async function api(url, opts) {
+            const res = await fetch(url, opts);
+            if (res.status === 401) { location.href = '/#admin'; throw new Error('Logged out.'); }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            return data;
+        }
+
+        // ---------------- icons (one stroke set) ----------------
+        const ICONS = {
+            inbox: [['path', { d: 'M4 13h4l1.5 2.5h5L16 13h4' }], ['path', { d: 'M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z' }]],
+            load: [['path', { d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z' }], ['path', { d: 'M14 3v5h5' }], ['path', { d: 'M12 17v-6' }], ['path', { d: 'm9.5 13.5 2.5-2.5 2.5 2.5' }]],
+            extract: [['path', { d: 'M5 6h14M5 10h14M5 14h9M5 18h6' }]],
+            clean: [['path', { d: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6' }]],
+            sort: [['path', { d: 'm12 3 9 5-9 5-9-5z' }], ['path', { d: 'm3 13 9 5 9-5' }]],
+            rules: [['circle', { cx: 6, cy: 6, r: 2.5 }], ['circle', { cx: 6, cy: 18, r: 2.5 }], ['path', { d: 'M8 7.5 20 17M8 16.5 20 7' }]],
+            assemble: [['rect', { x: 4, y: 4, width: 16, height: 6, rx: 1.5 }], ['rect', { x: 4, y: 14, width: 16, height: 6, rx: 1.5 }]],
+            record: [['ellipse', { cx: 12, cy: 6, rx: 7, ry: 3 }], ['path', { d: 'M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6' }], ['path', { d: 'M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3' }]],
+            criteria: [['rect', { x: 5, y: 4, width: 14, height: 17, rx: 2 }], ['path', { d: 'M9 4h6v3H9z' }], ['path', { d: 'm9 14 2 2 4-4' }]],
+            remi: [['path', { d: 'M4 5h16l-6 7.5V19l-4 1.5v-8z' }]],
+            jules: [['path', { d: 'M3 5.5C5 4.5 8.5 4.5 12 6.5c3.5-2 7-2 9-1V19c-2-1-5.5-1-9 1-3.5-2-7-2-9-1z' }], ['path', { d: 'M12 6.5V20' }]],
+            committee: [['circle', { cx: 9, cy: 8, r: 3 }], ['path', { d: 'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6' }], ['circle', { cx: 17, cy: 9, r: 2.5 }], ['path', { d: 'M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8' }]],
+            report: [['path', { d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z' }], ['path', { d: 'M14 3v5h5' }], ['path', { d: 'M9 13h6M9 17h4' }]],
+            ready: [['path', { d: 'm5 12.5 4.5 4.5L19 7.5' }]],
+        };
+        const icon = (name, size) => s('svg', { class: 'ic', width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+            stroke: 'currentColor', 'stroke-width': 1.9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' },
+            ...ICONS[name].map(([t, a]) => s(t, a)));
+
+        // ---------------- formatting ----------------
+        const sameDay = (a, b) => a.toDateString() === b.toDateString();
+        const clock = d => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+        function when(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return sameDay(d, new Date()) ? clock(d) : `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} · ${clock(d)}`;
+        }
+        function span(a) {
+            if (!a?.startedAt) return '';
+            if (a.state === 'running') return `${when(a.startedAt)} – now`;
+            if (!a.finishedAt) return when(a.startedAt);
+            const start = new Date(a.startedAt), end = new Date(a.finishedAt);
+            if (when(a.startedAt) === when(a.finishedAt)) return when(a.startedAt);     // done within the minute
+            return sameDay(start, end) ? `${when(a.startedAt)} – ${clock(end)}` : `${when(a.startedAt)} – ${when(a.finishedAt)}`;
+        }
+        function dayRange(list) {
+            if (!list.length) return '';
+            const ds = list.map(a => new Date(a.appliedAt)).sort((a, b) => a - b);
+            const f = d => d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+            return f(ds[0]) === f(ds.at(-1)) ? f(ds[0]) : `${f(ds[0])} – ${f(ds.at(-1))}`;
+        }
+        const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+        const num = n => (Number.isInteger(n) ? String(n) : Number(n).toFixed(1));
+        const MEMBER = { helene: 'Hélène', victor: 'Victor', nina: 'Nina' };
+
+        // ---------------- state ----------------
+        let roles = [], roleId = null, results = null, applicants = [], view = null, pollTimer = null, lastNow = null;
+
+        // ---------------- timeline: steps from the real role / agent state ----------------
+        const OSCAR = [
+            ['load', 'Load', 'File type checked, file opened'],
+            ['extract', 'Extract', 'Raw lines and layout hints'],
+            ['clean', 'Clean', 'Extraction mess tidied up'],
+            ['sort', 'Sort into sections', 'Personal details set aside'],
+            ['rules', 'Keep / drop', "The role's section rules"],
+            ['assemble', 'Assemble', 'One clean text per CV'],
+            ['record', 'Record', 'Years, skills, languages, fingerprint'],
+        ];
+
+        function buildSteps() {
+            const role = results.role, ag = role.agents || {}, p = results.progress;
+            const { remi, jules, committee } = results;
+            const pipe = ag.pipeline;
+            const steps = [];
+            const add = st => steps.push(st);
+            const running = k => ag[k]?.state === 'running';
+            const failed = k => ag[k]?.state === 'failed' && !results[k];
+            const prog = stage => (p?.stage === stage && p.total ? ` · ${p.done}/${p.total}` : '');
+
+            // applications
+            add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(applicants),
+                sub: applicants.length ? `${plural(applicants.length, 'CV')} from the application form` : 'No applications yet',
+                status: applicants.length ? 'done' : 'now', idle: !applicants.length, tag: applicants.length ? '' : 'Waiting for applicants' });
+
+            // Oscar: runs on every CV as it arrives (and again in the pipeline for CVs read with old section settings)
+            const unreadable = role.applicants - role.readable;
+            const oscarState = running('oscar') ? 'now' : failed('oscar') ? 'failed' : role.readable ? 'done' : 'next';
+            OSCAR.forEach(([key, label, sub], i) => add({
+                key, icon: key, label, sub: key === 'record' && unreadable > 0 ? `${sub} · ${plural(unreadable, 'CV')} unreadable` : sub,
+                group: i === 0 ? 'Oscar · reads each CV' : '', time: oscarState === 'next' ? '' : (running('oscar') ? 'running' : 'on upload'),
+                status: oscarState, tag: i === 0 && oscarState === 'now' ? `Re-reading CVs${prog('oscar')}` : '',
+            }));
+
+            // Clara: the admin's own step
+            const job = role.job || {}, nMust = job.must_haves?.length || 0, nNice = job.nice_to_haves?.length || 0;
+            add({ key: 'criteria', icon: 'criteria', label: 'Criteria approved',
+                time: running('clara') ? 'running' : role.jobUpdatedAt ? when(role.jobUpdatedAt) : '',
+                sub: nMust + nNice ? `Clara · ${plural(nMust, 'must-have')}, ${plural(nNice, 'nice-to-have')}` : 'Ask Clara, check and save the criteria',
+                status: running('clara') ? 'now' : nMust + nNice ? 'done' : 'next',
+                tag: running('clara') ? 'Clara is reading the job' : '' });
+
+            // the three big steps
+            const big = (key, height, label, doneSub, runSub) => {
+                const st = running(key) ? 'now' : results[key] ? 'done' : failed(key) ? 'failed' : 'next';
+                add({ key, icon: key, major: height, label, time: span(ag[key]),
+                    sub: st === 'done' ? doneSub() : st === 'failed' ? (ag[key].message || 'Failed') : runSub,
+                    status: st, tag: st === 'now' ? runningTag(key) : '' });
+            };
+            const runningTag = key => key === 'committee'
+                ? (p?.stage === 'committee' && p.label ? p.label : 'Debating')
+                : `${key === 'remi' ? 'Ranking' : 'Reading'}${prog(key)}`;
+
+            big('remi', 92, 'Remi', () => `Must-have gate + ranking · ${remi.counts.candidates} → ${remi.counts.passed_gate}` +
+                (remi.counts.eliminated ? `, ${remi.counts.eliminated} out` : ''), 'Checks the must-haves, keeps the top 20');
+            big('jules', 140, 'Jules', () => `Read ${jules.counts.read} in full · kept ${jules.counts.finalists} · ` +
+                `${jules.counts.quotes_checked} quotes checked`, 'Reads the shortlist in full, keeps 10');
+            big('committee', 164, 'Committee table', () => `Hélène, Victor, Nina · ${committee.ranking.length} → top ${committee.top5.length}` +
+                ` in ${plural(committee.rounds.length - 1, 'round')}`, 'Hélène, Victor and Nina debate the 10');
+
+            // Gaston's report, then the admin's turn
+            const rep = committee?.report;
+            const gastonNow = running('committee') && p?.label?.startsWith('Gaston');
+            if (gastonNow) steps.find(x => x.key === 'committee').status = 'done';
+            add({ key: 'report', icon: 'report', label: "Gaston's report", time: rep ? when(committee.generated_at) : '',
+                sub: rep ? `Recommendation · confidence ${rep.recommendation.confidence}` : 'Written once the debate closes',
+                status: rep ? 'done' : gastonNow ? 'now' : 'next', tag: gastonNow ? 'Writing' : '' });
+            add({ key: 'ready', icon: 'ready', label: 'Shortlist ready', time: rep ? 'now' : '',
+                sub: rep ? `Interview the top ${committee.top5.length}` : 'Your turn comes here',
+                status: rep ? 'now' : 'next', tag: rep ? 'Your turn' : '' });
+
+            // nothing running and nothing failed: the first step still to do is "now"
+            if (!steps.some(x => x.status === 'now' || x.status === 'failed')) {
+                const first = steps.find(x => x.status === 'next');
+                if (first) {
+                    first.status = 'now';
+                    first.idle = true;
+                    first.tag = first.key === 'criteria' ? 'Your turn: set the criteria'
+                        : first.key === 'remi' ? (role.pipelineProblem ? 'Not ready yet' : 'Ready to run') : 'Up next';
+                }
+            }
+            if (pipe?.state === 'failed' && !steps.some(x => x.status === 'failed')) {
+                const at = steps.find(x => x.status === 'now');
+                if (at) Object.assign(at, { status: 'failed', sub: pipe.message, tag: '' });
+            }
+            return steps;
+        }
+
+        function renderTimeline() {
+            const steps = buildSteps();
+            const rail = $('rail');
+            const nowIdx = steps.findIndex(x => x.status === 'now' || x.status === 'failed');
+            const kids = [h('div', { class: 'cap' })];
+            steps.forEach((st, i) => {
+                if (st.group) kids.push(h('div', { class: `group ${i <= nowIdx || nowIdx < 0 || st.status === 'done' ? '' : 'next'}` },
+                    h('div', { class: 'node' }, h('div', { class: 'ln' })), h('span', { text: st.group })));
+                const bubble = h('div', { class: 'bubble', style: st.major ? `height:${st.major}px` : null },
+                    s('svg', { class: 'grain', 'aria-hidden': 'true' }, s('rect', { width: '100%', height: '100%', filter: 'url(#grain)' })),
+                    icon(st.icon, st.major ? 22 : 20));
+                kids.push(h('div', { class: `step ${st.status}${st.idle ? ' idle' : ''} ${st.major ? 'major' : 'minor'}`, 'data-key': st.key,
+                    'aria-current': st.status === 'now' ? 'step' : null },
+                    h('div', { class: 'node' }, h('div', { class: 'ln top' }), h('div', { class: 'ln bottom' }), bubble),
+                    h('div', { class: 'meta' },
+                        st.time ? h('div', { class: 'time', text: st.time }) : (st.status === 'next' ? h('div', { class: 'time', text: 'up next' }) : ''),
+                        h('div', { class: 'lbl', text: st.label }),
+                        st.sub ? h('div', { class: 'sub', text: st.sub }) : '',
+                        st.tag ? h('span', { class: 'tag', text: st.tag }) : '')));
+            });
+            kids.push(h('div', { class: 'cap end' }));
+            const keep = rail.scrollTop;
+            rail.replaceChildren(...kids);
+            rail.scrollTop = keep;
+
+            const done = steps.filter(x => x.status === 'done').length;
+            $('tl-sub').textContent = steps.at(-1).status === 'now' ? 'Every step done. Your turn.'
+                : `${done} of ${steps.length} steps done. Scroll up for what's done, down for what's left.`;
+
+            // follow the current step when it changes (and once on first load)
+            const nowKey = steps[nowIdx]?.key || null;
+            if (nowKey !== lastNow) {
+                const el = rail.querySelector(`[data-key="${nowKey}"]`);
+                if (el) {
+                    const smooth = lastNow !== null && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    rail.scrollTo({ top: Math.max(0, el.offsetTop - rail.clientHeight / 2 + el.offsetHeight / 2), behavior: smooth ? 'smooth' : 'auto' });
+                }
+                lastNow = nowKey;
+            }
+        }
+
+        // ---------------- the CV cards ----------------
+        // Each finalist's latest job + years, from Oscar's structured record (loaded once per candidate).
+        const records = {};
+        function profile(cid) {
+            const r = records[cid];
+            if (!r) return '';
+            const jobs = (r.experience || []).filter(e => e.title);
+            const latest = [...jobs].sort((a, b) => String(b.end || b.start || '').localeCompare(String(a.end || a.start || '')))[0] || jobs[0];
+            const title = latest ? latest.title.split(' | ').join(' · ') : '';
+            const years = r.total_years_experience;
+            return [title, years ? `${num(Math.round(years * 2) / 2)} years of experience` : ''].filter(Boolean).join('\n');
+        }
+        async function loadRecords(ids) {
+            const missing = ids.filter(id => !(id in records));
+            if (!missing.length) return;
+            await Promise.all(missing.map(async id => {
+                records[id] = null;
+                try {
+                    const res = await fetch(`/api/admin/applicants/${encodeURIComponent(id)}/record`);
+                    records[id] = res.ok ? await res.json() : null;
+                } catch { /* no subtitle for this card */ }
+            }));
+            if (results) renderBoard();
+        }
+        function headlines() {
+            const ids = (results.jules?.finalists || []).map(f => f.candidate_id);
+            loadRecords(ids);
+            return Object.fromEntries(ids.map(id => [id, profile(id)]));
+        }
+
+        // why a candidate missed the top 5: the concern of the member who scored them lowest
+        function reasonFor(cid) {
+            const pos = results.committee?.positions || {};
+            const mine = Object.entries(pos).filter(([, p]) => p[cid]).sort((a, b) => a[1][cid].score - b[1][cid].score);
+            if (!mine.length) return '';
+            const [m, p] = mine[0];
+            const why = p[cid].concerns?.[0] || p[cid].arguments?.[0]?.point || '';
+            return why ? `${MEMBER[m] || m}: ${why}` : '';
+        }
+
+        function cvCard({ rank, id, name, headline, scoreLabel, score, kept }) {
+            return h('article', { class: `cv${kept ? ' kept' : ''}`, 'aria-label': `#${rank} ${name}` },
+                h('div', { class: 'rank' }, h('b', { text: `#${rank}` }), h('span', { text: id })),
+                h('div', { class: 'name', text: name }),
+                headline ? h('div', { class: 'headline', text: headline }) : '',
+                h('div', { class: 'bars', 'aria-hidden': 'true' }, h('i', { style: 'width:92%' }), h('i', { style: 'width:74%' }), h('i', { style: 'width:84%' })),
+                h('div', { class: 'foot' }, h('span', { text: scoreLabel }), h('b', { text: score })));
+        }
+
+        function renderBoard() {
+            const { role, jules, committee } = results;
+            const ag = role.agents || {};
+            const busy = Object.values(ag).some(a => a.state === 'running');
+            const hl = headlines();
+            const names = Object.fromEntries((jules?.finalists || []).map(f => [f.candidate_id, f.personal?.name || f.candidate_id]));
+            const hasTop5 = Boolean(committee?.report);
+            const hasTop10 = Boolean(jules?.finalists?.length);
+            if (!view || (view === 'top5' && !hasTop5)) view = hasTop5 ? 'top5' : 'top10';
+
+            $('stage').hidden = !hasTop10;
+            for (const b of $('stage').querySelectorAll('button')) {
+                b.setAttribute('aria-pressed', String(b.dataset.stage === view));
+                b.disabled = b.dataset.stage === 'top5' && !hasTop5;
+                b.title = b.disabled ? 'Available once the committee has chosen' : '';
+            }
+
+            const board = $('board');
+            if (!hasTop10) {
+                $('kicker').textContent = role.title;
+                $('heading').textContent = 'No finalists yet';
+                $('lead').textContent = '';
+                const what = ag.jules?.state === 'running' ? ['Jules is reading the shortlist.', 'The top 10 appears here as soon as he is done.']
+                    : busy ? ['The pipeline is running.', 'The top 10 appears here once Jules has read the shortlist.']
+                        : !role.applicants ? ['No applications yet.', 'Candidates apply from the home page.']
+                            : ['The top 10 appears here once the pipeline has run.', role.pipelineProblem || 'Open the pipeline and press "Run full pipeline".'];
+                board.replaceChildren(h('div', { class: 'empty' }, h('b', { text: what[0] }), what[1],
+                    busy ? '' : h('div', {}, h('a', { class: 'btn', href: pipelineHref(), text: 'Open the pipeline' }))));
+                return;
+            }
+
+            if (view === 'top5') {
+                const top = committee.report.top5;
+                const keep = new Set(top.map(t => t.id));
+                $('kicker').textContent = 'Chosen by the committee';
+                $('heading').textContent = `Your top ${top.length}`;
+                $('lead').textContent = `Confidence ${committee.report.recommendation.confidence}. Averaged from Hélène, Victor and Nina's final scores.`;
+                const outs = committee.ranking.filter(r => !keep.has(r.id));
+                board.replaceChildren(
+                    h('div', { class: 'grid' }, ...top.map(t => cvCard({ rank: t.rank, id: t.id, name: t.name, headline: hl[t.id],
+                        scoreLabel: 'Committee', score: `${num(t.score)} / 10`, kept: true }))),
+                    outs.length ? h('section', { class: 'outs', 'aria-labelledby': 'outs-title', style: 'margin-top:22px' },
+                        h('div', { class: 'outs-head' }, h('h2', { id: 'outs-title', text: `Didn't make the top ${top.length}` })),
+                        h('div', { class: 'grid' }, ...outs.map(r => h('article', { class: 'out' },
+                            h('div', { class: 'row' }, h('span', { class: 'nm', text: names[r.id] || r.id }),
+                                h('span', { class: 'sc', text: `${num(r.score)} / 10` })),
+                            reasonFor(r.id) ? h('div', { class: 'why', text: reasonFor(r.id) }) : '')))) : '');
+            } else {
+                $('kicker').textContent = 'Kept by Jules, in his order';
+                $('heading').textContent = `Top ${jules.finalists.length} finalists`;
+                $('lead').textContent = ag.committee?.state === 'running' ? 'The committee is debating them now.'
+                    : hasTop5 ? 'Before the committee narrowed them down.' : 'Read in full, every quote checked against the CV.';
+                board.replaceChildren(h('div', { class: 'grid' }, ...jules.finalists.map(f => cvCard({
+                    rank: f.rank, id: f.candidate_id, name: names[f.candidate_id], headline: hl[f.candidate_id],
+                    scoreLabel: 'Criteria met', score: `${num(f.score)} / ${num(f.max_score)}` }))));
+            }
+        }
+
+        function renderButtons() {
+            const has = Boolean(results.committee?.report);
+            const c = $('committee');
+            c.setAttribute('aria-disabled', String(!has));
+            c.href = has ? `report.html?role=${encodeURIComponent(roleId)}` : '#';
+            $('committee-hint').textContent = has ? '' : 'Opens once the committee has finished.';
+            $('pipeline').href = pipelineHref();
+        }
+        const pipelineHref = () => `roles.html${roleId ? `?role=${encodeURIComponent(roleId)}` : ''}`;
+
+        function render() {
+            const pipe = results.role.agents?.pipeline;
+            $('notice').hidden = pipe?.state !== 'failed';
+            $('notice').textContent = pipe?.state === 'failed' ? `The last pipeline run failed: ${pipe.message}` : '';
+            renderBoard();
+            renderTimeline();
+            renderButtons();
+        }
+
+        // ---------------- loading + live updates ----------------
+        async function load(id) {
+            clearTimeout(pollTimer);
+            roleId = id;
+            view = null;
+            lastNow = null;
+            try { localStorage.setItem('lobby.role', id); } catch { /* storage off: fine */ }
+            const [res, apps] = await Promise.all([
+                api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
+                api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
+            ]);
+            if (roleId !== id) return;
+            results = res;
+            applicants = apps;
+            render();
+            poll();
+        }
+
+        function poll() {
+            clearTimeout(pollTimer);
+            const busy = Object.values(results?.role?.agents || {}).some(a => a.state === 'running');
+            if (!busy) return;
+            pollTimer = setTimeout(async () => {
+                const id = roleId;
+                try {
+                    const [res, apps] = await Promise.all([
+                        api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
+                        api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
+                    ]);
+                    if (roleId !== id) return;
+                    results = res;
+                    applicants = apps;
+                    render();
+                } catch (err) {
+                    console.warn('poll failed, retrying:', err.message);    // a blip must not stop the live view
+                }
+                if (roleId === id) poll();
+            }, 2000);
+        }
+
+        $('stage').addEventListener('click', e => {
+            const b = e.target.closest('button[data-stage]');
+            if (!b || b.disabled) return;
+            view = b.dataset.stage;
+            renderBoard();
+            const board = $('board');
+            board.classList.remove('swap');
+            void board.offsetWidth;          // restart the animation
+            board.classList.add('swap');
+        });
+
+        $('role').addEventListener('change', e => { if (e.target.value) load(e.target.value).catch(showError); });
+
+        $('logout').addEventListener('click', async () => {
             await fetch('/api/admin/logout', { method: 'POST' });
             location.href = '/';
         });
+
+        function showError(err) {
+            $('notice').hidden = false;
+            $('notice').textContent = err.message;
+        }
+
+        (async () => {
+            try {
+                const me = await api('/api/admin/me');
+                $('who').textContent = me.user;
+                roles = await api('/api/admin/roles');
+                const sel = $('role');
+                if (!roles.length) {
+                    sel.replaceChildren(new Option('No roles yet', ''));
+                    $('heading').textContent = 'No roles yet';
+                    $('board').replaceChildren(h('div', { class: 'empty' }, h('b', { text: 'Create your first role.' }),
+                        'Set it up in the pipeline: title, job ad, criteria.', h('div', {}, h('a', { class: 'btn', href: 'roles.html', text: 'Open the pipeline' }))));
+                    $('rail').replaceChildren();
+                    $('committee-hint').textContent = 'Opens once the committee has finished.';
+                    return;
+                }
+                sel.replaceChildren(...roles.map(r => new Option(`${r.title} · ${r.id}${r.status === 'closed' ? ' (closed)' : ''}`, r.id)));
+                let saved = null;
+                try { saved = localStorage.getItem('lobby.role'); } catch { /* storage off */ }
+                const want = new URLSearchParams(location.search).get('role') || saved;
+                const pick = roles.find(r => r.id === want) || [...roles].reverse().find(r => r.status === 'open') || roles.at(-1);
+                sel.value = pick.id;
+                await load(pick.id);
+            } catch (err) { showError(err); }
+        })();
     </script>
 </body>
 
