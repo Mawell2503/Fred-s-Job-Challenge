@@ -69,7 +69,10 @@ def _victor(c):
             s += b
     lines = [ln for ln in _section_lines(c["cv"], "EXPERIENCE") if re.search(r"(19|20)\d{2}", ln)]
     lines = lines or [ln for ln in c["cv"].splitlines() if ln.strip() and not ln.startswith("[")][:1]
-    path = next((f for f in facts if any(k in f for k in bonus)), facts[0] if facts else "A path with little to read.")
+    good = [f for f in facts if any(k in f for k, b in bonus.items() if b > 0)]
+    bad = [f for f in facts if any(k in f for k, b in bonus.items() if b < 0)]
+    path = (good or facts or ["A path with little to read."])[0] if _clamp(s) >= 6 else \
+        (bad or facts or ["A path with little to read."])[0]
     args = [{"point": path, "quote": quote_of(lines[0]), "source": "cv"}]
     if len(lines) > 1:
         args.append({"point": "Where the path started.", "quote": quote_of(lines[-1]), "source": "cv"})
