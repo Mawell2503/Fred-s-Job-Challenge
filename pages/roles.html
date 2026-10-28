@@ -43,6 +43,8 @@
         .btn:disabled { opacity: .5; cursor: not-allowed; }
         .row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin-top: .7rem; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+        .grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 .8rem; }
+        .lang-row { display: grid; grid-template-columns: 1fr 170px 34px; gap: .4rem; margin-bottom: .4rem; }
         @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
         .muted { color: var(--muted); font-size: .88rem; }
         .status { font-size: .88rem; margin: .5rem 0 0; min-height: 1.3em; }
@@ -161,9 +163,36 @@
                     <p class="status" id="job-status"></p>
                 </section>
 
+                <!-- PRACTICAL REQUIREMENTS (for Nina) -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>2. Practical requirements <small>what Nina (operations) checks the top 10 against; never used by the funnel</small></h2>
+                    <div class="grid3">
+                        <div><label for="lg-currency">Currency</label><input id="lg-currency" maxlength="3" placeholder="EUR"></div>
+                        <div><label for="lg-min">Budget from</label><input id="lg-min" type="number" min="0" step="1"></div>
+                        <div><label for="lg-max">Budget up to</label><input id="lg-max" type="number" min="0" step="1"></div>
+                        <div><label for="lg-period">Budget is</label>
+                            <select id="lg-period"><option value="month">per month</option><option value="year">per year</option></select></div>
+                        <div><label for="lg-client">Client country</label><input id="lg-client" maxlength="60" placeholder="e.g. France"></div>
+                        <div><label for="lg-start">Start date</label><input id="lg-start" type="date"></div>
+                        <div><label for="lg-wcountry">Work country</label><input id="lg-wcountry" maxlength="60" placeholder="e.g. Mauritius"></div>
+                        <div><label for="lg-wcity">Work city</label><input id="lg-wcity" maxlength="60"></div>
+                        <div><label for="lg-arr">Way of working</label>
+                            <select id="lg-arr"><option value="">Not set</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+                        <div><label for="lg-travel">Travel</label>
+                            <select id="lg-travel"><option value="">Not set</option><option value="none">None</option><option value="occasional">Occasional</option><option value="frequent">Frequent</option></select></div>
+                    </div>
+                    <label>Required languages (minimum level)</label>
+                    <div id="lg-langs"></div>
+                    <button class="btn" type="button" id="lg-add-lang">+ Language</button>
+                    <label for="lg-notes" style="margin-top:.8rem">Anything else Nina should know</label>
+                    <textarea id="lg-notes" maxlength="1000" style="min-height:3.5rem" placeholder="e.g. The client will call in French from the first week."></textarea>
+                    <div class="row"><button class="btn primary" id="save-logistics">Save requirements</button></div>
+                    <p class="status" id="logistics-status"></p>
+                </section>
+
                 <!-- OSCAR -->
                 <section class="card" style="margin-top:1rem">
-                    <h2>2. Oscar: CV sections to keep <small>unticked sections are dropped from this role's CVs</small></h2>
+                    <h2>3. Oscar: CV sections to keep <small>unticked sections are dropped from this role's CVs</small></h2>
                     <div class="sections" id="sections"></div>
                     <div class="row">
                         <button class="btn" id="use-suggestion">Use Clara's suggestion</button>
@@ -281,8 +310,9 @@
             $('ad').value = current.adText || '';
             $('must').value = current.mustText || '';
             $('nice').value = current.niceText || '';
-            for (const id of ['clara-status', 'job-status', 'oscar-status']) say(id, '');
+            for (const id of ['clara-status', 'job-status', 'oscar-status', 'logistics-status']) say(id, '');
             renderJob();
+            renderLogistics();
             renderSections();
             await loadRoles(id);
             await renderApplicants();
@@ -376,6 +406,51 @@
             } catch (err) { say('clara-status', err.message, true); }
         });
 
+        // ---------------- practical requirements (Nina) ----------------
+        const LEVELS = [['A1', 'A1'], ['A2', 'A2'], ['B1', 'B1'], ['B2', 'B2'], ['C1', 'C1'], ['C2', 'C2'], ['native', 'Native']];
+        let editLangs = [];
+        function langRow(l, i) {
+            return h('div', { class: 'lang-row' },
+                h('input', { value: l.language || '', placeholder: 'e.g. French', 'aria-label': 'Language',
+                    oninput: e => { l.language = e.target.value; } }),
+                h('select', { 'aria-label': 'Minimum level', onchange: e => { l.min_level = e.target.value; } },
+                    h('option', { value: '', text: 'Minimum level…' }),
+                    ...LEVELS.map(([v, t]) => h('option', { value: v, selected: l.min_level === v, text: t }))),
+                h('button', { class: 'btn x', type: 'button', 'aria-label': 'Remove', text: '×',
+                    onclick: () => { editLangs.splice(i, 1); renderLangs(); } }));
+        }
+        function renderLangs() { $('lg-langs').replaceChildren(...editLangs.map(langRow)); }
+        function renderLogistics() {
+            const l = current.logistics || {};
+            $('lg-currency').value = l.currency || 'EUR';
+            $('lg-min').value = l.budget_min ?? '';
+            $('lg-max').value = l.budget_max ?? '';
+            $('lg-period').value = l.budget_period || 'month';
+            $('lg-client').value = l.client_country || '';
+            $('lg-start').value = l.start_date || '';
+            $('lg-wcountry').value = l.work_country || '';
+            $('lg-wcity').value = l.work_city || '';
+            $('lg-arr').value = l.arrangement || '';
+            $('lg-travel').value = l.travel || '';
+            $('lg-notes').value = l.notes || '';
+            editLangs = structuredClone(l.languages || []);
+            renderLangs();
+        }
+        $('lg-add-lang').addEventListener('click', () => { editLangs.push({ language: '', min_level: '' }); renderLangs(); });
+        $('save-logistics').addEventListener('click', async () => {
+            const val = id => $(id).value.trim();
+            try {
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { logistics: {
+                    currency: val('lg-currency'), budget_min: val('lg-min'), budget_max: val('lg-max'),
+                    budget_period: val('lg-period'), client_country: val('lg-client'), start_date: val('lg-start'),
+                    work_country: val('lg-wcountry'), work_city: val('lg-wcity'), arrangement: val('lg-arr'),
+                    travel: val('lg-travel'), notes: val('lg-notes'), languages: editLangs,
+                } });
+                renderLogistics();
+                say('logistics-status', 'Saved. Nina will use these on the next pipeline run.');
+            } catch (err) { say('logistics-status', err.message, true); }
+        });
+
         // ---------------- Oscar sections ----------------
         function renderSections() {
             const s = editRules.sections || (editRules.sections = {});
@@ -410,8 +485,8 @@
             try {
                 const res = await fetch(`/api/admin/applicants/${id}/${kind}`);
                 const text = await res.text();
-                $('viewer-title').textContent = `${id} · ${{ text: 'kept sections', full: 'full CV (no personal details)', record: 'structured record' }[kind]}`;
-                $('viewer-body').textContent = kind === 'record' && res.ok ? JSON.stringify(JSON.parse(text), null, 2) : text;
+                $('viewer-title').textContent = `${id} · ${{ text: 'kept sections', full: 'full CV (no personal details)', record: 'structured record', practical: 'practical details (for Nina)' }[kind]}`;
+                $('viewer-body').textContent = ['record', 'practical'].includes(kind) && res.ok ? JSON.stringify(JSON.parse(text), null, 2) : text;
                 $('viewer').showModal();
             } catch (err) { alert(err.message); }
         }
@@ -422,14 +497,17 @@
             $('app-count').textContent = `${apps.length} received`;
             const viewBtn = (id, kind, label) => h('button', { class: 'btn', type: 'button', text: label, onclick: () => view(id, kind) });
             $('applicants').replaceChildren(
-                h('tr', {}, ...['ID', 'Name', 'Applied', 'CV', 'Notes', ''].map(t => h('th', { text: t }))),
+                h('tr', {}, ...['ID', 'Name', 'Applied', 'CV', 'Notes', '', 'Practical', 'LinkedIn'].map(t => h('th', { text: t }))),
                 ...apps.map(a => h('tr', {},
                     h('td', { text: a.id }), h('td', { text: a.name }),
                     h('td', { text: new Date(a.appliedAt).toLocaleDateString() }),
                     h('td', {}, h('span', { class: `chip ${a.cvStatus === 'failed' ? 'failed' : 'done'}`, text: a.cvStatus })),
                     h('td', { class: 'muted', text: (a.cvCodes || []).join(', ') }),
                     h('td', {}, a.cvStatus === 'failed' ? '' : h('div', { class: 'row', style: 'margin:0' },
-                        viewBtn(a.id, 'text', 'Kept'), viewBtn(a.id, 'full', 'Full'), viewBtn(a.id, 'record', 'Record'))))));
+                        viewBtn(a.id, 'text', 'Kept'), viewBtn(a.id, 'full', 'Full'), viewBtn(a.id, 'record', 'Record'))),
+                    h('td', {}, a.hasPractical ? viewBtn(a.id, 'practical', 'View') : h('span', { class: 'muted', text: 'missing' })),
+                    h('td', {}, a.hasLinkedinPdf ? h('a', { href: `/api/admin/applicants/${a.id}/linkedin`, target: '_blank', rel: 'noopener', text: 'PDF' })
+                        : h('span', { class: 'muted', text: '—' })))));
             if (!apps.length) $('applicants').append(h('tr', {}, h('td', { class: 'muted', text: 'No applications for this role yet.' })));
         }
 

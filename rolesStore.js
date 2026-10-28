@@ -1,7 +1,9 @@
 // Job roles (one per position being hired). Stored in data/roles.json; each role's agent
-// results live in data/roles/<id>/ (job.json, remi.json, jules.json, progress.json).
+// results live in data/roles/<id>/ (job.json, remi.json, jules.json, committee.json, report.md,
+// trace.jsonl, feed.json, progress.json).
 import fs from 'node:fs';
 import path from 'node:path';
+import { cleanLogistics } from './practical.js';
 
 const DATA_DIR = path.resolve('data');
 const ROLES_FILE = path.join(DATA_DIR, 'roles.json');
@@ -9,7 +11,7 @@ export const SECTION_TYPES = ['summary', 'experience', 'education', 'skills', 'l
     'training', 'projects', 'awards', 'publications', 'volunteering', 'interests', 'references',
     'personal', 'declaration', 'unknown'];
 export const CRITERION_TYPES = ['skill', 'language', 'years', 'degree', 'certification', 'other'];
-export const AGENTS = ['clara', 'oscar', 'remi', 'jules'];
+export const AGENTS = ['clara', 'oscar', 'remi', 'jules', 'committee'];
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let roles = [];
@@ -44,6 +46,9 @@ export const roleDir = id => {
 export const listRoles = () => roles;
 export const getRole = id => roles.find(r => r.id === id) || null;
 
+// roles created before practical requirements existed
+for (const r of roles) r.logistics ||= cleanLogistics({});
+
 export function createRole(title) {
     const n = roles.reduce((m, r) => Math.max(m, Number(r.id.slice(1)) || 0), 0) + 1;
     const role = {
@@ -57,6 +62,8 @@ export function createRole(title) {
         claraProposal: null,
         // Oscar keep/drop per section for this role (anything not listed keeps the default)
         rules: { sections: { interests: 'drop', references: 'drop', declaration: 'drop' } },
+        // practical requirements for Nina (budget, client country, languages ...): see practical.js
+        logistics: cleanLogistics({}),
         agents: {},
     };
     roles.push(role);

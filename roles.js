@@ -2,7 +2,7 @@
 //   GET    /api/roles                          (public) open roles, for the application form
 //   GET    /api/admin/roles                    (admin)  all roles, with applicant counts and agent states
 //   POST   /api/admin/roles                    (admin)  { title } -> new role
-//   PATCH  /api/admin/roles/:id                (admin)  { title, status, adText, mustText, niceText, job, rules }
+//   PATCH  /api/admin/roles/:id                (admin)  { title, status, adText, mustText, niceText, job, rules, logistics }
 //   POST   /api/admin/roles/:id/clara          (admin)  CLARA proposes criteria (admin reviews, then PATCHes job)
 //   POST   /api/admin/roles/:id/oscar          (admin)  re-process this role's CVs with its keep/drop settings
 //   POST   /api/admin/roles/:id/remi           (admin)  { llmGate } must-have gate + top 20
@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runPython } from './pyRunner.js';
 import { RUNS_DIR } from './cvRunner.js';
+import { cleanLogistics, publicRoleInfo } from './practical.js';
 import { applicantsForRole, reprocessRole } from './apply.js';
 import {
     listRoles, getRole, createRole, saveRoles, roleDir, cleanJob, cleanRules,
@@ -77,7 +78,7 @@ export function roleRoutes({ requireAuth }) {
     const json = express.json({ limit: '300kb' });          // job ads can be long
 
     router.get('/api/roles', (req, res) => {
-        res.json(listRoles().filter(r => r.status === 'open').map(r => ({ id: r.id, title: r.title })));
+        res.json(listRoles().filter(r => r.status === 'open').map(publicRoleInfo));
     });
 
     router.get('/api/admin/roles', requireAuth, (req, res) => res.json(listRoles().map(summary)));
@@ -112,6 +113,7 @@ export function roleRoutes({ requireAuth }) {
             role.jobUpdatedAt = new Date().toISOString();
         }
         if (b.rules !== undefined) role.rules = cleanRules(b.rules);
+        if (b.logistics !== undefined) role.logistics = cleanLogistics(b.logistics);
         saveRoles();
         res.json(summary(role));
     });

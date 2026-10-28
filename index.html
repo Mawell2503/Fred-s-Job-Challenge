@@ -23,6 +23,7 @@
         }
 
         * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
 
         body {
             margin: 0;
@@ -88,7 +89,7 @@
         .row > .half { flex: 0 1 calc(50% - 8px); }
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field > label:not(.sr-only) { font-size: 14px; font-weight: 500; }
-        input[type=text], input[type=url], input[type=password], select {
+        input[type=text], input[type=url], input[type=password], input[type=number], input[type=date], select {
             height: 48px; padding: 0 14px; width: 100%;
             background: var(--field); border: 1px solid var(--line); border-radius: 8px;
             font: inherit; font-size: 15px; color: var(--ink);
@@ -163,6 +164,26 @@
 
         .accent-bar { height: 8px; background: var(--accent); }
 
+        /* ---------- LinkedIn PDF (optional) ---------- */
+        .li-upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: -4px; }
+        .li-upload .btn { min-height: 40px; font-size: 14px; }
+        .li-upload .zone-hint { flex: 1 1 220px; }
+        #li-name { font-size: 14px; font-weight: 600; }
+
+        /* ---------- practical details ---------- */
+        .practical { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        .practical h2 { margin: 0; font-size: 18px; }
+        .practical .lead { text-align: left; margin: -10px 0 0; font-size: 14px; }
+        .money { display: flex; gap: 8px; align-items: center; }
+        .money input { flex: 1; }
+        .money select { flex: 0 0 130px; }
+        .money .cur { font-weight: 600; color: var(--muted); min-width: 36px; }
+        .lang-row { display: flex; gap: 8px; align-items: center; }
+        .lang-row input { flex: 1; }
+        .lang-row select { flex: 0 0 150px; }
+        .lang-row .btn { min-height: 44px; padding: 0 14px; }
+        .opt { font-weight: 400; color: var(--muted); }
+
         @media (max-width: 600px) {
             .site-header { padding: 16px 20px; }
             h1 { font-size: 32px; }
@@ -210,6 +231,16 @@
                     </div>
                 </div>
 
+                <!-- optional LinkedIn profile PDF (for Helene in the committee) -->
+                <div class="li-upload">
+                    <input id="li-input" class="sr-only" type="file" accept=".pdf,application/pdf"
+                        aria-label="Upload your LinkedIn profile PDF (optional)">
+                    <label for="li-input" class="btn btn-light" id="li-label">Upload your LinkedIn profile PDF</label>
+                    <span id="li-name" hidden></span>
+                    <button type="button" class="btn chip-btn plain" id="li-remove" hidden>Remove</button>
+                    <span class="zone-hint">Optional. On your LinkedIn profile: <b>Resources → Save to PDF</b>.</span>
+                </div>
+
                 <!-- the real file input stays in the page (keyboard + screen readers), visually hidden -->
                 <input id="cv-input" class="sr-only" type="file" accept=".pdf,.docx,.txt"
                     aria-label="Upload your CV (PDF, DOCX or TXT, up to 5 MB)">
@@ -250,6 +281,90 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- practical details: required, read only after the shortlist (by Nina) -->
+                <fieldset class="practical" id="practical">
+                    <h2>Practical details</h2>
+                    <p class="lead">Required. These are only used once you are on the shortlist, to check the job works for you in practice.</p>
+                    <div class="row">
+                        <div class="field">
+                            <label for="p-salary">Salary expectation</label>
+                            <div class="money">
+                                <input id="p-salary" type="number" min="1" step="1" inputmode="numeric" required>
+                                <span class="cur" id="p-currency">EUR</span>
+                                <select id="p-period" aria-label="Per month or per year">
+                                    <option value="month">per month</option>
+                                    <option value="year">per year</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="p-start">Earliest start date</label>
+                            <input id="p-start" type="date" required>
+                        </div>
+                        <div class="field">
+                            <label for="p-notice">Notice period in weeks <span class="opt">(optional)</span></label>
+                            <input id="p-notice" type="number" min="0" max="52" step="1">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="p-country">Country you live in</label>
+                            <input id="p-country" type="text" maxlength="60" autocomplete="country-name" required>
+                        </div>
+                        <div class="field">
+                            <label for="p-city">City <span class="opt">(optional)</span></label>
+                            <input id="p-city" type="text" maxlength="60" autocomplete="address-level2">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="p-relocate">Willing to relocate?</label>
+                            <select id="p-relocate" required>
+                                <option value="">Choose…</option>
+                                <option value="yes">Yes</option>
+                                <option value="open">Open to it</option>
+                                <option value="no">No</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="p-travel">Willing to travel?</label>
+                            <select id="p-travel" required>
+                                <option value="">Choose…</option>
+                                <option value="none">No travel</option>
+                                <option value="occasional">Occasionally</option>
+                                <option value="frequent">Frequently</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="p-arrangement">Preferred way of working</label>
+                            <select id="p-arrangement" required>
+                                <option value="">Choose…</option>
+                                <option value="onsite">On-site</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="remote">Remote</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="p-auth" id="p-auth-label">Right to work in the country of this position?</label>
+                            <select id="p-auth" required>
+                                <option value="">Choose…</option>
+                                <option value="yes">Yes</option>
+                                <option value="sponsorship">I would need sponsorship</option>
+                                <option value="no">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <span style="font-size:14px;font-weight:500" id="langs-label">Languages you speak</span>
+                        <div id="langs" role="group" aria-labelledby="langs-label" style="display:flex;flex-direction:column;gap:8px"></div>
+                        <div><button type="button" class="btn btn-light" id="add-lang" style="min-height:40px;font-size:14px">+ Add a language</button></div>
+                    </div>
+                </fieldset>
 
                 <p id="apply-msg" class="form-msg" role="status" aria-live="polite"></p>
                 <div class="actions">
@@ -335,14 +450,98 @@
         if (location.hash === '#admin') show('admin', { push: false });
 
         // ---------------- open positions for the role picker ----------------
+        const roleSelect = document.getElementById('role-select');
+        let openRoles = [];
         (async () => {
-            const select = document.getElementById('role-select');
             try {
-                const roles = await (await fetch('/api/roles')).json();
-                select.replaceChildren(new Option(roles.length ? "Position you're applying for" : 'No open positions right now', ''));
-                for (const r of roles) select.add(new Option(r.title, r.id));
-            } catch { select.replaceChildren(new Option('Could not load positions', '')); }
+                openRoles = await (await fetch('/api/roles')).json();
+                roleSelect.replaceChildren(new Option(openRoles.length ? "Position you're applying for" : 'No open positions right now', ''));
+                for (const r of openRoles) roleSelect.add(new Option(r.title, r.id));
+            } catch { roleSelect.replaceChildren(new Option('Could not load positions', '')); }
         })();
+
+        // the salary currency and the "right to work in ..." question follow the chosen position
+        function syncRoleDetails() {
+            const r = openRoles.find(x => x.id === roleSelect.value);
+            document.getElementById('p-currency').textContent = r?.currency || 'EUR';
+            document.getElementById('p-auth-label').textContent = r?.work_country
+                ? `Right to work in ${r.work_country}?` : 'Right to work in the country of this position?';
+        }
+        roleSelect.addEventListener('change', syncRoleDetails);
+
+        // ---------------- languages (repeatable rows) ----------------
+        const LEVELS = [['A1', 'A1 - Beginner'], ['A2', 'A2 - Elementary'], ['B1', 'B1 - Intermediate'],
+            ['B2', 'B2 - Upper intermediate'], ['C1', 'C1 - Advanced'], ['C2', 'C2 - Proficient'], ['native', 'Native']];
+        const langs = document.getElementById('langs');
+        function addLangRow() {
+            if (langs.children.length >= 8) return;
+            const row = document.createElement('div');
+            row.className = 'lang-row';
+            const name = Object.assign(document.createElement('input'), { type: 'text', maxLength: 40, placeholder: 'Language, e.g. French' });
+            name.setAttribute('aria-label', 'Language');
+            const level = document.createElement('select');
+            level.setAttribute('aria-label', 'Level');
+            level.add(new Option('Level…', ''));
+            for (const [v, t] of LEVELS) level.add(new Option(t, v));
+            const remove = Object.assign(document.createElement('button'), { type: 'button', className: 'btn btn-light', textContent: '×' });
+            remove.setAttribute('aria-label', 'Remove this language');
+            remove.addEventListener('click', () => { row.remove(); if (!langs.children.length) addLangRow(); });
+            row.append(name, level, remove);
+            langs.append(row);
+        }
+        function resetLangs() { langs.replaceChildren(); addLangRow(); }
+        document.getElementById('add-lang').addEventListener('click', addLangRow);
+        resetLangs();
+
+        // ---------------- LinkedIn PDF (optional) ----------------
+        const liInput = document.getElementById('li-input');
+        let liFile = null;
+        function showLinkedin() {
+            document.getElementById('li-name').hidden = !liFile;
+            document.getElementById('li-remove').hidden = !liFile;
+            document.getElementById('li-name').textContent = liFile ? `${liFile.name} · ${sizeLabel(liFile.size)}` : '';
+            document.getElementById('li-label').textContent = liFile ? 'Replace' : 'Upload your LinkedIn profile PDF';
+        }
+        liInput.addEventListener('change', () => {
+            const f = liInput.files[0];
+            liInput.value = '';
+            if (!f) return;
+            if (!/\.pdf$/i.test(f.name)) return say('The LinkedIn profile must be the PDF from LinkedIn (Resources → Save to PDF).', 'error');
+            if (f.size > MAX_BYTES) return say('The LinkedIn PDF is larger than 5 MB.', 'error');
+            liFile = f;
+            say('');
+            showLinkedin();
+        });
+        document.getElementById('li-remove').addEventListener('click', () => { liFile = null; showLinkedin(); });
+
+        /** The practical answers, or a message saying what is missing. */
+        function readPractical() {
+            const v = id => document.getElementById(id).value.trim();
+            const languages = [...langs.children].map(row => ({
+                language: row.querySelector('input').value.trim(), level: row.querySelector('select').value,
+            })).filter(l => l.language || l.level);
+            if (!(Number(v('p-salary')) > 0)) return { error: 'Enter your salary expectation.' };
+            if (!v('p-start')) return { error: 'Enter the earliest date you could start.' };
+            if (!v('p-country')) return { error: 'Enter the country you live in.' };
+            for (const [id, what] of [['p-relocate', 'whether you would relocate'], ['p-travel', 'how much you can travel'],
+                ['p-arrangement', 'your preferred way of working'], ['p-auth', 'whether you have the right to work there']]) {
+                if (!v(id)) return { error: `Choose ${what}.` };
+            }
+            if (!languages.length) return { error: 'Add at least one language you speak, with your level.' };
+            const half = languages.find(l => !l.language || !l.level);
+            if (half) return { error: 'Give each language a name and a level.' };
+            return {
+                value: {
+                    salary: { amount: Number(v('p-salary')), period: v('p-period') },
+                    available_from: v('p-start'),
+                    notice_weeks: v('p-notice') === '' ? null : Number(v('p-notice')),
+                    location: { country: v('p-country'), city: v('p-city') },
+                    relocate: v('p-relocate'), travel: v('p-travel'), arrangement: v('p-arrangement'),
+                    work_authorization: v('p-auth'),
+                    languages,
+                },
+            };
+        }
 
         // ---------------- CV: drag & drop, browse, preview ----------------
         const MAX_BYTES = 5 * 1024 * 1024;
@@ -500,12 +699,16 @@
             e.preventDefault();
             if (!applyForm.reportValidity()) return;
             if (!cvFile) return say('Add your CV before submitting.', 'error');
+            const practical = readPractical();
+            if (practical.error) return say(practical.error, 'error');
 
             const body = new FormData();
-            body.append('roleId', document.getElementById('role-select').value);
+            body.append('roleId', roleSelect.value);
             body.append('name', document.getElementById('f-name').value.trim());
             body.append('linkedinUrl', document.getElementById('f-linkedin').value.trim());
+            body.append('practical', JSON.stringify(practical.value));
             body.append('resume', cvFile, cvFile.name);
+            if (liFile) body.append('linkedin', liFile, liFile.name);
 
             submitBtn.disabled = true;
             say('Sending…');
@@ -515,6 +718,10 @@
                 if (!res.ok) return say(data.error || 'Upload failed.', 'error');
                 applyForm.reset();
                 clearFile();
+                liFile = null;
+                showLinkedin();
+                resetLangs();
+                syncRoleDetails();
                 say('Application received. Thank you!', 'ok');
             } catch {
                 say('Could not reach the server.', 'error');
