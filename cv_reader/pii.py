@@ -322,6 +322,16 @@ def split_pii(blocks: list[Block], aux_text: list[str]) -> tuple[dict, Counter]:
         for entry in b.entries:
             _process_entry(entry, b.type, store)
 
+    # Referees are other people: strip their contact details too, but into a throwaway
+    # store, so they are never mistaken for the candidate's own email/phone.
+    referees = _Store()
+    for b in blocks:
+        if b.type == "references":
+            for entry in b.entries:
+                _process_entry(entry, b.type, referees)
+    if referees.removed:
+        store.removed["referee_contact"] += sum(referees.removed.values())
+
     for a in aux_text:
         a = a.strip()
         if a.lower().startswith("mailto:"):
@@ -337,7 +347,7 @@ def split_pii(blocks: list[Block], aux_text: list[str]) -> tuple[dict, Counter]:
     if store.name:
         pat = re.compile(r"\b" + r"\s+".join(re.escape(t)
                          for t in store.name.split()) + r"\b", re.I)
-        for b in scan:
+        for b in blocks:
             for ln in b.lines:
                 if ln.text and pat.search(ln.text):
                     ln.text = pat.sub(NAME_PLACEHOLDER, ln.text)

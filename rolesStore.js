@@ -15,17 +15,24 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 let roles = [];
 try { roles = JSON.parse(fs.readFileSync(ROLES_FILE, 'utf8')); } catch { /* first run */ }
 
-// A job that was running when the server stopped will never finish: say so.
-for (const r of roles) {
-    for (const a of Object.values(r.agents || {})) {
-        if (a.state === 'running') Object.assign(a, { state: 'failed', message: 'The server restarted while this was running.' });
-    }
-}
-
 export function saveRoles() {
     const tmp = `${ROLES_FILE}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(roles, null, 2), { mode: 0o600 });
     fs.renameSync(tmp, ROLES_FILE);
+}
+
+// A job that was running when the server stopped will never finish: say so, on disk too.
+{
+    let changed = false;
+    for (const r of roles) {
+        for (const a of Object.values(r.agents || {})) {
+            if (a.state !== 'running') continue;
+            Object.assign(a, { state: 'failed', message: 'The server restarted while this was running.',
+                finishedAt: new Date().toISOString() });
+            changed = true;
+        }
+    }
+    if (changed) saveRoles();
 }
 
 export const roleDir = id => {

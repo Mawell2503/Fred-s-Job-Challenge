@@ -107,6 +107,8 @@ export async function checkLogin(rawUser, password) {
     return record && ok ? record : null;
 }
 
+export const userCount = () => users.length;
+
 export function listUsers() {
     return users.map(({ id, createdAt, user }) => ({ id, createdAt, user }));
 }

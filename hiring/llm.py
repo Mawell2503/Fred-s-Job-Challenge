@@ -36,8 +36,15 @@ def backend() -> str:
     return os.environ.get("LLM_BACKEND", "claude_cli").strip().lower()
 
 
+def env_number(name: str, default: float) -> float:
+    """A number from the environment. Tolerates trailing comments or text
+    ("300  # seconds") and falls back to `default` when there is no number."""
+    m = re.match(r"\s*(\d+(?:\.\d+)?)", os.environ.get(name, ""))
+    return float(m.group(1)) if m else default
+
+
 def _timeout() -> int:
-    return int(os.environ.get("LLM_TIMEOUT", "300"))
+    return max(1, int(env_number("LLM_TIMEOUT", 300)))
 
 
 def _extract_json(text: str):
@@ -154,4 +161,4 @@ def complete_json(system: str, prompt: str, schema: dict, retries: int = 1) -> d
     raise last
 
 
-__all__ = ["complete_json", "LLMError", "backend"]
+__all__ = ["complete_json", "LLMError", "backend", "env_number"]

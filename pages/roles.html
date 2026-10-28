@@ -538,7 +538,18 @@
             pollTimer = setTimeout(async () => {
                 if (!current) return;
                 const wasRunning = Object.entries(current.agents || {}).filter(([, a]) => a.state === 'running').map(([k]) => k);
-                results = await api('GET', `/api/admin/roles/${current.id}/results`);
+                const id = current.id;
+                let fresh;
+                try {
+                    fresh = await api('GET', `/api/admin/roles/${id}/results`);
+                } catch (err) {
+                    // a dropped request (server restarting, wifi blip) must not stop the live updates
+                    console.warn('poll failed, retrying:', err.message);
+                    if (current?.id === id) poll();
+                    return;
+                }
+                if (current?.id !== id) return;      // the admin switched roles meanwhile
+                results = fresh;
                 current = results.role;
                 // a finished Clara run brings a new proposal; a finished Oscar run changes applicants
                 if (wasRunning.includes('clara') && current.agents.clara?.state !== 'running') renderJob();

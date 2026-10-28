@@ -33,6 +33,19 @@ const upload = multer({
 let applicants = [];
 try { applicants = JSON.parse(fs.readFileSync(APPLICANTS_FILE, 'utf8')); } catch { /* first run */ }
 
+/** sha256 of a file's bytes: the same CV sent twice has the same fingerprint. */
+const fileHash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+
+// Applicants saved before fingerprints existed get one now (once).
+{
+    let added = false;
+    for (const a of applicants) {
+        if (a.cvSha256) continue;
+        try { a.cvSha256 = fileHash(path.join(UPLOAD_DIR, a.cvFile)); added = true; } catch { /* upload gone */ }
+    }
+    if (added) saveApplicants();
+}
+
 function saveApplicants() {
     const tmp = `${APPLICANTS_FILE}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(applicants, null, 2), { mode: 0o600 });
@@ -97,24 +110,33 @@ export function applyRoutes({ requireAuth }) {
             if (instagramUrl === null || linkedinUrl === null) return refuse('Links must start with http:// or https://');
             if (!file) return refuse('Choose a CV file (PDF, DOCX or TXT).');
 
+            const sha = fileHash(file.path);
             const result = await inQueue(async () => {
+                // checked inside the queue so two identical uploads at once can't both get in
+                if (applicants.some(a => a.roleId === role.id && a.cvSha256 === sha)) return { duplicate: true };
                 const number = applicants.reduce((m, a) => Math.max(m, a.number), 0) + 1;
                 const r = await runCvReader(file.path, number, role.rules);
                 applicants.push({
                     number, candidateId: r.candidateId, roleId: role.id, name, instagramUrl, linkedinUrl,
                     appliedAt: new Date().toISOString(),
                     cvStatus: r.status, cvCodes: r.codes,
-                    cvFile: path.basename(file.path),
+                    cvFile: path.basename(file.path), cvSha256: sha,
                 });
                 saveApplicants();
                 return r;
             });
 
+            if (result.duplicate) {
+                fs.rmSync(file.path, { force: true });
+                return res.status(409).json({ error: 'We already have this CV for this position. No need to send it again.' });
+            }
             if (result.status === 'failed') {
                 return res.status(422).json({ error: 'We could not read that file. Please upload a text-based PDF, a DOCX or a TXT.' });
             }
             res.status(201).json({ received: true });
         } catch (err) {
+            // nothing was recorded for this upload, so don't keep the file
+            if (file && !applicants.some(a => a.cvFile === path.basename(file.path))) fs.rmSync(file.path, { force: true });
             next(err);
         }
     });

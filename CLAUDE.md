@@ -52,7 +52,12 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   `cleanRules`, `cleanCriterion`).
 - `apply.js` — multipart upload (multer, 5 MB, pdf/docx/txt only) → `runCvReader` → appends to
   `data/applicants.json`. A single `Promise` chain (`queue`/`inQueue`) serializes all CV processing
-  (one Python subprocess at a time) so candidate numbering stays safe.
+  (one Python subprocess at a time) so candidate numbering stays safe. Each applicant stores
+  `cvSha256`; the same file for the same role is refused with 409 (checked inside the queue).
+- Sign-up (`index.js`) is closed by default: only allowed while no admin exists, or with
+  `ALLOW_SIGNUP=true`. Other admins are created with `npm run create-admin`.
+- `env.js` — tiny `.env` parser (`parseEnv`): `#` after whitespace starts a comment unless the value
+  is quoted. Python reads numeric settings through `hiring.llm.env_number`, which tolerates the same.
 - `cvRunner.js` — runs `python -m cv_reader` on one file, assigns it `C####`, and reads back
   `batch_summary.json` + the cleaned text from `data/runs/<candidateId>/`.
 - `roles.js` — per-role agent endpoints (`clara`/`oscar`/`remi`/`jules`). Each agent runs in the
@@ -86,8 +91,8 @@ Seven stages, each file owning one (see `cv_reader/pipeline.py` for the full map
 `vocab/synonyms.yaml` standardizes vocabulary (e.g. "ReactJS" / "dev front" → one skill) — safe to
 edit freely, no code changes needed. Each CV is processed independently: one bad file is reported in
 its own result and never aborts the batch. Outputs per candidate under `data/runs/<id>/`: cleaned
-text (kept sections only), full text (all sections, PII removed — what Jules reads), structured
-record JSON.
+text (kept sections only), full text (all sections except references, PII removed — what Jules
+reads), structured record JSON.
 
 ### Hiring pipeline (`hiring/`) — Clara, Remi, Jules
 
@@ -126,6 +131,9 @@ poll and show a live progress indicator while an agent runs in the background.
   `pages/roles.html`, and all `/api/admin/*` routes — requires a logged-in admin session.
 - **Personal info never reaches the LLM-facing text.** `pii.py` strips it out during Oscar's segment
   stage into a separate record; Jules and Remi only ever see the de-identified text/record.
+  Referees' contact details are stripped too (into a throwaway store, never the candidate's record),
+  and the `references` section is always left out of the full text (`FULL_TEXT_DROP` in
+  `pipeline.py`), whatever the role's keep/drop settings.
 - **One agent per role at a time** (`startAgent` in `roles.js`): starting Remi while Clara/Oscar/Jules
   is running for the same role returns 409. Agents run as detached background work; the client polls
   `GET /api/admin/roles/:id/results`.

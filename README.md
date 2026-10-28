@@ -59,9 +59,11 @@ To use an API key or a local Ollama model instead, change `LLM_BACKEND` in `.env
 
 Admins are stored in `data/users.json` (git-ignored) with scrypt-hashed passwords. Sessions live in `data/sessions.json`.
 
-- **From the page:** open the site, click "ADMIN LogIn", and use "Sign up". Usernames are 3-32 chars (letters, numbers, `.`, `-`, `_`, case-insensitive); passwords are 8+ chars.
-- **From the terminal:** `npm run create-admin -- <username> <password>` (and `npm run create-admin -- --list`).
-- **Lock sign-up down:** start with `ALLOW_SIGNUP=false` so only the CLI can create admins.
+- **First admin, from the page:** on a fresh install, click "Admin login" and use "Sign up". After that first account exists, sign-up closes. Usernames are 3-32 chars (letters, numbers, `.`, `-`, `_`, case-insensitive); passwords are 8+ chars.
+- **More admins, from the terminal:** `npm run create-admin -- <username> <password>` (and `npm run create-admin -- --list`).
+- **Leave sign-up open** (e.g. while developing): `ALLOW_SIGNUP=true` in `.env`.
+
+The same CV file sent twice for the same position is refused (409); it is recognised by a fingerprint of its content.
 
 ### API
 

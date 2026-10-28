@@ -68,11 +68,18 @@ class BatchResult:
         }
 
 
+# Never in the full text, whatever the role's settings: references name OTHER people
+# (referees), and that text is sent to the LLM.
+FULL_TEXT_DROP = {"references"}
+
+
 def mechanical_engine(rules: dict) -> RuleEngine:
     """Same clean-up as `rules` (page numbers, footers, decorative lines ...) but keeps
-    EVERY section. Used for the full text that Jules reads and citations are checked on."""
+    every section except FULL_TEXT_DROP. Used for the full text that Jules reads and
+    citations are checked on."""
     r = dict(rules)
-    r.update(default_section_action="keep", sections={t: "keep" for t in KNOWN_SECTION_TYPES},
+    r.update(default_section_action="keep",
+             sections={t: ("drop" if t in FULL_TEXT_DROP else "keep") for t in KNOWN_SECTION_TYPES},
              drop_headings=[], drop_blocks_containing=[], min_block_chars=0)
     return RuleEngine(r)
 

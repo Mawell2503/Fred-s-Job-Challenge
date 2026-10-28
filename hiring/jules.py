@@ -1,7 +1,7 @@
 """JULES - reads the 20 shortlisted CVs in full and picks the 5 finalists.
 
 For each of Remi's 20:
-  1. The LLM reads the FULL CV (personal details removed, no section dropped) against
+  1. The LLM reads the FULL CV (personal details and referees removed, no other section dropped) against
      every Clara criterion, one by one: met / not_met / not_mentioned, with word-for-word
      CV quotes as proof and a one-line reason.
   2. citation_checker verifies every quote BEFORE scoring. A "met" with no verified quote
@@ -13,14 +13,13 @@ CV quotes side by side. Names are re-attached from Oscar's personal-details file
 """
 from __future__ import annotations
 
-import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from .citation_checker import quote_exists
 from .criteria import all_criteria
-from .llm import complete_json
+from .llm import complete_json, env_number
 
 MET, NOT_MET, NOT_MENTIONED, UNVERIFIED = "met", "not_met", "not_mentioned", "unverified"
 
@@ -118,7 +117,7 @@ def run(job: dict, remi_out: dict, load, personal=None, top: int = 5, progress=N
     shortlist = remi_out.get("shortlist", [])
     remi_score = {s["candidate_id"]: s.get("score", 0) for s in shortlist}
     must_weight = float(job.get("jules_must_weight", 1))
-    workers = max(1, int(os.environ.get("JULES_WORKERS", "3")))
+    workers = max(1, int(env_number("JULES_WORKERS", 3)))
     cands = [c for c in (load(s["candidate_id"]) for s in shortlist) if c]
 
     done, lock = [0], threading.Lock()

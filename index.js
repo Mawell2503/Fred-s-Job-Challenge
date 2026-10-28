@@ -11,15 +11,19 @@ import {
     createSession,
     getSessionUser,
     destroySession,
+    userCount,
 } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === 'production';
-// Open sign-up is handy while developing. Set ALLOW_SIGNUP=false to lock it down
-// (then create admins with `npm run create-admin`).
-const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP !== 'false';
+// Sign-up is closed by default: every admin can read every CV and contact detail.
+// The first admin can always sign up (nothing to protect yet); after that, create admins
+// with `npm run create-admin`, or set ALLOW_SIGNUP=true to leave the form open.
+const ALLOW_SIGNUP = process.env.ALLOW_SIGNUP === 'true';
+const signupOpen = () => ALLOW_SIGNUP || userCount() === 0;
+let signupBusy = false;
 const COOKIE = 'sid';
 
 app.disable('x-powered-by');
@@ -77,8 +81,14 @@ function requireAuth(req, res, next) {
 // ---------- auth API ----------
 // Sign up: validate, store a hashed password, and log the new admin straight in
 app.post('/api/admin/signup', async (req, res) => {
-    if (!ALLOW_SIGNUP) return res.status(403).json({ error: 'Sign-up is disabled.' });
-    const result = await createUser(req.body?.user, req.body?.password);
+    // one sign-up at a time, so two "first admin" requests can't both slip through
+    if (!signupOpen()) {
+        return res.status(403).json({ error: 'Sign-up is closed. Ask an existing admin to create your account.' });
+    }
+    if (signupBusy) return res.status(429).json({ error: 'Another sign-up is in progress. Try again in a moment.' });
+    signupBusy = true;
+    let result;
+    try { result = await createUser(req.body?.user, req.body?.password); } finally { signupBusy = false; }
     if (result.error) return res.status(result.status).json({ error: result.error });
     setSessionCookie(res, createSession(result.user));
     res.status(201).json({ user: result.user.user });
@@ -124,5 +134,7 @@ app.use('/pages', requireAuth, express.static(path.join(__dirname, 'pages'), { d
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}/`);
-    console.log(`Sign-up is ${ALLOW_SIGNUP ? 'OPEN' : 'disabled'}.`);
+    console.log(ALLOW_SIGNUP ? 'Sign-up is OPEN (ALLOW_SIGNUP=true).'
+        : userCount() === 0 ? 'No admin yet: the first sign-up creates one, then sign-up closes.'
+            : 'Sign-up is closed (create admins with `npm run create-admin`).');
 });
