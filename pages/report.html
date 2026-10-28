@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Committee report</title>
+    <style>
+        :root {
+            --ink: #1b1b1f; --muted: #62626d; --line: #e2e2e8; --bg: #ffffff; --soft: #f5f5f7;
+            --accent: #2563eb; --pass: #1f7a3a; --unk: #8a5a00; --fail: #b42318;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        .bar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; padding: .8rem 1.2rem; border-bottom: 1px solid var(--line); }
+        .bar .grow { flex: 1; }
+        .btn { font: inherit; padding: .45rem .9rem; border-radius: 7px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+            cursor: pointer; text-decoration: none; }
+        .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+        h1 { font-size: 1.6rem; margin: 0 0 1rem; letter-spacing: -.01em; }
+        h2 { font-size: 1.15rem; margin: 2rem 0 .6rem; padding-top: .6rem; border-top: 2px solid var(--ink); }
+        h3 { font-size: 1rem; margin: 1.4rem 0 .4rem; }
+        h4 { font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: .8rem 0 .3rem; }
+        table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+        th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+        th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+        .head td:first-child { color: var(--muted); width: 16rem; }
+        .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .scroll { overflow-x: auto; }
+        ol.strengths { padding-left: 1.2rem; margin: 0; }
+        ol.strengths li { margin-bottom: .5rem; }
+        blockquote { margin: .2rem 0 0; padding-left: .7rem; border-left: 3px solid var(--line); color: var(--muted); font-size: .88rem; }
+        ul { margin: 0; padding-left: 1.2rem; }
+        .cand { break-inside: avoid; border: 1px solid var(--line); border-radius: 10px; padding: .2rem 1rem .8rem; margin-top: .8rem; }
+        .conf { font-weight: 700; }
+        .conf.High { color: var(--pass); } .conf.Medium { color: var(--unk); } .conf.Low { color: var(--fail); }
+        .tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: .05rem .45rem; border-radius: 99px; background: var(--soft); }
+        .up { color: var(--pass); } .down { color: var(--fail); }
+        .muted { color: var(--muted); }
+        .notes { margin-top: 2.5rem; font-size: .82rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: .8rem; }
+        .empty { text-align: center; color: var(--muted); padding: 4rem 1rem; }
+        @media print {
+            .bar { display: none; }
+            main { max-width: none; padding: 0; }
+            body { font-size: 11pt; }
+            h2 { break-after: avoid; }
+            a { color: inherit; text-decoration: none; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bar">
+        <a class="btn" href="roles.html">← Hiring pipeline</a>
+        <span class="grow"></span>
+        <a class="btn" id="md" href="#">Download Markdown</a>
+        <button class="btn primary" type="button" id="print">Print / Save as PDF</button>
+    </div>
+    <main id="out"><p class="empty">Loading…</p></main>
+
+    <script>
+        // Built without innerHTML: names, quotes and AI text are always shown as plain text.
+        function h(tag, attrs = {}, ...kids) {
+            const el = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs || {})) {
+                if (v === undefined || v === null || v === false) continue;
+                if (k === 'text') el.textContent = v; else el.setAttribute(k, v);
+            }
+            for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+                el.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+            return el;
+        }
+        const table = (head, rows, cls) => h('div', { class: 'scroll' }, h('table', { class: cls || '' },
+            head ? h('tr', {}, ...head.map(t => h('th', { text: t }))) : '', ...rows.map(r => h('tr', {}, ...r.map(c => c instanceof Node ? h('td', {}, c) : h('td', { text: c ?? '–' }))))));
+        const fmt = n => (n === null || n === undefined ? '–' : Number(n).toFixed(1).replace(/\.0$/, ''));
+
+        const role = new URLSearchParams(location.search).get('role') || '';
+        document.getElementById('md').href = `/api/admin/roles/${encodeURIComponent(role)}/report.md`;
+        document.getElementById('print').addEventListener('click', () => window.print());
+
+        function render(rep) {
+            const hd = rep.header, rec = rep.recommendation;
+            document.title = `Committee report: ${hd.assignment}`;
+            const out = [
+                h('h1', { text: `Hiring committee report: ${hd.assignment}` }),
+                table(null, [
+                    ['Assignment', `${hd.assignment} (${hd.role_id})`], ['Date', hd.date],
+                    ['Applications received', hd.applications], ['Readable CVs', hd.readable],
+                    ['Passed the must-haves (Remi)', hd.passed_must_haves], ['Read in full (Jules)', hd.read_by_jules],
+                    ['Debated by the committee', hd.debated], ['Committee', hd.members.join(', ')],
+                    ['Debate', `${hd.rounds} round(s); ${hd.stop_reason}`],
+                ], 'head'),
+
+                h('h2', { text: 'Top 5' }),
+                table(['#', 'Candidate', 'Score /10', 'Members', 'Agreement', 'Comment'], rep.top5.map(t => [
+                    String(t.rank), h('span', {}, h('b', { text: t.name }), h('div', { class: 'muted', text: t.id })),
+                    h('b', { class: 'num', text: fmt(t.score) }),
+                    Object.entries(t.scores).map(([m, s]) => `${m} ${fmt(s)}`).join(' · '),
+                    h('span', { class: 'tag', text: t.agreement }), t.comment])),
+
+                h('h2', { text: 'Candidates' }),
+                ...rep.candidates.map(c => h('section', { class: 'cand' },
+                    h('h3', { text: `${c.name} (${c.id})` }),
+                    h('h4', { text: 'Strengths' }),
+                    h('ol', { class: 'strengths' }, ...c.strengths.map(s => h('li', {}, s.point,
+                        h('blockquote', { text: `“${s.quote}” (${s.source === 'cv' ? 'CV' : 'practical answers'})` })))),
+                    h('h4', { text: 'Areas for improvement' }), h('ul', {}, ...c.improvements.map(x => h('li', { text: x }))),
+                    h('h4', { text: "What's missing" }),
+                    h('ul', {}, ...(c.missing.length ? c.missing : ['Nothing noted.']).map(x => h('li', { text: x }))))),
+
+                h('h2', { text: 'Unresolved disagreements' }),
+                rep.disagreements.length ? h('ul', {}, ...rep.disagreements.map(d => h('li', {}, h('b', { text: d.name }),
+                    ` (${Object.entries(d.scores).map(([m, s]) => `${m} ${fmt(s)}`).join(', ')}): `, d.summary)))
+                    : h('p', { text: 'None: the committee settled every candidate near the top.' }),
+
+                h('h2', { text: 'Recommendation' }),
+                h('p', {}, 'Confidence: ', h('span', { class: `conf ${rec.confidence}`, text: rec.confidence }),
+                    h('span', { class: 'muted', text: ` (${rec.reasons.join('; ')})` })),
+                h('p', { text: rec.text }),
+
+                h('h2', { text: 'Questions to ask in the interview' }),
+                ...rep.interview_questions.map(q => h('div', {}, h('h3', { text: `${q.name} (${q.id})` }),
+                    h('ul', {}, ...q.questions.map(x => h('li', { text: x }))))),
+
+                h('h2', { text: 'Appendix: positions before and after the debate' }),
+                table(['Candidate', 'Member', 'Before', 'After', 'Moved', 'Why'], rep.appendix.flatMap(a => a.rows.map(x => {
+                    const d = x.after - x.before;
+                    return [`${a.name} (#${a.final_rank})`, x.member, `${fmt(x.before)} (${x.verdict_before})`,
+                        `${fmt(x.after)} (${x.verdict_after})`,
+                        h('span', { class: d > 0 ? 'up num' : d < 0 ? 'down num' : 'num', text: d ? (d > 0 ? '+' : '') + fmt(d) : '=' }),
+                        x.because];
+                }))),
+
+                h('div', { class: 'notes' },
+                    h('p', { text: `${hd.ai_calls} AI call(s), ${hd.reprompts} re-prompt(s). Scores, ranking, confidence and disagreements are ` +
+                        'computed by plain code; Gaston only writes. Every quoted strength was checked word for word against the ' +
+                        "candidate's CV or practical answers." }),
+                    Object.keys(rep.notes.skipped).length ? h('p', { text: 'Not launched: ' + Object.entries(rep.notes.skipped).map(([m, w]) => `${m}: ${w}`).join('; ') }) : '',
+                    rep.notes.filled_by_code.length ? h('p', { text: "Completed from the members' own verified arguments: " + rep.notes.filled_by_code.join(', ') + '.' }) : ''),
+            ];
+            document.getElementById('out').replaceChildren(...out);
+        }
+
+        (async () => {
+            const out = document.getElementById('out');
+            try {
+                const res = await fetch(`/api/admin/roles/${encodeURIComponent(role)}/results`);
+                if (res.status === 401) { location.href = '/#admin'; return; }
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not load the report.');
+                if (!data.committee?.report) throw new Error('No report yet for this role: run the pipeline first.');
+                render(data.committee.report);
+            } catch (err) {
+                out.replaceChildren(h('p', { class: 'empty', text: err.message }));
+            }
+        })();
+    </script>
+</body>
+
+</html>

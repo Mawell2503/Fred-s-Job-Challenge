@@ -49,8 +49,8 @@
         .muted { color: var(--muted); font-size: .88rem; }
         .status { font-size: .88rem; margin: .5rem 0 0; min-height: 1.3em; }
         .status.err { color: var(--fail); }
-        .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
-        @media (max-width: 700px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+        .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5rem; }
+        @media (max-width: 860px) { .steps { grid-template-columns: repeat(2, 1fr); } }
         .step { border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem; background: var(--card); }
         .step b { display: block; font-size: .9rem; }
         .step span { font-size: .8rem; color: var(--muted); }
@@ -83,6 +83,18 @@
         dialog pre { margin: 0; padding: 1rem; white-space: pre-wrap; font-size: .85rem; overflow: auto; max-height: 72vh; }
         .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); }
         [hidden] { display: none !important; }
+        .run-card { border-color: var(--accent); }
+        .feed { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .35rem; max-height: 28rem; overflow: auto; }
+        .feed li { display: grid; grid-template-columns: 4.5rem 5.5rem minmax(0, 1fr); gap: .5rem; font-size: .86rem;
+            padding: .35rem .5rem; border-radius: 7px; background: var(--bg); }
+        .feed .who { font-weight: 600; }
+        .feed .r { color: var(--muted); }
+        .feed li.change { border-left: 3px solid var(--accent); }
+        .feed li.reprompt, .feed li.warning, .feed li.error { border-left: 3px solid var(--fail); }
+        .feed li.stop, .feed li.result { border-left: 3px solid var(--pass); font-weight: 600; }
+        @media (max-width: 700px) { .feed li { grid-template-columns: 1fr; gap: .1rem; } }
+        .conf { font-weight: 700; }
+        .conf.High { color: var(--pass); } .conf.Medium { color: var(--unk); } .conf.Low { color: var(--fail); }
     </style>
 </head>
 
@@ -197,35 +209,47 @@
                     <div class="row">
                         <button class="btn" id="use-suggestion">Use Clara's suggestion</button>
                         <button class="btn primary" id="save-rules">Save sections</button>
-                        <button class="btn" id="run-oscar">Re-process this role's CVs</button>
                     </div>
+                    <p class="muted" style="margin:.4rem 0 0">New CVs use the saved sections at once; CVs already received are re-read on the next pipeline run.</p>
                     <p class="status" id="oscar-status"></p>
                     <h2 style="margin-top:1rem">Applicants <small id="app-count"></small></h2>
                     <div class="scroll"><table id="applicants"></table></div>
                 </section>
 
-                <!-- REMI -->
-                <section class="card" style="margin-top:1rem">
-                    <h2>3. Remi: must-have check + top 20</h2>
+                <!-- RUN EVERYTHING AFTER CLARA -->
+                <section class="card run-card" style="margin-top:1rem">
+                    <h2>4. Run the full pipeline <small>Oscar → Remi → Jules → Committee → Gaston, in one go</small></h2>
                     <div class="row">
                         <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
                             <input type="checkbox" id="llm-gate" style="width:auto">
-                            Ask Claude to double-check "not mentioned" must-haves (slower)
+                            Ask the AI to double-check "not mentioned" must-haves in Remi (slower)
                         </label>
-                        <button class="btn primary" id="run-remi">Run Remi</button>
                     </div>
-                    <p class="status" id="remi-status"></p>
-                    <div class="progress" id="remi-progress" hidden><div></div></div>
-                    <div id="remi-out"></div>
+                    <div class="row"><button class="btn primary" id="run-pipeline">Run full pipeline</button>
+                        <span class="muted" id="pipeline-hint"></span></div>
+                    <p class="status" id="pipeline-status"></p>
+                    <div class="progress" id="pipeline-progress" hidden><div></div></div>
+                    <p class="muted" id="pipeline-label" style="margin:.3rem 0 0"></p>
+                </section>
+
+                <!-- REMI -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>5. Remi: must-have check + top 20</h2>
+                    <div id="remi-out"><p class="muted">Appears after the pipeline has run.</p></div>
                 </section>
 
                 <!-- JULES -->
                 <section class="card" style="margin-top:1rem">
-                    <h2>4. Jules: full read of the 20 + top 5</h2>
-                    <div class="row"><button class="btn primary" id="run-jules">Run Jules</button></div>
-                    <p class="status" id="jules-status"></p>
-                    <div class="progress" id="jules-progress" hidden><div></div></div>
-                    <div id="jules-out"></div>
+                    <h2>6. Jules: full read of the 20 + top 10</h2>
+                    <div id="jules-out"><p class="muted">Appears after the pipeline has run.</p></div>
+                </section>
+
+                <!-- COMMITTEE -->
+                <section class="card" style="margin-top:1rem">
+                    <h2>7. Committee: Hélène, Victor and Nina debate the top 10 <small>Gaston writes the report</small></h2>
+                    <div id="committee-out"><p class="muted">Appears after the pipeline has run.</p></div>
+                    <h2 style="margin-top:1rem">Debate <small>live while it runs</small></h2>
+                    <ol class="feed" id="feed"></ol>
                 </section>
             </div>
         </main>
@@ -310,7 +334,7 @@
             $('ad').value = current.adText || '';
             $('must').value = current.mustText || '';
             $('nice').value = current.niceText || '';
-            for (const id of ['clara-status', 'job-status', 'oscar-status', 'logistics-status']) say(id, '');
+            for (const id of ['clara-status', 'job-status', 'oscar-status', 'logistics-status', 'pipeline-status']) say(id, '');
             renderJob();
             renderLogistics();
             renderSections();
@@ -329,9 +353,10 @@
 
         function renderSteps() {
             const steps = [
-                ['clara', 'Clara', 'criteria'], ['oscar', 'Oscar', `${current.readable}/${current.applicants} CVs readable`],
+                ['clara', 'Clara', 'criteria (manual)'], ['oscar', 'Oscar', `${current.readable}/${current.applicants} CVs readable`],
                 ['remi', 'Remi', results.remi ? `${results.remi.counts.shortlisted} shortlisted` : 'top 20'],
-                ['jules', 'Jules', results.jules ? `${results.jules.counts.finalists} finalists` : 'top 5'],
+                ['jules', 'Jules', results.jules ? `${results.jules.counts.finalists} finalists` : 'top 10'],
+                ['committee', 'Committee', results.committee ? `top 5 · confidence ${results.committee.report.recommendation.confidence}` : 'top 5 + report'],
             ];
             $('steps').replaceChildren(...steps.map(([k, name, what]) => {
                 const st = current.agents?.[k]?.state;
@@ -469,15 +494,7 @@
         $('save-rules').addEventListener('click', async () => {
             try {
                 current = await api('PATCH', `/api/admin/roles/${current.id}`, { rules: editRules });
-                say('oscar-status', 'Saved. New CVs use these settings; press "Re-process" to update CVs already received.');
-            } catch (err) { say('oscar-status', err.message, true); }
-        });
-
-        $('run-oscar').addEventListener('click', async () => {
-            try {
-                await api('POST', `/api/admin/roles/${current.id}/oscar`);
-                say('oscar-status', 'Oscar is re-processing the CVs…');
-                poll();
+                say('oscar-status', 'Saved. CVs already received are re-read with these sections on the next pipeline run.');
             } catch (err) { say('oscar-status', err.message, true); }
         });
 
@@ -511,20 +528,24 @@
             if (!apps.length) $('applicants').append(h('tr', {}, h('td', { class: 'muted', text: 'No applications for this role yet.' })));
         }
 
-        // ---------------- Remi ----------------
-        $('run-remi').addEventListener('click', async () => {
+        // ---------------- the full pipeline (everything after Clara) ----------------
+        $('run-pipeline').addEventListener('click', async () => {
             try {
-                await api('POST', `/api/admin/roles/${current.id}/remi`, { llmGate: $('llm-gate').checked });
-                say('remi-status', 'Remi is comparing the candidates…');
-                poll();
-            } catch (err) { say('remi-status', err.message, true); }
+                await api('POST', `/api/admin/roles/${current.id}/pipeline`, { llmGate: $('llm-gate').checked });
+                say('pipeline-status', 'Running… you can leave this page; it keeps going on the server.');
+                results = await api('GET', `/api/admin/roles/${current.id}/results`);
+                current = results.role;
+                renderResults();
+            } catch (err) { say('pipeline-status', err.message, true); }
         });
+
+        const placeholder = () => h('p', { class: 'muted', text: 'Appears after the pipeline has run.' });
 
         const chip = (status, title, label) => h('span', { class: `chip ${status}`, title, text: label || status });
 
         function renderRemi(r) {
             const out = $('remi-out');
-            if (!r) return out.replaceChildren();
+            if (!r) return out.replaceChildren(placeholder());
             const k = r.counts;
             out.replaceChildren(
                 h('p', { class: 'muted', text: `${k.candidates} candidates · ${k.eliminated} eliminated · ${k.passed_gate} passed the must-haves · ` +
@@ -547,18 +568,9 @@
                         h('td', {}, ...e.failed.map(f => h('div', {}, chip('FAIL', '', f.id), `${f.text}: `, h('span', { class: 'muted', text: f.evidence })))))))) : '');
         }
 
-        // ---------------- Jules ----------------
-        $('run-jules').addEventListener('click', async () => {
-            try {
-                await api('POST', `/api/admin/roles/${current.id}/jules`);
-                say('jules-status', 'Jules is reading the shortlisted CVs…');
-                poll();
-            } catch (err) { say('jules-status', err.message, true); }
-        });
-
         function renderJules(j) {
             const out = $('jules-out');
-            if (!j) return out.replaceChildren();
+            if (!j) return out.replaceChildren(placeholder());
             const k = j.counts;
             out.replaceChildren(
                 h('p', { class: 'muted', text: `${k.read} CVs read · ${k.quotes_checked} quotes checked, ${k.quotes_rejected} rejected by the citation checker · ${j.scoring}` }),
@@ -581,33 +593,73 @@
                 j.others.length ? h('p', { class: 'muted', text: 'Others: ' + j.others.map(o => `#${o.rank} ${o.candidate_id} (${o.score}/${o.max_score})`).join(' · ') }) : '');
         }
 
-        // ---------------- results + polling ----------------
-        function agentStatus(name, statusId) {
-            const a = current.agents?.[name];
-            if (!a) return;
-            if (a.state === 'running') return;
-            say(statusId, a.message || (a.state === 'done' ? 'Done.' : 'Failed.'), a.state === 'failed');
+        // ---------------- committee ----------------
+        const WHO = { helene: 'Hélène', victor: 'Victor', nina: 'Nina', gaston: 'Gaston', orchestrator: 'Orchestrator' };
+        function renderFeed(feed) {
+            $('feed').replaceChildren(...(feed || []).map(f => h('li', { class: f.kind || '' },
+                h('span', { class: 'r', text: f.round === null || f.round === undefined ? '' : (f.round === 0 ? 'Round 0' : `Round ${f.round}`) }),
+                h('span', { class: 'who', text: WHO[f.member] || '' }),
+                h('span', { text: f.text }))));
+            if (!feed?.length) $('feed').append(h('li', {}, h('span'), h('span'), h('span', { class: 'muted', text: 'Nothing yet.' })));
         }
 
-        function setProgress(id, agent) {
-            const p = results.progress, running = current.agents?.[agent]?.state === 'running';
-            $(id).hidden = !running;
-            if (running && p && p.stage === agent && p.total) $(id).firstChild.style.width = `${(100 * p.done / p.total).toFixed(0)}%`;
-            else $(id).firstChild.style.width = running ? '5%' : '0';
+        function renderCommittee(c) {
+            const out = $('committee-out');
+            if (!c) return out.replaceChildren(placeholder());
+            const rep = c.report, conf = rep.recommendation;
+            const stop = { consensus: 'agreement reached', deadlock: 'positions stopped moving', max_rounds: '3-round limit reached' }[c.stop_reason] || c.stop_reason;
+            out.replaceChildren(
+                h('p', { class: 'muted', text: `${rep.header.debated} finalists debated by ${rep.header.members.join(', ')} · ` +
+                    `${c.rounds.length - 1} debate round(s), ${stop} · ${c.calls} AI call(s), ${c.reprompts} re-prompt(s) · ` +
+                    `generated ${new Date(c.generated_at).toLocaleString()}` }),
+                ...(c.warnings || []).map(w => h('p', { class: 'status err', text: w })),
+                h('div', { class: 'scroll' }, h('table', {},
+                    h('tr', {}, ...['#', 'Candidate', 'Score /10', 'Members', 'Agreement', 'Comment'].map(t => h('th', { text: t }))),
+                    ...rep.top5.map(t => h('tr', {},
+                        h('td', { text: t.rank }),
+                        h('td', {}, h('b', { text: t.name }), h('div', { class: 'muted', text: t.id })),
+                        h('td', {}, h('b', { text: Number(t.score).toFixed(1) })),
+                        h('td', { text: Object.entries(t.scores).map(([m, s]) => `${m} ${s}`).join(' · ') }),
+                        h('td', {}, chip(t.agreement === 'agreement' ? 'met' : 'not_mentioned', '', t.agreement)),
+                        h('td', { text: t.comment }))))),
+                h('p', {}, 'Recommendation · confidence ', h('span', { class: `conf ${conf.confidence}`, text: conf.confidence }),
+                    h('span', { class: 'muted', text: ` (${conf.reasons.join('; ')})` })),
+                h('p', { text: conf.text }),
+                rep.disagreements.length ? h('p', { class: 'muted', text: 'Still open: ' + rep.disagreements.map(d => d.name).join(', ') }) : '',
+                h('div', { class: 'row' },
+                    h('a', { class: 'btn primary', href: `report.html?role=${encodeURIComponent(current.id)}`, target: '_blank', rel: 'noopener', text: 'Open the full report' }),
+                    h('a', { class: 'btn', href: `/api/admin/roles/${encodeURIComponent(current.id)}/report.md`, text: 'Download Markdown' })));
+        }
+
+        // ---------------- results + polling ----------------
+        const STAGE = { oscar: 'Oscar is reading CVs', remi: 'Remi is checking must-haves and ranking', jules: 'Jules is reading the top 20',
+            committee: 'The committee is debating' };
+
+        function renderPipeline() {
+            const pipe = current.agents?.pipeline, running = pipe?.state === 'running';
+            const p = results.progress;
+            $('pipeline-progress').hidden = !running;
+            $('pipeline-label').textContent = running && p ? `${STAGE[p.stage] || p.stage}${p.label ? ` · ${p.label}` : ''}` +
+                (p.total ? ` (${p.done}/${p.total})` : '') : '';
+            const stepIdx = Math.max(0, ['oscar', 'remi', 'jules', 'committee'].indexOf(p?.stage));
+            const inStep = p?.total ? p.done / p.total : 0;
+            $('pipeline-progress').firstChild.style.width = running ? `${Math.max(3, (100 * (stepIdx + inStep) / 4)).toFixed(0)}%` : '0';
+            if (pipe && !running) say('pipeline-status', pipe.message || (pipe.state === 'done' ? 'Done.' : 'Failed.'), pipe.state === 'failed');
+            $('pipeline-hint').textContent = current.pipelineProblem || '';
+            $('run-pipeline').disabled = Boolean(current.pipelineProblem) || Object.values(current.agents || {}).some(a => a.state === 'running');
         }
 
         function renderResults() {
             renderSteps();
             renderRemi(results.remi);
             renderJules(results.jules);
-            agentStatus('clara', 'clara-status');
-            agentStatus('oscar', 'oscar-status');
-            agentStatus('remi', 'remi-status');
-            agentStatus('jules', 'jules-status');
-            setProgress('remi-progress', 'remi');
-            setProgress('jules-progress', 'jules');
-            const running = Object.values(current.agents || {}).some(a => a.state === 'running');
-            for (const b of ['run-clara', 'run-oscar', 'run-remi', 'run-jules']) $(b).disabled = running;
+            renderCommittee(results.committee);
+            renderFeed(results.feed);
+            renderPipeline();
+            const a = current.agents?.clara;
+            if (a && a.state !== 'running') say('clara-status', a.message || (a.state === 'done' ? 'Done.' : 'Failed.'), a.state === 'failed');
+            const running = Object.values(current.agents || {}).some(x => x.state === 'running');
+            $('run-clara').disabled = running;
             if (running) poll();
         }
 
@@ -631,7 +683,7 @@
                 current = results.role;
                 // a finished Clara run brings a new proposal; a finished Oscar run changes applicants
                 if (wasRunning.includes('clara') && current.agents.clara?.state !== 'running') renderJob();
-                if (wasRunning.includes('oscar') && current.agents.oscar?.state !== 'running') { renderApplicants(); loadRoles(); }
+                if (wasRunning.includes('pipeline') && current.agents.pipeline?.state !== 'running') { renderApplicants(); loadRoles(); }
                 renderResults();
             }, 2000);
         }

@@ -19,8 +19,6 @@ import {
     DATA_DIR, UPLOAD_DIR, applicantsForRole, findApplicant, listApplicants, submitApplication,
 } from './applicants.js';
 
-// re-exported for roles.js / pipeline.js (older imports)
-export { applicantsForRole, reprocessRole } from './applicants.js';
 
 const ALLOWED = { resume: new Set(['.pdf', '.docx', '.txt']), linkedin: new Set(['.pdf']) };
 const upload = multer({

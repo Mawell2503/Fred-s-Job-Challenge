@@ -6,6 +6,11 @@
                          [--top 20] [--llm-gate] [--progress progress.json]
   python -m hiring jules --job job.json --runs data/runs --remi remi.json --out jules.json
                          [--top 10] [--progress progress.json]
+  python -m hiring committee --job job.json --runs data/runs --jules jules.json --input committee_in.json
+                         --out committee.json [--report report.md] [--trace trace.jsonl] [--feed feed.json]
+                         [--progress progress.json]
+        committee_in.json = {"role": {"id", "title"}, "logistics": {...}, "practical": {cid: {...}},
+                             "linkedin": {cid: true}, "funnel": {"applications", "readable", ...}}
 
 Exit codes: 0 ok, 2 bad input, 3 the LLM could not be used.
 """
@@ -40,6 +45,49 @@ def _progress(path, stage):
     return lambda done, total: _write(path, {"stage": stage, "done": done, "total": total})
 
 
+def _committee(a) -> int:
+    from datetime import datetime, timezone
+
+    from .committee import orchestrator
+    from .committee.gaston import write_report
+    from .committee.packet import build
+    from .committee.report import to_markdown
+
+    job = clean_criteria(_read(a.job))
+    cin = _read(a.input)
+    packet = build(job, _read(a.jules), lambda cid: load_candidate(a.runs, cid), cin)
+    trace = orchestrator.Trace(a.trace, a.feed)
+
+    def progress(done, total, label):
+        if a.progress:
+            _write(a.progress, {"stage": "committee", "done": done, "total": total + 1, "label": label})
+
+    state = orchestrator.run(packet, trace=trace, progress=progress, max_rounds=a.rounds)
+    if a.progress:
+        _write(a.progress, {"stage": "committee", "done": 1, "total": 1, "label": "Gaston writes the report"})
+    trace.say("Gaston writes the report.", None, "gaston", "launch")
+    funnel = cin.get("funnel") or {}
+    role = cin.get("role") or {}
+    meta = {"title": role.get("title") or job.get("title"), "role_id": role.get("id", ""), **funnel}
+    report = write_report(packet, state, meta, trace=trace)
+    trace.say(f"Report ready. Recommendation confidence: {report['recommendation']['confidence']}.", None, "gaston", "result")
+    state["feed"] = trace.feed
+    out = {"agent": "COMMITTEE", "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           **{k: state[k] for k in ("top5", "ranking", "stop_reason", "calls", "reprompts", "members", "skipped",
+                                    "unresolved", "rounds", "before", "after", "positions", "unreliable",
+                                    "warnings", "feed", "seconds")},
+           "report": report}
+    _write(a.out, out)
+    if a.report:
+        p = Path(a.report)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(to_markdown(report), encoding="utf-8")
+    print(f"Committee: top 5 {', '.join(state['top5'])}; {len(state['rounds']) - 1} debate round(s) "
+          f"({state['stop_reason']}); {state['calls']} AI call(s), {state['reprompts']} re-prompt(s); "
+          f"confidence {report['recommendation']['confidence']}.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="hiring", description="Clara, Remi and Jules.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -65,6 +113,18 @@ def main(argv=None) -> int:
     j.add_argument("--top", type=int, default=10)
     j.add_argument("--progress")
 
+    k = sub.add_parser("committee", help="Helene, Victor, Nina debate Jules's top 10; Gaston writes the report")
+    k.add_argument("--job", required=True)
+    k.add_argument("--runs", required=True)
+    k.add_argument("--jules", required=True)
+    k.add_argument("--input", required=True)
+    k.add_argument("--out", required=True)
+    k.add_argument("--report")
+    k.add_argument("--trace")
+    k.add_argument("--feed")
+    k.add_argument("--progress")
+    k.add_argument("--rounds", type=int, default=3)
+
     a = ap.parse_args(argv)
     try:
         if a.cmd == "clara":
@@ -85,6 +145,9 @@ def main(argv=None) -> int:
             _write(a.out, out)
             k = out["counts"]
             print(f"Remi: {k['candidates']} read, {k['eliminated']} eliminated, {k['shortlisted']} shortlisted.")
+
+        elif a.cmd == "committee":
+            return _committee(a)
 
         else:
             from .jules import run
