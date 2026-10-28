@@ -1,0 +1,22 @@
+Daniel Chen
+daniel.chen@example.com | +230 5701 1113
+
+PROFILE
+Backend developer turned data engineer. Strong in Python and APIs.
+
+EXPERIENCE
+Data Engineer  QuickPay  Feb 2022 - Present
+- Built Python services that stream payment events to the data lake on AWS
+- Wrote Airflow DAGs for daily partner exports
+
+Backend Developer  QuickPay  Jan 2019 - Jan 2022
+- Python REST APIs with Docker
+
+EDUCATION
+BSc Software Engineering, Middlesex University Mauritius, 2015 - 2018
+
+SKILLS
+Python, Airflow, AWS, Docker, FastAPI
+
+LANGUAGES
+English (C2), French (C1), Mandarin (native)

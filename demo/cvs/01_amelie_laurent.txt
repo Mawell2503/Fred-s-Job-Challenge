@@ -1,0 +1,30 @@
+Amélie Laurent
+amelie.laurent@example.com | +230 5701 1101 | Port Louis, Mauritius
+
+PROFILE
+Senior data engineer with 7 years building batch and streaming pipelines for finance and retail clients.
+
+EXPERIENCE
+Senior Data Engineer  Océane Analytics  Mar 2022 - Present
+- Designed and ran the Airflow platform that feeds 40 client dashboards every morning
+- Migrated 120 ETL jobs from cron scripts to Python and Airflow, cutting failures by 70%
+- Lead contact for two French retail clients, weekly calls in French
+
+Data Engineer  Ile Data Services  Jan 2019 - Feb 2022
+- Built PostgreSQL and SQL data models for a pan-African bank
+- Containerised the pipelines with Docker and deployed them on AWS
+
+Junior Data Engineer  Cybercité Consulting  Sep 2017 - Dec 2018
+- Wrote Python scripts to clean and load client exports into SQL Server
+
+EDUCATION
+MSc Computer Science, Université de Lyon, 2015 - 2017
+
+SKILLS
+Python, SQL, PostgreSQL, Airflow, Docker, AWS, dbt
+
+LANGUAGES
+French (native), English (fluent)
+
+INTERESTS
+Sailing, chess

@@ -1,0 +1,494 @@
+[
+  {
+    "cv": "01_amelie_laurent.txt",
+    "name": "Amélie Laurent",
+    "linkedin": true,
+    "why": "strong on every axis",
+    "practical": {
+      "salary": {
+        "amount": 4800,
+        "period": "month"
+      },
+      "available_from": "2026-11-20",
+      "notice_weeks": 4,
+      "location": {
+        "country": "Mauritius",
+        "city": "Port Louis"
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "02_rajesh_kumar.txt",
+    "name": "Rajesh Kumar",
+    "linkedin": true,
+    "why": "Hélène loves him, Nina can't: French A2, over budget, needs sponsorship",
+    "practical": {
+      "salary": {
+        "amount": 6500,
+        "period": "month"
+      },
+      "available_from": "2027-01-15",
+      "notice_weeks": 8,
+      "location": {
+        "country": "India",
+        "city": "Bangalore"
+      },
+      "relocate": "yes",
+      "travel": "frequent",
+      "arrangement": "remote",
+      "work_authorization": "sponsorship",
+      "languages": [
+        {
+          "language": "English",
+          "level": "C2"
+        },
+        {
+          "language": "Hindi",
+          "level": "native"
+        },
+        {
+          "language": "French",
+          "level": "A2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "03_sophie_martin.txt",
+    "name": "Sophie Martin",
+    "linkedin": false,
+    "why": "career changer (nurse): Victor vs Hélène",
+    "practical": {
+      "salary": {
+        "amount": 3800,
+        "period": "month"
+      },
+      "available_from": "2026-11-15",
+      "notice_weeks": 2,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "04_kevin_ramsamy.txt",
+    "name": "Kevin Ramsamy",
+    "linkedin": false,
+    "why": "8 years, same title: 'one year eight times'",
+    "practical": {
+      "salary": {
+        "amount": 4200,
+        "period": "month"
+      },
+      "available_from": "2026-12-01",
+      "notice_weeks": 4,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "no",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "C1"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "05_priya_doorgakant.txt",
+    "name": "Priya Doorgakant",
+    "linkedin": true,
+    "why": "good, but only free in March",
+    "practical": {
+      "salary": {
+        "amount": 4600,
+        "period": "month"
+      },
+      "available_from": "2027-03-01",
+      "notice_weeks": 12,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "C1"
+        },
+        {
+          "language": "English",
+          "level": "C2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "06_lucas_bernard.txt",
+    "name": "Lucas Bernard",
+    "linkedin": false,
+    "why": "job hopper: six jobs in five years",
+    "practical": {
+      "salary": {
+        "amount": 4500,
+        "period": "month"
+      },
+      "available_from": "2026-11-25",
+      "notice_weeks": null,
+      "location": {
+        "country": "France",
+        "city": "Lyon"
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "sponsorship",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "B2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "07_nadia_hossen.txt",
+    "name": "Nadia Hossen",
+    "linkedin": true,
+    "why": "junior but rising fast; French one level short",
+    "practical": {
+      "salary": {
+        "amount": 3600,
+        "period": "month"
+      },
+      "available_from": "2026-11-15",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "B2"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "08_thomas_leroy.txt",
+    "name": "Thomas Leroy",
+    "linkedin": true,
+    "why": "excellent, slightly over budget, lives in France",
+    "practical": {
+      "salary": {
+        "amount": 64800,
+        "period": "year"
+      },
+      "available_from": "2026-12-01",
+      "notice_weeks": null,
+      "location": {
+        "country": "France",
+        "city": "Lyon"
+      },
+      "relocate": "open",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "sponsorship",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "09_ahmed_bakari.txt",
+    "name": "Ahmed Bakari",
+    "linkedin": true,
+    "why": "technically top, no French at all",
+    "practical": {
+      "salary": {
+        "amount": 5000,
+        "period": "month"
+      },
+      "available_from": "2026-12-01",
+      "notice_weeks": null,
+      "location": {
+        "country": "Kenya",
+        "city": "Nairobi"
+      },
+      "relocate": "yes",
+      "travel": "frequent",
+      "arrangement": "hybrid",
+      "work_authorization": "sponsorship",
+      "languages": [
+        {
+          "language": "English",
+          "level": "native"
+        },
+        {
+          "language": "Swahili",
+          "level": "native"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "10_chloe_dubois.txt",
+    "name": "Chloé Dubois",
+    "linkedin": false,
+    "why": "solid, average",
+    "practical": {
+      "salary": {
+        "amount": 3900,
+        "period": "month"
+      },
+      "available_from": "2026-11-30",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "B2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "11_vikash_ramdin.txt",
+    "name": "Vikash Ramdin",
+    "linkedin": false,
+    "why": "buzzwords, no proof",
+    "practical": {
+      "salary": {
+        "amount": 4000,
+        "period": "month"
+      },
+      "available_from": "2026-11-20",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "C1"
+        },
+        {
+          "language": "English",
+          "level": "C1"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "12_marie_lefevre.txt",
+    "name": "Marie Lefèvre",
+    "linkedin": true,
+    "why": "ex-teacher, client-friendly: Victor's rescue",
+    "practical": {
+      "salary": {
+        "amount": 3700,
+        "period": "month"
+      },
+      "available_from": "2026-11-15",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "native"
+        },
+        {
+          "language": "English",
+          "level": "B2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "13_daniel_chen.txt",
+    "name": "Daniel Chen",
+    "linkedin": false,
+    "why": "no SQL on the CV: Remi can't confirm a must-have",
+    "practical": {
+      "salary": {
+        "amount": 4400,
+        "period": "month"
+      },
+      "available_from": "2026-12-01",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "none",
+      "arrangement": "remote",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "English",
+          "level": "C2"
+        },
+        {
+          "language": "French",
+          "level": "C1"
+        },
+        {
+          "language": "Mandarin",
+          "level": "native"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "14_jean_paul_moutou.txt",
+    "name": "Jean-Paul Moutou",
+    "linkedin": false,
+    "why": "under 3 years: eliminated by Remi",
+    "practical": {
+      "salary": {
+        "amount": 3000,
+        "period": "month"
+      },
+      "available_from": "2026-11-01",
+      "notice_weeks": null,
+      "location": {
+        "country": "Mauritius",
+        "city": ""
+      },
+      "relocate": "yes",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "yes",
+      "languages": [
+        {
+          "language": "French",
+          "level": "C2"
+        },
+        {
+          "language": "English",
+          "level": "B2"
+        }
+      ]
+    }
+  },
+  {
+    "cv": "15_elena_petrova.txt",
+    "name": "Elena Petrova",
+    "linkedin": true,
+    "why": "strong, French B1, has a referee in her CV",
+    "practical": {
+      "salary": {
+        "amount": 5000,
+        "period": "month"
+      },
+      "available_from": "2027-01-04",
+      "notice_weeks": null,
+      "location": {
+        "country": "Germany",
+        "city": "Berlin"
+      },
+      "relocate": "open",
+      "travel": "occasional",
+      "arrangement": "hybrid",
+      "work_authorization": "sponsorship",
+      "languages": [
+        {
+          "language": "German",
+          "level": "C2"
+        },
+        {
+          "language": "English",
+          "level": "C2"
+        },
+        {
+          "language": "French",
+          "level": "B1"
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,28 @@
+Lucas Bernard
+lucas.bernard@example.com | +33 6 11 22 33 06
+
+PROFILE
+Versatile data engineer, quick to adapt to new teams and stacks.
+
+EXPERIENCE
+Data Engineer  Startup Fintech Lyon  Jan 2026 - Present
+- Python and SQL pipelines for payments reporting
+Data Engineer  AdTech Paris  Feb 2025 - Dec 2025
+- Airflow DAGs for campaign data
+Data Engineer  E-shop Bordeaux  Mar 2024 - Jan 2025
+- Migrated reports to BigQuery
+Data Engineer  Logistics SAS  Apr 2023 - Feb 2024
+- ETL in Python for warehouse data
+Junior Data Engineer  Consulting Group  May 2022 - Mar 2023
+- SQL reports for clients
+Data Analyst  Retail Co  Jun 2021 - Apr 2022
+- Excel and SQL dashboards
+
+EDUCATION
+Master Data Science, Université de Bordeaux, 2019 - 2021
+
+SKILLS
+Python, SQL, Airflow, Google Cloud, BigQuery
+
+LANGUAGES
+French (native), English (B2)

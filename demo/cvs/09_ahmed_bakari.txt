@@ -1,0 +1,23 @@
+Ahmed Bakari
+ahmed.bakari@example.com | +254 700 111 109 | Nairobi, Kenya
+
+PROFILE
+Data engineer and ML engineer; I build the pipelines that feed production models.
+
+EXPERIENCE
+Senior Data Engineer  Savanna Mobile Money  Jul 2020 - Present
+- Built the feature pipelines in Python and Spark for the fraud model (30 M transactions a day)
+- Designed the SQL warehouse on Google Cloud; on-call lead for the data platform
+- Mentored 4 junior engineers
+
+Data Engineer  AgriData Kenya  Jan 2018 - Jun 2020
+- Airflow and Python pipelines for satellite crop data; Docker on GCP
+
+EDUCATION
+MSc Data Science, University of Nairobi, 2016 - 2017
+
+SKILLS
+Python, SQL, Spark, Airflow, Google Cloud, Docker, TensorFlow
+
+LANGUAGES
+English (native), Swahili (native)

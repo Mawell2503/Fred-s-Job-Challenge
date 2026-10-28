@@ -194,6 +194,11 @@ def fill(written, packet, state, conf) -> list[str]:
         if len(w["improvements"]) < 2:
             pool = [c for m in state["positions"] for c in state["positions"][m].get(cid, {}).get("concerns", [])]
             pool += packet.missing.get(cid, [])
+            # nobody raised a concern: what Jules could not confirm, then the members' open questions
+            pool += [f"Not shown on the CV: {c['requirement']}." for c in packet.core[cid]["jules_assessment"]["criteria"]
+                     if c["verdict"] != "met"]
+            pool += [f"To confirm in the interview ({DISPLAY[m]}): {q}" for m in state["positions"]
+                     for q in [state["positions"][m].get(cid, {}).get("question")] if q]
             for c in pool:
                 if len(w["improvements"]) >= 2:
                     break
@@ -290,7 +295,7 @@ def write_report(packet, state, meta: dict, trace=None) -> dict:
                                 "because": next((c["because"] for rr in reversed(state["rounds"]) for c in rr["changes"]
                                                  if c["member"] == m and c["id"] == cid), "")}
                                for m in state["members"] if cid in state["before"].get(m, {}) and cid in state["after"].get(m, {})]}
-                     for cid in state["candidates"]],
+                     for cid in sorted(state["candidates"], key=lambda c: [r["id"] for r in rk].index(c))],
         "notes": {"skipped": {DISPLAY[m]: why for m, why in state["skipped"].items()},
                   "unreliable": [{"member": DISPLAY[u["member"]], "round": u["round"]} for u in state["unreliable"]],
                   "filled_by_code": filled, "written_by_ai": used_ai, "warnings": state["warnings"]},
@@ -326,6 +331,7 @@ def fake_report(prompt: str) -> dict:
                 seen.add(ln)
                 args.append({"point": "Practical answer.", "quote": ln, "source": "practical"})
         concerns = [c for p in pos.values() for c in p["concerns"]] + missing.get(cid, [])
+        concerns += [f"To confirm in the interview ({who}): {p['question']}" for who, p in pos.items() if p.get("question")]
         scores = ", ".join(f"{w} {p['score_after']:g}" for w, p in pos.items())
         top5.append({"id": cid, "comment": f"Ranked {r['rank']} with {r['committee_score']:g}/10 ({scores}).",
                      "strengths": args[:3], "improvements": list(dict.fromkeys(concerns))[:2], "missing": []})

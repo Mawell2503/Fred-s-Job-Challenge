@@ -1,0 +1,27 @@
+Rajesh Kumar
+rajesh.kumar@example.com | +91 98200 11102 | Bangalore, India
+
+SUMMARY
+Principal data engineer. 10 years designing large-scale data platforms (Spark, Airflow, AWS).
+
+EXPERIENCE
+Principal Data Engineer  Northstar Payments  Jan 2021 - Present
+- Architected the company data platform on AWS processing 4 TB per day with Spark and Airflow
+- Led a team of 8 data engineers; set the Python and SQL coding standards
+- Cut cloud costs by 35% by redesigning the S3 and Redshift storage layout
+
+Senior Data Engineer  Retailytics  Jun 2016 - Dec 2020
+- Built real-time Kafka pipelines in Python for 2,000 stores
+- Owned the PostgreSQL warehouse and its SQL models
+
+Data Engineer  InfoWave  Jul 2014 - May 2016
+- Developed ETL jobs in Python and SQL for insurance reporting
+
+EDUCATION
+B.Tech Computer Engineering, IIT Delhi, 2010 - 2014
+
+SKILLS
+Python, SQL, Spark, Airflow, Kafka, AWS, Docker, Kubernetes
+
+LANGUAGES
+English, Hindi, French (basic)

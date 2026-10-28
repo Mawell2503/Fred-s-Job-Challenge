@@ -1,0 +1,25 @@
+Nadia Hossen
+nadia.hossen@example.com | +230 5701 1107
+
+PROFILE
+Fast-growing data engineer. Learns a new tool every quarter and ships with it.
+
+EXPERIENCE
+Data Engineer  Kreol Digital  Jan 2025 - Present
+- Promoted after 12 months; now owns the Airflow deployment for 3 client projects
+- Rewrote the slowest SQL queries, cutting the nightly load from 3 hours to 25 minutes
+
+Junior Data Engineer  Kreol Digital  Jan 2024 - Dec 2024
+- Built Python ingestion scripts and their unit tests
+
+Data Engineering Intern  StatsMauritius  Jun 2023 - Dec 2023
+- Cleaned census extracts with Python and pandas
+
+EDUCATION
+BSc Computer Science, University of Mauritius, 2020 - 2023
+
+SKILLS
+Python, SQL, Airflow, Docker, AWS (certified Cloud Practitioner)
+
+LANGUAGES
+French (B2), English (C1)

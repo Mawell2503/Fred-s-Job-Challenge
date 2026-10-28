@@ -1,0 +1,28 @@
+Elena Petrova
+elena.petrova@example.com | +49 151 111 115 | Berlin, Germany
+
+PROFILE
+Data engineer with 6 years in e-commerce, specialised in data quality and dbt.
+
+EXPERIENCE
+Senior Data Engineer  ShopFlow GmbH  May 2022 - Present
+- Owns the dbt and SQL models used by 200 analysts; Python tooling for data tests
+- Runs the Airflow and Docker setup on AWS
+
+Data Engineer  ShopFlow GmbH  Jun 2020 - Apr 2022
+- Python ETL from 15 marketplaces into PostgreSQL
+
+Data Analyst  Moda Retail  Jan 2019 - May 2020
+- SQL reporting
+
+EDUCATION
+MSc Information Systems, TU Berlin, 2016 - 2018
+
+SKILLS
+Python, SQL, dbt, Airflow, AWS, Docker, PostgreSQL
+
+LANGUAGES
+German (C2), English (C2), French (B1), Russian (native)
+
+REFERENCES
+Dr. Klaus Weber, Head of Data, ShopFlow GmbH, k.weber@example.com, +49 151 999 000

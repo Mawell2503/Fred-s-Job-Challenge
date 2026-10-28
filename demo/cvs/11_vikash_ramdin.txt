@@ -1,0 +1,23 @@
+Vikash Ramdin
+vikash.ramdin@example.com | +230 5701 1111
+
+PROFILE
+Passionate, result-driven data engineer and team player with a strong interest in cutting-edge big data technologies.
+
+EXPERIENCE
+Data Engineer  Global Services Ltd  Jan 2020 - Present
+- Participated in various data projects
+- Familiar with Python, SQL, Spark, Kafka, Airflow, Kubernetes and AWS
+- Involved in the migration to the cloud
+
+Software Developer  Global Services Ltd  Jan 2017 - Dec 2019
+- Worked on internal tools
+
+EDUCATION
+BSc Computer Science, 2013 - 2016
+
+SKILLS
+Python, SQL, Spark, Kafka, Airflow, Kubernetes, AWS, Azure, Google Cloud, Docker, Hadoop
+
+LANGUAGES
+French (C1), English (C1)

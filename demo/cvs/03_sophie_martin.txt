@@ -1,0 +1,27 @@
+Sophie Martin
+sophie.martin@example.com | +230 5701 1103
+
+PROFILE
+Former nurse who moved into data. I build the pipelines I wished existed when I worked on the ward.
+
+EXPERIENCE
+Data Engineer  MedTrack Mauritius  Jun 2023 - Present
+- Promoted from analyst to data engineer after 18 months
+- Built Python and Airflow pipelines that load hospital data into PostgreSQL every hour
+- Trained 12 nurses to use the new dashboards
+
+Data Analyst  MedTrack Mauritius  Jan 2022 - May 2023
+- Wrote SQL reports for 6 clinics; automated them in Python
+
+Nurse  Clinique du Nord  Jan 2014 - Dec 2021
+- Ward nurse, then shift coordinator for a team of 9
+
+EDUCATION
+Data Engineering Bootcamp, Le Wagon, 2021
+Diploma in Nursing, 2010 - 2013
+
+SKILLS
+Python, SQL, PostgreSQL, Airflow
+
+LANGUAGES
+French (native), English (C1)

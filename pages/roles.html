@@ -601,6 +601,8 @@
                 h('span', { class: 'who', text: WHO[f.member] || '' }),
                 h('span', { text: f.text }))));
             if (!feed?.length) $('feed').append(h('li', {}, h('span'), h('span'), h('span', { class: 'muted', text: 'Nothing yet.' })));
+            // while the debate runs, follow the newest line
+            if (current.agents?.pipeline?.state === 'running') $('feed').scrollTop = $('feed').scrollHeight;
         }
 
         function renderCommittee(c) {

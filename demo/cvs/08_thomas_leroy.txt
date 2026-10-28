@@ -1,0 +1,25 @@
+Thomas Leroy
+thomas.leroy@example.com | +33 6 11 22 33 08 | Lyon, France
+
+PROFILE
+Senior data engineer, 9 years in consulting for French retail and energy clients.
+
+EXPERIENCE
+Senior Data Engineer  Capdata Conseil  Sep 2020 - Present
+- Delivered 6 client data platforms on AWS with Python, Airflow and dbt
+- Client-facing: ran the steering committees for a national energy supplier
+
+Data Engineer  Capdata Conseil  Sep 2017 - Aug 2020
+- Built SQL and Python ETL for retail loyalty data
+
+Data Analyst  Grande Distribution SA  Jan 2016 - Aug 2017
+- SQL and Tableau reporting
+
+EDUCATION
+Diplôme d'ingénieur, INSA Lyon, 2011 - 2016
+
+SKILLS
+Python, SQL, Airflow, dbt, AWS, Docker
+
+LANGUAGES
+French (native), English (C1)

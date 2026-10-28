@@ -1,0 +1,20 @@
+Kevin Ramsamy
+kevin.ramsamy@example.com | +230 5701 1104
+
+PROFILE
+Data engineer with 8 years at the same company.
+
+EXPERIENCE
+Data Engineer  Sunlight Insurance  Feb 2018 - Present
+- Maintain the nightly ETL jobs written in Python and SQL
+- Fix data quality issues reported by the actuarial team
+- Update SQL Server stored procedures when the business asks
+
+EDUCATION
+BSc Information Systems, University of Mauritius, 2014 - 2017
+
+SKILLS
+Python, SQL, SQL Server, SSIS
+
+LANGUAGES
+French (C1), English (C1), Creole (native)

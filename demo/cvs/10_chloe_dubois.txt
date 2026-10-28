@@ -1,0 +1,22 @@
+Chloé Dubois
+chloe.dubois@example.com | +230 5701 1110
+
+PROFILE
+Data engineer with 4 years of experience in reporting pipelines.
+
+EXPERIENCE
+Data Engineer  InsureTech Océan Indien  Mar 2022 - Present
+- Maintain Python ETL jobs and SQL views for the finance team
+- Added monitoring alerts to the nightly loads
+
+Data Analyst  InsureTech Océan Indien  Mar 2021 - Feb 2022
+- SQL reports and Excel models
+
+EDUCATION
+BSc Mathematics, Université de La Réunion, 2017 - 2020
+
+SKILLS
+Python, SQL, Power BI
+
+LANGUAGES
+French (native), English (B2)

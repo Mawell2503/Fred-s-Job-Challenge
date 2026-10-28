@@ -1,0 +1,98 @@
+{
+  "title": "Data Engineer (French client)",
+  "adText": "We are hiring a data engineer for a French retail client based in Lyon. You will build and run the client's data pipelines from our Port Louis office (hybrid). Required: at least 3 years of data engineering experience, Python and SQL. A plus: Apache Airflow, a cloud data platform (AWS, Azure or Google Cloud), Docker, and experience working directly with clients. The client calls in French from the first week.",
+  "job": {
+    "summary": "Data engineer for a French retail client: builds and runs Python/SQL pipelines, talks to the client in French from week one.",
+    "must_haves": [
+      {
+        "text": "At least 3 years of data engineering experience",
+        "type": "years",
+        "min_years": 3,
+        "keywords": [
+          "data engineer",
+          "data engineering",
+          "etl",
+          "pipelines"
+        ]
+      },
+      {
+        "text": "Python",
+        "type": "skill",
+        "keywords": [
+          "python"
+        ]
+      },
+      {
+        "text": "SQL",
+        "type": "skill",
+        "keywords": [
+          "sql",
+          "postgresql",
+          "sql server"
+        ]
+      }
+    ],
+    "nice_to_haves": [
+      {
+        "text": "Apache Airflow",
+        "type": "skill",
+        "keywords": [
+          "airflow"
+        ]
+      },
+      {
+        "text": "A cloud data platform (AWS, Azure or Google Cloud)",
+        "type": "skill",
+        "keywords": [
+          "aws",
+          "azure",
+          "google cloud"
+        ]
+      },
+      {
+        "text": "Docker",
+        "type": "skill",
+        "keywords": [
+          "docker"
+        ]
+      },
+      {
+        "text": "Experience working directly with clients",
+        "type": "other",
+        "keywords": [
+          "client",
+          "clients",
+          "client-facing"
+        ]
+      }
+    ],
+    "suggested_drop_sections": [
+      "interests",
+      "references",
+      "declaration"
+    ]
+  },
+  "logistics": {
+    "currency": "EUR",
+    "budget_min": 3500,
+    "budget_max": 5000,
+    "budget_period": "month",
+    "client_country": "France",
+    "work_country": "Mauritius",
+    "work_city": "Port Louis",
+    "arrangement": "hybrid",
+    "travel": "occasional",
+    "start_date": "2026-12-01",
+    "languages": [
+      {
+        "language": "French",
+        "min_level": "C1"
+      },
+      {
+        "language": "English",
+        "min_level": "B2"
+      }
+    ],
+    "notes": "The client in Lyon calls in French from the first week."
+  }
+}

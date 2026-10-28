@@ -1,0 +1,26 @@
+Marie Lefèvre
+marie.lefevre@example.com | +230 5701 1112
+
+PROFILE
+Ten years as a maths teacher, now three years as a data engineer. I explain data to people who are not engineers.
+
+EXPERIENCE
+Data Engineer  EduNumérique  Sep 2023 - Present
+- Built the Python and SQL pipeline that tracks results for 40,000 students
+- Moved the jobs to Airflow and Docker; wrote the runbook the support team uses
+
+Junior Data Engineer  EduNumérique  Sep 2022 - Aug 2023
+- PostgreSQL data models; weekly demos to French ministry partners
+
+Mathematics Teacher  Lycée Labourdonnais  Sep 2012 - Jul 2022
+- Head of the maths department for the last 4 years
+
+EDUCATION
+OpenClassrooms Data Engineer path, 2021 - 2022
+Master in Mathematics Education, 2010 - 2012
+
+SKILLS
+Python, SQL, PostgreSQL, Airflow, Docker
+
+LANGUAGES
+French (native), English (B2)

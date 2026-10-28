@@ -1,0 +1,23 @@
+Priya Doorgakant
+priya.d@example.com | +230 5701 1105
+
+PROFILE
+Data engineer focused on reliable, well-tested pipelines on Azure.
+
+EXPERIENCE
+Senior Data Engineer  BlueOcean Telecom  Apr 2021 - Present
+- Built the Azure Data Factory and Python pipelines behind the customer churn model
+- Wrote the SQL data quality tests that now block every faulty load
+- Presented the data platform to the French parent company in French
+
+Data Engineer  Mauritius Commercial Data  Aug 2018 - Mar 2021
+- Developed ETL in Python and SQL; introduced Docker for local testing
+
+EDUCATION
+BEng Software Engineering, Université des Mascareignes, 2014 - 2018
+
+SKILLS
+Python, SQL, Azure, Docker, Airflow
+
+LANGUAGES
+French (C1), English (C2)

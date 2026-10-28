@@ -1,0 +1,21 @@
+Jean-Paul Moutou
+jp.moutou@example.com | +230 5701 1114
+
+PROFILE
+Junior data engineer eager to learn.
+
+EXPERIENCE
+Junior Data Engineer  Island Startups  Mar 2025 - Present
+- Python scripts and SQL queries for the marketing team
+
+Data Intern  Island Startups  Sep 2024 - Feb 2025
+- Data cleaning in Python
+
+EDUCATION
+BSc Computer Science, University of Mauritius, 2021 - 2024
+
+SKILLS
+Python, SQL
+
+LANGUAGES
+French (C2), English (B2)
