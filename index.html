@@ -170,10 +170,62 @@
         .li-upload .zone-hint { flex: 1 1 220px; }
         #li-name { font-size: 14px; font-weight: 600; }
 
-        /* ---------- practical details ---------- */
-        .practical { margin: 0; min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-        .practical h2 { margin: 0; font-size: 18px; }
-        .practical .lead { text-align: left; margin: -10px 0 0; font-size: 14px; }
+        /* ---------- practical details: button + card over a blurred page ---------- */
+        .practical-btn {
+            width: 100%; min-height: 48px; justify-content: flex-start; gap: 10px; padding: 0 12px 0 14px;
+            background: #FFFFFF; border: 1.5px dashed var(--accent-strong); color: var(--ink); text-align: left;
+        }
+        .practical-btn:hover { background: var(--accent-soft); }
+        .practical-btn .pb-icon { color: var(--accent-ink); flex: none; }
+        .practical-btn .pb-check { display: none; flex: none; }
+        .practical-btn .pb-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pb-tag {
+            flex: none; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px;
+            background: var(--accent-soft); color: var(--accent-ink);
+        }
+        .practical-btn.is-done { border-style: solid; border-color: var(--line); background: var(--field); }
+        .practical-btn.is-done:hover { background: #E9E9EC; }
+        .practical-btn.is-done .pb-icon { display: none; }
+        .practical-btn.is-done .pb-check { display: block; color: var(--ok); }
+        .practical-btn.is-done .pb-tag { background: #FFFFFF; color: var(--muted); border: 1px solid var(--line); }
+        .practical-btn.needs-attention { border-color: var(--error); }
+
+        .practical-dialog {
+            width: min(600px, calc(100vw - 32px)); max-height: min(88vh, 860px);
+            padding: 0; border: 0; border-radius: 18px; background: #FFFFFF; color: var(--ink);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, .22), 0 2px 8px rgba(0, 0, 0, .08);
+            overflow: hidden;
+        }
+        .practical-dialog[open] { animation: pd-in .28s cubic-bezier(.2, .8, .2, 1); }
+        .practical-dialog::backdrop {
+            background: rgba(24, 24, 27, .28);
+            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+            animation: pd-fade .28s ease;
+        }
+        @keyframes pd-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+        @keyframes pd-fade { from { opacity: 0; } }
+        body:has(.practical-dialog[open]) { overflow: hidden; }
+
+        .practical-card { display: flex; flex-direction: column; max-height: inherit; margin: 0; gap: 0; }
+        .pd-head {
+            display: flex; align-items: flex-start; gap: 16px; padding: 22px 24px 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .pd-head > div { flex: 1; }
+        .pd-head h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+        .pd-lead { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+        .pd-close {
+            flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+            border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;
+        }
+        .pd-close:hover { background: var(--field); color: var(--ink); }
+        .pd-body { overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+        .pd-foot {
+            display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+            border-top: 1px solid var(--line); background: #FAFAFB;
+        }
+        .pd-foot .form-msg { flex: 1; margin: 0; }
+        .pd-foot .btn-primary { min-height: 46px; padding: 0 24px; }
         .money { display: flex; gap: 8px; align-items: center; }
         .money input { flex: 1; }
         .money select { flex: 0 0 130px; }
@@ -189,10 +241,13 @@
             h1 { font-size: 32px; }
             .row > .half { flex-basis: 100%; }
             .zone { height: 320px; }
+            .pd-head, .pd-body, .pd-foot { padding-left: 18px; padding-right: 18px; }
+            .lang-row select { flex-basis: 120px; }
         }
 
         @media (prefers-reduced-motion: reduce) {
             .view, .view.is-hidden, .zone { transition: none; }
+            .practical-dialog[open], .practical-dialog::backdrop { animation: none; }
         }
     </style>
 </head>
@@ -216,6 +271,23 @@
                     <div class="field half">
                         <label for="f-name" class="sr-only">Name</label>
                         <input id="f-name" name="name" type="text" placeholder="Name" maxlength="100" autocomplete="name" required>
+                    </div>
+                    <!-- opens the practical details card (required, read only after the shortlist, by Nina) -->
+                    <div class="field half">
+                        <button type="button" class="btn practical-btn" id="practical-open" aria-haspopup="dialog"
+                            aria-controls="practical-dialog">
+                            <svg class="pb-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4h6v3H9z" />
+                                <path d="M9 12h6" /><path d="M9 16h4" />
+                            </svg>
+                            <svg class="pb-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="m5 12.5 4.5 4.5L19 7.5" />
+                            </svg>
+                            <span class="pb-text" id="practical-btn-text">Practical details</span>
+                            <span class="pb-tag" id="practical-btn-tag">Required</span>
+                        </button>
                     </div>
                 </div>
                 <div class="row">
@@ -282,10 +354,26 @@
                     </div>
                 </div>
 
-                <!-- practical details: required, read only after the shortlist (by Nina) -->
-                <fieldset class="practical" id="practical">
-                    <h2>Practical details</h2>
-                    <p class="lead">Required. These are only used once you are on the shortlist, to check the job works for you in practice.</p>
+                <p id="apply-msg" class="form-msg" role="status" aria-live="polite"></p>
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary" id="apply-submit">Submit application</button>
+                </div>
+            </form>
+
+            <!-- practical details card: its own form, outside #apply (forms can't nest); the page behind blurs -->
+            <dialog id="practical-dialog" class="practical-dialog" aria-labelledby="practical-title">
+                <form id="practical-form" class="practical-card" novalidate>
+                    <header class="pd-head">
+                        <div>
+                            <h2 id="practical-title">Practical details</h2>
+                            <p class="pd-lead">Required. Only used once you are on the shortlist, to check the job works for you in practice.</p>
+                        </div>
+                        <button type="button" class="pd-close" id="practical-close" aria-label="Close">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                        </button>
+                    </header>
+                    <div class="pd-body">
                     <div class="row">
                         <div class="field">
                             <label for="p-salary">Salary expectation</label>
@@ -364,13 +452,13 @@
                         <div id="langs" role="group" aria-labelledby="langs-label" style="display:flex;flex-direction:column;gap:8px"></div>
                         <div><button type="button" class="btn btn-light" id="add-lang" style="min-height:40px;font-size:14px">+ Add a language</button></div>
                     </div>
-                </fieldset>
-
-                <p id="apply-msg" class="form-msg" role="status" aria-live="polite"></p>
-                <div class="actions">
-                    <button type="submit" class="btn btn-primary" id="apply-submit">Submit application</button>
-                </div>
-            </form>
+                    </div>
+                    <footer class="pd-foot">
+                        <p id="practical-msg" class="form-msg" role="status" aria-live="polite"></p>
+                        <button type="submit" class="btn btn-primary">Save details</button>
+                    </footer>
+                </form>
+            </dialog>
         </section>
 
         <!-- ===================== admin login view ===================== -->
@@ -543,6 +631,47 @@
             };
         }
 
+        // ---------------- practical details card (dialog over a blurred page) ----------------
+        const pDialog = document.getElementById('practical-dialog');
+        const pForm = document.getElementById('practical-form');
+        const pBtn = document.getElementById('practical-open');
+        const pMsg = document.getElementById('practical-msg');
+
+        function pSay(text, kind = '') {
+            pMsg.textContent = text;
+            pMsg.className = 'form-msg' + (kind ? ` is-${kind}` : '');
+        }
+
+        // the button shows whether everything required is filled in
+        function syncPracticalBtn() {
+            const done = !readPractical().error;
+            pBtn.classList.toggle('is-done', done);
+            if (done) pBtn.classList.remove('needs-attention');
+            document.getElementById('practical-btn-text').textContent = done ? 'Practical details added' : 'Practical details';
+            document.getElementById('practical-btn-tag').textContent = done ? 'Edit' : 'Required';
+        }
+
+        function openPractical(problem = '') {
+            pSay(problem, problem ? 'error' : '');
+            pDialog.showModal();
+            const first = pForm.querySelector('input, select');
+            if (!problem && first) first.focus();
+        }
+
+        pBtn.addEventListener('click', () => openPractical());
+        document.getElementById('practical-close').addEventListener('click', () => pDialog.close());
+        // a click on the blurred area outside the card closes it too (the card fills the dialog box)
+        pDialog.addEventListener('click', e => { if (e.target === pDialog) pDialog.close(); });
+        pDialog.addEventListener('close', syncPracticalBtn);
+
+        pForm.addEventListener('submit', e => {
+            e.preventDefault();
+            const p = readPractical();
+            if (p.error) return pSay(p.error, 'error');
+            pDialog.close();
+            say('');
+        });
+
         // ---------------- CV: drag & drop, browse, preview ----------------
         const MAX_BYTES = 5 * 1024 * 1024;
         const ALLOWED = ['pdf', 'docx', 'txt'];
@@ -700,7 +829,11 @@
             if (!applyForm.reportValidity()) return;
             if (!cvFile) return say('Add your CV before submitting.', 'error');
             const practical = readPractical();
-            if (practical.error) return say(practical.error, 'error');
+            if (practical.error) {
+                pBtn.classList.add('needs-attention');
+                say('Add your practical details before submitting.', 'error');
+                return openPractical(practical.error);
+            }
 
             const body = new FormData();
             body.append('roleId', roleSelect.value);
@@ -717,11 +850,13 @@
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) return say(data.error || 'Upload failed.', 'error');
                 applyForm.reset();
+                pForm.reset();
                 clearFile();
                 liFile = null;
                 showLinkedin();
                 resetLangs();
                 syncRoleDetails();
+                syncPracticalBtn();
                 say('Application received. Thank you!', 'ok');
             } catch {
                 say('Could not reach the server.', 'error');
