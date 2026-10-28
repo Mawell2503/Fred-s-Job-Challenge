@@ -1,4 +1,4 @@
-"""JULES - reads the 20 shortlisted CVs in full and picks the 5 finalists.
+"""JULES - reads the 20 shortlisted CVs in full and picks the 10 finalists.
 
 For each of Remi's 20:
   1. The LLM reads the FULL CV (personal details and referees removed, no other section dropped) against
@@ -7,7 +7,8 @@ For each of Remi's 20:
   2. citation_checker verifies every quote BEFORE scoring. A "met" with no verified quote
      becomes "unverified" and earns 0 points, so an invented quote can never win.
   3. Points: 1 per criterion met (must-haves can be weighted with jules_must_weight).
-Then: rank the 20 by verified points (Remi's score breaks ties), keep the top 5, and give
+Then: rank the 20 by verified points (Remi's score breaks ties), keep the top 10 (the
+committee then picks the final 5), and give
 each finalist a detailed score + the list of what's missing, with the requirement text and
 CV quotes side by side. Names are re-attached from Oscar's personal-details file only here.
 """
@@ -19,11 +20,12 @@ from datetime import datetime, timezone
 
 from .citation_checker import quote_exists
 from .criteria import all_criteria
-from .llm import complete_json, env_number
+from .llm import DATA_NOTE, complete_json, env_number, tag
 
 MET, NOT_MET, NOT_MENTIONED, UNVERIFIED = "met", "not_met", "not_mentioned", "unverified"
 
 SCHEMA = {
+    "title": "jules",
     "type": "object",
     "properties": {
         "criteria": {"type": "array", "items": {
@@ -58,14 +60,15 @@ For every criterion id, return:
 - reason: one sentence linking the quote to the requirement.
 Then "overall": two or three sentences on the candidate's fit for this job.
 Judge only what the CV says. Every quote is checked automatically against the CV text;
-a quote that is not found word for word earns no credit."""
+a quote that is not found word for word earns no credit.
+""" + DATA_NOTE
 
 
 def _prompt(job: dict, cv_text: str) -> str:
     crit = "\n".join(f"- {c['id']} ({'MUST-HAVE' if c['kind'] == 'must' else 'nice-to-have'}): {c['text']}"
                      for c in all_criteria(job))
-    return (f"JOB: {job.get('title', '')}\n{job.get('summary', '')}\n\n"
-            f"CRITERIA:\n{crit}\n\nCV:\n<<<\n{cv_text}\n>>>")
+    return "\n\n".join([tag("job", f"{job.get('title', '')}\n{job.get('summary', '')}".strip()),
+                        tag("criteria", crit), tag("cv", cv_text)])
 
 
 def assess(job: dict, cand: dict, must_weight: float = 1.0) -> dict:
@@ -112,7 +115,7 @@ def assess(job: dict, cand: dict, must_weight: float = 1.0) -> dict:
     }
 
 
-def run(job: dict, remi_out: dict, load, personal=None, top: int = 5, progress=None) -> dict:
+def run(job: dict, remi_out: dict, load, personal=None, top: int = 10, progress=None) -> dict:
     """`load(cid)` returns Oscar's candidate dict; `personal(cid)` returns the PII record."""
     shortlist = remi_out.get("shortlist", [])
     remi_score = {s["candidate_id"]: s.get("score", 0) for s in shortlist}

@@ -8,7 +8,7 @@ Output: a job record (see criteria.py) for the admin to REVIEW AND EDIT before s
 from __future__ import annotations
 
 from .criteria import SECTION_TYPES, TYPES, clean_criteria
-from .llm import complete_json
+from .llm import DATA_NOTE, complete_json, tag
 
 _CRITERION = {
     "type": "object",
@@ -21,6 +21,7 @@ _CRITERION = {
     "required": ["text", "type", "keywords"],
 }
 SCHEMA = {
+    "title": "clara",
     "type": "object",
     "properties": {
         "summary": {"type": "string"},
@@ -50,19 +51,20 @@ Rules:
 - suggested_drop_sections: CV sections that are irrelevant for judging this job
   (usually interests, references, declaration; keep projects/publications when relevant).
 - summary: 2-4 sentences on what the role really needs.
-Do not invent requirements that are not stated or clearly implied."""
+Do not invent requirements that are not stated or clearly implied.
+""" + DATA_NOTE
 
 
 def propose(title: str, ad_text: str = "", must_text: str = "", nice_text: str = "") -> dict:
     if not (ad_text.strip() or must_text.strip() or nice_text.strip()):
         raise ValueError("Give Clara a job description or at least a must-have list.")
-    parts = [f"PROFESSION BEING HIRED (Admin input #1): {title.strip()}"]
+    parts = [tag("profession", title.strip())]
     if ad_text.strip():
-        parts.append(f"JOB DESCRIPTION:\n<<<\n{ad_text.strip()[:20000]}\n>>>")
+        parts.append(tag("job_description", ad_text.strip()[:20000]))
     if must_text.strip():
-        parts.append(f"ADMIN'S MUST-HAVE LIST (Admin input #2):\n{must_text.strip()[:5000]}")
+        parts.append(tag("admin_must_haves", must_text.strip()[:5000]))
     if nice_text.strip():
-        parts.append(f"ADMIN'S NICE-TO-HAVE LIST (Admin input #3):\n{nice_text.strip()[:5000]}")
+        parts.append(tag("admin_nice_to_haves", nice_text.strip()[:5000]))
     parts.append("Produce the criteria now.")
     raw = complete_json(SYSTEM, "\n\n".join(parts), SCHEMA)
     raw["title"] = title

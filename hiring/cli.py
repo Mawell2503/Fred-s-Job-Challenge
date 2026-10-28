@@ -5,7 +5,7 @@
   python -m hiring remi  --job job.json --runs data/runs [--ids C0001,C0002] --out remi.json
                          [--top 20] [--llm-gate] [--progress progress.json]
   python -m hiring jules --job job.json --runs data/runs --remi remi.json --out jules.json
-                         [--top 5] [--progress progress.json]
+                         [--top 10] [--progress progress.json]
 
 Exit codes: 0 ok, 2 bad input, 3 the LLM could not be used.
 """
@@ -57,12 +57,12 @@ def main(argv=None) -> int:
     r.add_argument("--llm-gate", action="store_true")
     r.add_argument("--progress")
 
-    j = sub.add_parser("jules", help="full LLM read of the shortlist + top-5")
+    j = sub.add_parser("jules", help="full LLM read of the shortlist + top-10")
     j.add_argument("--job", required=True)
     j.add_argument("--runs", required=True)
     j.add_argument("--remi", required=True)
     j.add_argument("--out", required=True)
-    j.add_argument("--top", type=int, default=5)
+    j.add_argument("--top", type=int, default=10)
     j.add_argument("--progress")
 
     a = ap.parse_args(argv)

@@ -102,6 +102,7 @@ def check(c: dict, v: CandidateView) -> dict:
 
 # ---------------- optional LLM gate ----------------
 _GATE_SCHEMA = {
+    "title": "remi_gate",
     "type": "object",
     "properties": {"answers": {"type": "array", "items": {
         "type": "object",
@@ -115,13 +116,15 @@ _GATE_SYSTEM = """You check whether a CV meets specific job requirements.
 For each requirement answer PASS (the CV clearly shows it), FAIL (the CV clearly contradicts it)
 or UNKNOWN (the CV does not say). Silence is UNKNOWN, never FAIL.
 For PASS and FAIL, "quote" must be copied word for word from the CV (5-30 words, no "...").
-For UNKNOWN, quote is an empty string."""
+For UNKNOWN, quote is an empty string.
+"""
 
 
 def llm_resolve(v: CandidateView, unknowns: list[dict], gate: dict) -> None:
-    from .llm import complete_json
+    from .llm import DATA_NOTE, complete_json, tag
     reqs = "\n".join(f"- {c['id']}: {c['text']}" for c in unknowns)
-    out = complete_json(_GATE_SYSTEM, f"REQUIREMENTS:\n{reqs}\n\nCV:\n<<<\n{v.full_text}\n>>>", _GATE_SCHEMA)
+    out = complete_json(_GATE_SYSTEM + DATA_NOTE, tag("requirements", reqs) + "\n\n" + tag("cv", v.full_text),
+                        _GATE_SCHEMA)
     for a in out.get("answers", []):
         g = gate.get(a.get("id"))
         if not g or a.get("status") not in (PASS, FAIL):
