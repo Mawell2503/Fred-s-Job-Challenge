@@ -18,7 +18,8 @@ from ..fake_llm import json_section, quote_of, section
 _PULL = {"helene": 0.4, "victor": 0.3, "nina": 0.35}
 _LINE_FOR_CHECK = [("salary", "Salary expectation"), ("start date", "Earliest start date"),
                    ("location", "Willing to relocate"), ("travel", "Willing to travel"),
-                   ("right to work", "Right to work"), ("way of working", "Preferred way of working")]
+                   ("right to work", ("Can work without a visa", "Right to work")),
+                   ("way of working", "Preferred way of working"), ("application", "Application:")]
 
 
 def _persona(system: str) -> str:

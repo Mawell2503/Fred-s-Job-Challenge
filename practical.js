@@ -1,7 +1,9 @@
 // Practical details for NINA (the operations member of the committee).
 //
-//   Applicant side: salary expectation, availability, location, mobility, languages ...
-//     filled in on index.html, REQUIRED, stored on the applicant record (`practical`).
+//   Applicant side: salary expectation (in a currency they choose), availability, location, mobility,
+//     the countries they can work in, languages ... filled in on index.html, REQUIRED, stored on the
+//     applicant record (`practical`). The answers belong to the person, not to a role: the same answers
+//     are checked against whichever role the CV pool is run for.
 //   Role side: budget, client country, required languages, start date ... ("logistics"),
 //     set by the admin on roles.html.
 //
@@ -13,13 +15,30 @@ export const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'native'];
 export const RELOCATE = ['yes', 'no', 'open'];
 export const TRAVEL = ['none', 'occasional', 'frequent'];
 export const ARRANGEMENT = ['onsite', 'hybrid', 'remote'];
-export const WORK_AUTH = ['yes', 'no', 'sponsorship'];
+export const WORK_AUTH = ['yes', 'no', 'sponsorship'];          // older records only: see work_countries
+// the currencies offered on the form (any other 3-letter ISO code is accepted too)
+export const CURRENCIES = ['EUR', 'USD', 'GBP', 'MUR', 'INR', 'ZAR', 'CHF', 'CAD', 'AUD', 'AED', 'SGD', 'MGA', 'KES', 'NGN'];
 export const PERIODS = ['month', 'year'];
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isDate = v => DATE_RE.test(v) && !Number.isNaN(Date.parse(v + 'T00:00:00Z'));
 const num = v => (v === '' || v === null || v === undefined ? NaN : Number(v));
+const isCurrency = v => /^[A-Z]{3}$/.test(String(v ?? '').trim().toUpperCase());
+
+/** "Mauritius, France" or ["Mauritius", "France"] -> ["Mauritius", "France"] (trimmed, no duplicates, max 10). */
+export function cleanCountries(v) {
+    const list = Array.isArray(v) ? v : String(v ?? '').split(/[,;\n]/);
+    const out = [], seen = new Set();
+    for (const c of list) {
+        const name = str(c, 60);
+        if (!name || seen.has(name.toLowerCase())) continue;
+        seen.add(name.toLowerCase());
+        out.push(name);
+        if (out.length >= 10) break;
+    }
+    return out;
+}
 
 function cleanLanguages(list, levelKey, { required }) {
     const out = [];
@@ -55,6 +74,7 @@ export function cleanPractical(raw, role) {
     if (!(amount > 0 && amount < 1e9)) return { error: 'Enter your salary expectation (a number).' };
     const period = PERIODS.includes(p.salary?.period) ? p.salary.period : null;
     if (!period) return { error: 'Say whether your salary expectation is per month or per year.' };
+    const currency = isCurrency(p.salary?.currency) ? String(p.salary.currency).trim().toUpperCase() : roleCurrency(role);
 
     const available = str(p.available_from, 10);
     if (!isDate(available)) return { error: 'Enter the earliest date you could start.' };
@@ -69,22 +89,23 @@ export function cleanPractical(raw, role) {
     const relocate = pick(p.relocate, RELOCATE, 'Say whether you would relocate.');
     const travel = pick(p.travel, TRAVEL, 'Say how much you can travel.');
     const arrangement = pick(p.arrangement, ARRANGEMENT, 'Choose your preferred work arrangement.');
-    const auth = pick(p.work_authorization, WORK_AUTH, 'Say whether you have the right to work in the country of this position.');
-    for (const r of [relocate, travel, arrangement, auth]) if (r.error) return r;
+    for (const r of [relocate, travel, arrangement]) if (r.error) return r;
+    const work_countries = cleanCountries(p.work_countries);
+    if (!work_countries.length) return { error: 'List the countries you can work in without a visa (at least one).' };
 
     const langs = cleanLanguages(p.languages, 'level', { required: true });
     if (langs.error) return langs;
 
     return {
         value: {
-            salary: { amount: Math.round(amount), period, currency: roleCurrency(role) },
+            salary: { amount: Math.round(amount), period, currency },
             available_from: available,
             notice_weeks,
             location: { country, city },
             relocate: relocate.value,
             travel: travel.value,
             arrangement: arrangement.value,
-            work_authorization: auth.value,
+            work_countries,
             languages: langs.value,
         },
     };
@@ -123,6 +144,18 @@ export function hasLogistics(l) {
 }
 
 export const roleCurrency = role => role?.logistics?.currency || 'EUR';
+
+/**
+ * Answers saved before the CV pool existed said "right to work in the country of this position"
+ * (yes / no / sponsorship) for the one role they applied to. Turn that into the countries they can
+ * work in: "yes" -> that role's work country (when it had one). The old answer is kept as it was.
+ */
+export function upgradePractical(p, role) {
+    if (!p || Array.isArray(p.work_countries)) return false;
+    const wc = role?.logistics?.work_country;
+    p.work_countries = p.work_authorization === 'yes' && wc ? [wc] : [];
+    return true;
+}
 
 /** The little the public application form may know about a role (never the budget). */
 export const publicRoleInfo = role => ({

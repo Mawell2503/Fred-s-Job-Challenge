@@ -1,9 +1,13 @@
 // Applicant upload -> CV reader (OSCAR) -> stored result.
-//   POST /api/apply                         (public)  multipart form: roleId, name, linkedinUrl,
-//                                                     resume (file), linkedin (optional LinkedIn PDF),
-//                                                     practical (JSON string, required, for Nina)
-//   GET  /api/admin/applicants[?role=R001][&details=1]  (admin)  list of applicants + CV status
-//                                                     (details=1: with each one's practical answers)
+//   POST /api/apply                         (public)  multipart form: roleId ("open" or empty = open
+//                                                     application), name, linkedinUrl, resume (file),
+//                                                     linkedin (optional LinkedIn PDF), practical (JSON
+//                                                     string, required, for Nina). Everything joins the CV pool.
+//   GET  /api/admin/applicants[?role=R001][&details=1][&q=][&offset=&limit=]  (admin)
+//                                                     the CV pool. role=: only who that role's run reads (its
+//                                                     scope), each with `application` (applied for this role /
+//                                                     open / other roles). details=1: with practical answers.
+//                                                     q=: name, id or file name. limit=: { total, items } page.
 //   GET  /api/admin/applicants/:id/cv       (admin)   the CV file exactly as uploaded
 //   GET  /api/admin/applicants/:id/text     (admin)   the cleaned CV text block (kept sections)
 //   GET  /api/admin/applicants/:id/full     (admin)   every section, personal details removed (what Jules reads)
@@ -16,9 +20,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { getRole } from './rolesStore.js';
+import { applicationLabel } from './pipeline.js';
 import { cleanPractical } from './practical.js';
 import {
-    DATA_DIR, UPLOAD_DIR, applicantsForRole, cleanFileName, findApplicant, listApplicants, submitApplication,
+    DATA_DIR, UPLOAD_DIR, applicantsInScope, cleanFileName, findApplicant, listApplicants, submitApplication,
 } from './applicants.js';
 
 
@@ -66,13 +71,15 @@ export function applyRoutes({ requireAuth }) {
             const li = req.files?.linkedin?.[0] || null;
             const discard = () => { for (const f of [cv, li]) if (f) fs.rmSync(f.path, { force: true }); };
             try {
-                const role = getRole(String(req.body?.roleId ?? ''));
+                const wanted = String(req.body?.roleId ?? '').trim();
+                const open = !wanted || wanted === 'open';                   // "Open application: any position"
+                const role = open ? null : getRole(wanted);
                 const name = String(req.body?.name ?? '').trim();
                 const instagramUrl = cleanUrl(req.body?.instagramUrl);
                 const linkedinUrl = cleanUrl(req.body?.linkedinUrl);
                 // a rejected application must not leave its uploads behind
                 const refuse = error => { discard(); return res.status(400).json({ error }); };
-                if (!role || role.status !== 'open') return refuse('Choose the position you are applying for.');
+                if (!open && (!role || role.status !== 'open')) return refuse('That position is no longer open. Choose another one, or send an open application.');
                 if (!name || name.length > 100) return refuse('Enter your name.');
                 if (instagramUrl === null || linkedinUrl === null) return refuse('Links must start with http:// or https://');
                 if (!cv) return refuse('Choose a CV file (PDF, DOCX or TXT).');
@@ -81,12 +88,18 @@ export function applyRoutes({ requireAuth }) {
                 if (practical.error) return refuse(practical.error);
 
                 const out = await submitApplication({
-                    role, cvPath: cv.path, cvName: cv.originalname, linkedinPath: li?.path || null, name, linkedinUrl, instagramUrl,
-                    practical: practical.value,
+                    roleId: role?.id || null, cvPath: cv.path, cvName: cv.originalname, linkedinPath: li?.path || null,
+                    name, linkedinUrl, instagramUrl, practical: practical.value,
                 });
                 if (out.duplicate) {
                     discard();
-                    return res.status(409).json({ error: 'We already have this CV for this position. No need to send it again.' });
+                    return res.status(409).json({ error: open ? 'We already have this CV. No need to send it again.'
+                        : 'We already have this CV for this position. No need to send it again.' });
+                }
+                if (out.added) {
+                    discard();                                  // the CV we have is kept; nothing new to store
+                    return res.status(200).json({ received: true, added: true,
+                        message: 'We already had your CV: this position has been added to your application.' });
                 }
                 if (out.result.status === 'failed') {
                     discard();                                  // nothing was recorded: keep no files
@@ -100,16 +113,28 @@ export function applyRoutes({ requireAuth }) {
             }
         });
 
-    // ?details=1 adds each applicant's practical answers (the lobby's "Applications in" card shows them all at once)
     router.get('/api/admin/applicants', requireAuth, (req, res) => {
-        const role = req.query.role ? String(req.query.role) : null;
+        const role = req.query.role ? getRole(String(req.query.role)) : null;
+        if (req.query.role && !role) return res.status(404).json({ error: 'Unknown role.' });
         const details = req.query.details === '1';
-        res.json((role ? applicantsForRole(role) : listApplicants())
-            .map(({ candidateId, roleId, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes, cvFile, cvName, linkedinFile, practical }) =>
-                ({ id: candidateId, roleId, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes,
-                    cvName: cvName || cleanFileName('', cvFile),
-                    hasLinkedinPdf: Boolean(linkedinFile), hasPractical: Boolean(practical),
-                    ...(details ? { practical: practical || null } : {}) })));
+        let list = role ? applicantsInScope(role) : listApplicants();
+        const q = String(req.query.q ?? '').trim().toLowerCase().slice(0, 100);
+        if (q) list = list.filter(a => [a.name, a.candidateId, a.cvName].some(v => String(v ?? '').toLowerCase().includes(q)));
+        const view = ({ candidateId, appliedFor, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes, cvFile, cvName,
+            linkedinFile, practical, source }) => ({
+            id: candidateId, appliedFor: appliedFor.map(id => ({ id, title: getRole(id)?.title || id })),
+            name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes,
+            cvName: cvName || cleanFileName('', cvFile),
+            hasLinkedinPdf: Boolean(linkedinFile), hasPractical: Boolean(practical), source: source || 'form',
+            ...(role ? { application: applicationLabel({ appliedFor }, role) } : {}),
+            ...(details ? { practical: practical || null } : {}),
+        });
+        if (req.query.limit === undefined) return res.json(list.map(view));
+        // one page, newest first: { total, items }
+        const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
+        const page = list.slice().reverse().slice(offset, offset + limit);
+        res.json({ total: list.length, offset, limit, items: page.map(view) });
     });
 
     // The CV file exactly as the applicant uploaded it. PDF and TXT open in the browser, DOCX downloads.

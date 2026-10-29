@@ -1,7 +1,7 @@
 // node --test tests/   (no dependencies)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPractical, cleanLogistics, hasLogistics, publicRoleInfo } from '../practical.js';
+import { cleanPractical, cleanLogistics, cleanCountries, hasLogistics, publicRoleInfo, upgradePractical } from '../practical.js';
 
 const role = { id: 'R001', title: 'Data engineer', logistics: cleanLogistics({ currency: 'eur', work_country: 'France', budget_max: 5000 }) };
 const good = {
@@ -9,7 +9,7 @@ const good = {
     available_from: '2026-12-01',
     notice_weeks: '4',
     location: { country: 'Mauritius', city: 'Port Louis' },
-    relocate: 'open', travel: 'occasional', arrangement: 'hybrid', work_authorization: 'sponsorship',
+    relocate: 'open', travel: 'occasional', arrangement: 'hybrid', work_countries: 'Mauritius, france, Mauritius',
     languages: [{ language: 'French', level: 'C1' }, { language: 'french', level: 'B1' }, { language: '', level: '' }],
 };
 
@@ -19,6 +19,29 @@ test('a complete answer is accepted and normalised', () => {
     assert.deepEqual(value.salary, { amount: 4500, period: 'month', currency: 'EUR' });
     assert.equal(value.notice_weeks, 4);
     assert.deepEqual(value.languages, [{ language: 'French', level: 'C1' }]);   // duplicate + empty row dropped
+    assert.deepEqual(value.work_countries, ['Mauritius', 'france']);              // duplicate dropped
+    assert.equal('work_authorization' in value, false);
+});
+
+test('the applicant chooses the salary currency; without one it follows the role, else EUR', () => {
+    const withCur = cur => cleanPractical({ ...good, salary: { ...good.salary, currency: cur } }, role).value.salary.currency;
+    assert.equal(withCur('inr'), 'INR');
+    assert.equal(withCur('rupees'), 'EUR');                                     // not a code: the role's currency
+    assert.equal(cleanPractical(good, null).value.salary.currency, 'EUR');       // open application, nothing chosen
+});
+
+test('countries are split, trimmed and capped', () => {
+    assert.deepEqual(cleanCountries(' Mauritius ;France\n,, '), ['Mauritius', 'France']);
+    assert.equal(cleanCountries(Array.from({ length: 15 }, (_, i) => `C${i}`)).length, 10);
+});
+
+test('answers from before the pool get the countries they could work in', () => {
+    const yes = { work_authorization: 'yes' }, no = { work_authorization: 'sponsorship' };
+    assert.equal(upgradePractical(yes, role), true);
+    assert.deepEqual(yes.work_countries, ['France']);
+    upgradePractical(no, role);
+    assert.deepEqual(no.work_countries, []);
+    assert.equal(upgradePractical(yes, role), false);                           // only once
 });
 
 test('every required part is enforced with a readable message', () => {
@@ -37,7 +60,7 @@ test('every required part is enforced with a readable message', () => {
     assert.match(without('relocate', 'maybe'), /relocate/);
     assert.match(without('travel', ''), /travel/);
     assert.match(without('arrangement', 'office'), /work arrangement/);
-    assert.match(without('work_authorization', ''), /right to work/);
+    assert.match(without('work_countries', ' , '), /countries you can work in/);
     assert.match(without('languages', []), /language/);
     assert.match(without('languages', [{ language: 'French', level: 'fluent' }]), /level for French/);
     assert.match(cleanPractical('not json', role).error, /practical details/);

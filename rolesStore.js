@@ -12,6 +12,13 @@ export const SECTION_TYPES = ['summary', 'experience', 'education', 'skills', 'l
     'personal', 'declaration', 'unknown'];
 export const CRITERION_TYPES = ['skill', 'language', 'years', 'degree', 'certification', 'other'];
 export const AGENTS = ['clara', 'oscar', 'remi', 'jules', 'committee'];
+// The CV sections every CV is read with when it arrives in the pool. A role with other settings gets
+// its own reads (see reads.js); a role with these settings uses the arrival reads as they are.
+export const DEFAULT_RULES = Object.freeze({ sections: Object.freeze({ interests: 'drop', references: 'drop', declaration: 'drop' }) });
+/** The keep/drop settings as a comparable string ({} and the defaults written out are different on purpose). */
+export const rulesKey = rules => JSON.stringify(Object.entries(rules?.sections || {}).sort());
+// Who a pipeline run reads: the whole CV pool, or only the people who applied for this role.
+export const SCOPES = ['pool', 'direct'];
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 let roles = [];
@@ -46,8 +53,16 @@ export const roleDir = id => {
 export const listRoles = () => roles;
 export const getRole = id => roles.find(r => r.id === id) || null;
 
-// roles created before practical requirements existed
-for (const r of roles) r.logistics ||= cleanLogistics({});
+// roles created before practical requirements / the CV pool existed
+{
+    let changed = false;
+    for (const r of roles) {
+        if (!r.logistics) { r.logistics = cleanLogistics({}); changed = true; }
+        if (!SCOPES.includes(r.scope)) { r.scope = 'pool'; changed = true; }
+        if (typeof r.tieBreak !== 'boolean') { r.tieBreak = false; changed = true; }
+    }
+    if (changed) saveRoles();
+}
 
 export function createRole(title) {
     const n = roles.reduce((m, r) => Math.max(m, Number(r.id.slice(1)) || 0), 0) + 1;
@@ -61,7 +76,11 @@ export function createRole(title) {
         jobUpdatedAt: null,
         claraProposal: null,
         // Oscar keep/drop per section for this role (anything not listed keeps the default)
-        rules: { sections: { interests: 'drop', references: 'drop', declaration: 'drop' } },
+        rules: structuredClone(DEFAULT_RULES),
+        // run on the whole CV pool (default) or only on the people who applied for this role
+        scope: 'pool',
+        // on a tied committee score, people who applied for this role rank first
+        tieBreak: false,
         // practical requirements for Nina (budget, client country, languages ...): see practical.js
         logistics: cleanLogistics({}),
         agents: {},

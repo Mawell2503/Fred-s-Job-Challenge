@@ -12,7 +12,8 @@ For each of the five candidates in <ranking>, write:
 - strengths: exactly 3, each a one-sentence point + a quote copied EXACTLY (5 to 30 words, never
   shortened, never translated) + its source: "cv" (the candidate's CV in <cvs>) or "practical"
   (their practical answers in <practical>). The members' arguments in <positions> already carry
-  checked quotes you may reuse. Every quote is checked automatically.
+  checked quotes you may reuse. Every quote is checked automatically. Never use the "Application:"
+  line as a strength: what the candidate applied for is a fact, not a quality.
 - improvements: exactly 2 areas for improvement, taken from the members' concerns.
 - missing: what the committee could not verify (start from <missing>; add only what the members
   explicitly said was missing).

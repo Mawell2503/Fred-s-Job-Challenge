@@ -2,7 +2,8 @@
 //   GET    /api/roles                          (public) open roles, for the application form
 //   GET    /api/admin/roles                    (admin)  all roles, with applicant counts and agent states
 //   POST   /api/admin/roles                    (admin)  { title } -> new role
-//   PATCH  /api/admin/roles/:id                (admin)  { title, status, adText, mustText, niceText, job, rules, logistics }
+//   PATCH  /api/admin/roles/:id                (admin)  { title, status, adText, mustText, niceText, job, rules, logistics,
+//                                                        scope: 'pool' | 'direct', tieBreak: boolean }
 //   POST   /api/admin/roles/:id/clara          (admin)  CLARA proposes criteria (admin reviews, then PATCHes job)
 //   POST   /api/admin/roles/:id/pipeline       (admin)  { llmGate } Oscar -> Remi -> Jules -> Committee -> Gaston
 //   GET    /api/admin/roles/:id/results        (admin)  every step's output + live progress + debate feed
@@ -12,19 +13,30 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { cleanLogistics, publicRoleInfo } from './practical.js';
-import { applicantsForRole } from './applicants.js';
+import { applicantsInScope, directApplicants, findApplicant, listApplicants } from './applicants.js';
+import { staleCount, usesArrivalReads } from './reads.js';
 import {
-    listRoles, getRole, createRole, saveRoles, roleDir, cleanJob, cleanRules,
+    listRoles, getRole, createRole, saveRoles, roleDir, cleanJob, cleanRules, SCOPES,
 } from './rolesStore.js';
-import { pipelineProblem, readJson, runHiring, runPipeline, startAgent } from './pipeline.js';
+import { applicationLabel, pipelineProblem, readJson, runHiring, runPipeline, startAgent } from './pipeline.js';
 
 function summary(role) {
-    const apps = applicantsForRole(role.id);
+    const apps = applicantsInScope(role);
     const dir = roleDir(role.id);
+    let first = null, last = null;
+    for (const a of apps) {
+        if (!first || a.appliedAt < first) first = a.appliedAt;
+        if (!last || a.appliedAt > last) last = a.appliedAt;
+    }
     return {
         ...role,
-        applicants: apps.length,
+        applicants: apps.length,                                // who a run reads (role.scope)
         readable: apps.filter(a => a.cvStatus !== 'failed').length,
+        pool: listApplicants().length,                          // the whole CV pool
+        direct: directApplicants(role.id).length,               // people who chose this role on the form
+        appliedFrom: first, appliedTo: last,
+        ownReads: !usesArrivalReads(role),                      // its CV sections differ from the default
+        toRead: staleCount(role, apps),                         // CVs Oscar must (re)read before the next run
         hasRemi: fs.existsSync(path.join(dir, 'remi.json')),
         hasJules: fs.existsSync(path.join(dir, 'jules.json')),
         hasReport: fs.existsSync(path.join(dir, 'report.md')),
@@ -73,6 +85,8 @@ export function roleRoutes({ requireAuth }) {
         }
         if (b.rules !== undefined) role.rules = cleanRules(b.rules);
         if (b.logistics !== undefined) role.logistics = cleanLogistics(b.logistics);
+        if (b.scope !== undefined) role.scope = SCOPES.includes(b.scope) ? b.scope : 'pool';
+        if (b.tieBreak !== undefined) role.tieBreak = b.tieBreak === true;
         saveRoles();
         res.json(summary(role));
     });
@@ -109,11 +123,23 @@ export function roleRoutes({ requireAuth }) {
     router.get('/api/admin/roles/:id/results', (req, res) => {
         const dir = roleDir(req.role.id);
         const committee = readJson(path.join(dir, 'committee.json'));
+        const jules = readJson(path.join(dir, 'jules.json'));
+        // what each finalist applied for, towards this role (the badges on the lobby cards), and the name on
+        // their application (Oscar's name from the CV is only the fallback: some CVs carry none)
+        const application = {}, names = {};
+        for (const f of jules?.finalists || []) {
+            const a = findApplicant(f.candidate_id);
+            if (!a) continue;
+            application[f.candidate_id] = applicationLabel(a, req.role);
+            if (a.name) names[f.candidate_id] = a.name;
+        }
         res.json({
             role: summary(req.role),
+            application,
+            names,
             progress: readJson(path.join(dir, 'progress.json')),
             remi: readJson(path.join(dir, 'remi.json')),
-            jules: readJson(path.join(dir, 'jules.json')),
+            jules,
             committee,
             // live debate feed while the committee runs (committee.json carries it once finished)
             feed: committee?.feed || readJson(path.join(dir, 'feed.json')) || [],

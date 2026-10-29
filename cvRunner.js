@@ -9,12 +9,23 @@ const TIMEOUT_MS = 180_000;
 /**
  * @param {string} filePath  absolute path of the saved upload
  * @param {number} number    candidate number (1 -> C0001)
- * @param {object} [rules]   the role's keep/drop settings, e.g. { sections: { interests: 'drop' } }
- * @returns {Promise<{candidateId, status, codes, text, runDir}>}
+ * @param {object} [rules]   the keep/drop settings, e.g. { sections: { interests: 'drop' } }
+ * @param {string} [runsRoot] where the read goes: RUNS_DIR (the pool's arrival read) or a role's own
+ *                            runs folder (data/roles/<id>/runs) when that role keeps other sections
+ * @returns {Promise<{candidateId, status, codes, text, runDir, name}>}  name: the one Oscar found, or ''
  */
-export async function runCvReader(filePath, number, rules) {
+/** The name Oscar's personal-details step found in the CV ('' when none). */
+function foundName(runDir, candidateId) {
+    try {
+        const recs = JSON.parse(fs.readFileSync(path.join(runDir, 'pii_store.json'), 'utf8'));
+        const name = recs.find(r => r.candidate_id === candidateId)?.name;
+        return typeof name === 'string' ? name.trim().slice(0, 100) : '';
+    } catch { return ''; }
+}
+
+export async function runCvReader(filePath, number, rules, runsRoot = RUNS_DIR) {
     const candidateId = `C${String(number).padStart(4, '0')}`;
-    const runDir = path.join(RUNS_DIR, candidateId);
+    const runDir = path.join(runsRoot, candidateId);
     fs.mkdirSync(runDir, { recursive: true });
 
     const args = ['-m', 'cv_reader', filePath, '-o', runDir, '--id-start', String(number)];
@@ -39,6 +50,7 @@ export async function runCvReader(filePath, number, rules) {
             codes: f.messages.map(m => m.code),                 // e.g. NAME_NOT_FOUND, OCR_USED
             text: fs.existsSync(textFile) ? fs.readFileSync(textFile, 'utf8') : null,
             runDir,
+            name: foundName(runDir, candidateId),
         };
     } catch (e) {
         throw new Error(`cv_reader produced no readable summary: ${e.message}`);

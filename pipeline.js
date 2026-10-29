@@ -7,23 +7,25 @@
 // scripts/run-pipeline.js (the same thing from the terminal).
 //
 // Data flow worth knowing:
-//   - Oscar only re-reads CVs whose keep/drop settings changed since they were last read.
+//   - A run reads the whole CV pool, or only the role's direct applicants (role.scope).
+//   - Oscar only reads what is missing or stale for this role (reads.js): nothing at all for a role on
+//     the default CV sections whose CVs were read on arrival.
 //   - The practical answers (Nina) and LinkedIn PDFs (Helene) never enter Oscar / Remi / Jules:
 //     after Jules has picked the top 10, only THOSE 10 candidates' answers are written into
 //     committee_in.json and handed to the committee.
 import fs from 'node:fs';
 import path from 'node:path';
 import { runPython } from './pyRunner.js';
-import { RUNS_DIR } from './cvRunner.js';
-import { applicantsForRole, reprocessRole } from './applicants.js';
-import { roleDir, saveRoles } from './rolesStore.js';
+import { applicantsInScope, applicationFor } from './applicants.js';
+import { ensureReads, runsDirFor } from './reads.js';
+import { getRole, roleDir, saveRoles } from './rolesStore.js';
 
 const MINUTES = 60_000;
 export const TIMEOUTS = { clara: 5 * MINUTES, remi: 30 * MINUTES, jules: 60 * MINUTES, committee: 90 * MINUTES };
 export const STEPS = ['oscar', 'remi', 'jules', 'committee'];
 export const STEP_LABEL = { oscar: 'Oscar (CVs)', remi: 'Remi (top 20)', jules: 'Jules (top 10)', committee: 'Committee + Gaston' };
 // everything a pipeline run produces; deleted at the start of a run so nothing stale is ever shown
-export const OUTPUTS = ['remi.json', 'jules.json', 'committee_in.json', 'committee.json', 'report.md', 'trace.jsonl', 'feed.json'];
+export const OUTPUTS = ['ids.txt', 'remi.json', 'jules.json', 'committee_in.json', 'committee.json', 'report.md', 'trace.jsonl', 'feed.json'];
 
 export const readJson = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 const lastLine = text => String(text).trim().split('\n').filter(Boolean).pop() || '';
@@ -61,13 +63,25 @@ export function writeJob(role) {
     return file;
 }
 
+/**
+ * What the applicant chose, towards `role`, with role titles (for the committee, the report and the badges):
+ *   { kind: 'this' } | { kind: 'open' } | { kind: 'other', roles: ['Backend Developer'] }
+ */
+export function applicationLabel(a, role) {
+    const l = applicationFor(a, role.id);
+    if (l.kind === 'other') l.roles = l.roles.map(id => getRole(id)?.title || id);
+    return l;
+}
+
 /** Why the pipeline can't start yet, or null. */
 export function pipelineProblem(role) {
     if (!role.job?.must_haves?.length && !role.job?.nice_to_haves?.length) {
         return 'Save the criteria first (ask Clara, check them, then "Save criteria").';
     }
-    const apps = applicantsForRole(role.id);
-    if (!apps.length) return 'No applications for this role yet.';
+    if (!applicantsInScope(role).length) {
+        return role.scope === 'direct' ? 'Nobody applied for this role yet (or run it on the whole CV pool).'
+            : 'The CV pool is empty: no applications yet.';
+    }
     return null;
 }
 
@@ -98,21 +112,27 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
         }
     };
 
-    // 1. Oscar: only CVs read with older keep/drop settings
+    // who this run reads, fixed now: CVs arriving during the run wait for the next one
+    const apps = [...applicantsInScope(role)];
+    const runs = runsDirFor(role);
+
+    // 1. Oscar: only what is missing or stale for this role's CV sections
+    let ids = [];
     await step('oscar', async () => {
-        const r = await reprocessRole(role.id, role.rules, (done, total) => progress({ stage: 'oscar', done, total }),
-            { onlyStale: true });
-        return r.total ? `Re-read ${r.total} CV(s) with the current sections${r.failed ? `, ${r.failed} unreadable` : ''}.`
-            : 'Every CV was already read with the current sections.';
+        const r = await ensureReads(role, apps, (done, total) => progress({ stage: 'oscar', done, total }));
+        ids = r.readable;
+        return r.total ? `Read ${r.total} CV(s) with this role's sections${r.failed ? `, ${r.failed} unreadable` : ''}.`
+            : `Every CV was already read with this role's sections (${ids.length} readable).`;
     });
-    const apps = applicantsForRole(role.id);
-    const ids = apps.filter(a => a.cvStatus !== 'failed').map(a => a.candidateId);
     if (!ids.length) throw new Error('No readable CVs for this role.');
     const job = writeJob(role);
+    // the candidate list goes through a file: thousands of ids are too long for a Windows command line
+    const idsFile = file('ids.txt');
+    fs.writeFileSync(idsFile, ids.join('\n'));
 
     // 2. Remi: must-have gate + top 20
     await step('remi', () => {
-        const args = ['remi', '--job', job, '--runs', RUNS_DIR, '--ids', ids.join(','), '--out', file('remi.json'),
+        const args = ['remi', '--job', job, '--runs', runs, '--ids-file', idsFile, '--out', file('remi.json'),
             '--progress', progressFile];
         if (llmGate) args.push('--llm-gate');
         return runHiring(args, 'remi');
@@ -121,24 +141,30 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
     if (!remi?.shortlist?.length) throw new Error('Remi shortlisted nobody: every candidate failed a must-have.');
 
     // 3. Jules: full read of the 20, keeps 10
-    await step('jules', () => runHiring(['jules', '--job', job, '--runs', RUNS_DIR, '--remi', file('remi.json'),
+    await step('jules', () => runHiring(['jules', '--job', job, '--runs', runs, '--remi', file('remi.json'),
         '--out', file('jules.json'), '--top', '10', '--progress', progressFile], 'jules'));
     const jules = readJson(file('jules.json'));
     const finalists = (jules?.finalists || []).map(f => f.candidate_id);
     if (!finalists.length) throw new Error('Jules produced no finalists.');
 
-    // 4. Committee: ONLY now do the practical answers and LinkedIn flags of the 10 come in
+    // 4. Committee: ONLY now do the practical answers, LinkedIn flags and what they applied for come in
     const byId = Object.fromEntries(apps.map(a => [a.candidateId, a]));
+    const pool = role.scope !== 'direct';
     const cin = {
         role: { id: role.id, title: role.title },
         logistics: role.logistics || {},
         practical: Object.fromEntries(finalists.filter(c => byId[c]?.practical).map(c => [c, byId[c].practical])),
         linkedin: Object.fromEntries(finalists.map(c => [c, Boolean(byId[c]?.linkedinFile)])),
+        // the name the applicant gave (or the import found): for the report only, never sent to the AI
+        names: Object.fromEntries(finalists.filter(c => byId[c]?.name).map(c => [c, byId[c].name])),
+        // whole pool: whether each finalist applied for this role (Nina's check). Direct only: everyone did.
+        application: pool ? Object.fromEntries(finalists.filter(c => byId[c]).map(c => [c, applicationLabel(byId[c], role)])) : {},
+        tie_break_direct: pool && role.tieBreak === true,
         funnel: { applications: apps.length, readable: ids.length, passed_gate: remi.counts?.passed_gate,
-            read_by_jules: jules.counts?.read },
+            read_by_jules: jules.counts?.read, scope: pool ? 'pool' : 'direct' },
     };
     fs.writeFileSync(file('committee_in.json'), JSON.stringify(cin, null, 2), { mode: 0o600 });
-    await step('committee', () => runHiring(['committee', '--job', job, '--runs', RUNS_DIR, '--jules', file('jules.json'),
+    await step('committee', () => runHiring(['committee', '--job', job, '--runs', runs, '--jules', file('jules.json'),
         '--input', file('committee_in.json'), '--out', file('committee.json'), '--report', file('report.md'),
         '--trace', file('trace.jsonl'), '--feed', file('feed.json'), '--progress', progressFile], 'committee'));
 

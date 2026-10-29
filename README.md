@@ -26,7 +26,7 @@ Sorting/Cleaning of the CVs to bring it down to a text block that AIs can easily
 
 | Agent | Where | What it does |
 | --- | --- | --- |
-| **Oscar** | `cv_reader/` | CV -> clean text (kept sections), full text without personal details, structured record, embedding. Personal details go to a separate file. Runs on every upload with the role's keep/drop settings. |
+| **Oscar** | `cv_reader/` | CV -> clean text (kept sections), full text without personal details, structured record, embedding. Personal details go to a separate file. Reads every CV once on arrival (default sections); a role keeping other sections gets its own reads on its next run. |
 | **Clara** | `hiring/clara.py` | Job ad and/or the admin's lists -> must-haves + nice-to-haves (with keywords). The admin reviews and saves them. |
 | **Remi** | `hiring/remi.py` | Must-have gate (PASS / FAIL / UNKNOWN; FAIL eliminates, UNKNOWN is only penalised), then ranks by keywords + meaning + nice-to-haves and keeps the top 20. Plain code; an optional Claude double-check exists. |
 | **Jules** | `hiring/jules.py` | Claude reads each of the 20 full CVs, criterion by criterion, with word-for-word quotes. `citation_checker.py` verifies every quote before scoring; keeps the **top 10** with detailed score and list of what's missing. |
@@ -64,13 +64,23 @@ disagreements · recommendation with confidence level · interview questions · 
 before and after the debate). Shown on the admin page, at `/pages/report.html?role=R001`
 (print / save as PDF) and as `report.md`.
 
+**One CV pool.** Every CV goes into one pool, whatever position the applicant picked. The form's position
+list starts with **Open application: any position** (the default); picking a real role only records it.
+A role is *run on the pool*: by default the whole pool, or (a switch on the Job & criteria card and the
+pipeline page) only the people who applied for it. In a whole-pool run each finalist carries a label (applied
+for this role / open application / applied for another role, named) that Nina gets as one of her practical
+checks and that shows on the lobby cards and in the report. It never changes a score in the funnel; an
+optional per-role setting lets direct applicants win a *tied* committee average. The same CV sent again for
+another role adds that role to the application instead of making a second applicant.
+
 **What feeds Nina and Hélène never goes through the funnel.** Applicants fill in required *practical
-details* on the form (salary expectation in the role's currency, start date, location, relocation,
-travel, way of working, right to work, languages with level) and may upload their **LinkedIn profile
+details* on the form (salary expectation in a currency they choose, start date, location, relocation,
+travel, way of working, the countries they can work in without a visa, languages with level) and may upload their **LinkedIn profile
 PDF** (optional; "Resources → Save to PDF" on LinkedIn). Both are stored on the side; Oscar, Remi and
 Jules never see them. Only once Jules has picked the top 10 are those 10 candidates' answers handed to the
 committee. The admin sets the role's *practical requirements* (budget, client country, start date,
-required languages...) in the "Practical requirements" card. *The LinkedIn PDF parser is not built yet:
+required languages...) in the "Practical requirements" card. A salary asked in another currency than the
+budget is reported as "not compared": the system has no exchange rates. *The LinkedIn PDF parser is not built yet:
 Hélène is told whether a profile was provided and judges from the CV.*
 
 Admin lobby: `/pages/adminlobby.html`. Its timeline opens cards (they turn blue on hover): **Applications
@@ -80,10 +90,10 @@ sections → Save criteria) and **Practical requirements** (for Nina). **3 · Co
 page (`/pages/committee.html`, still to be designed; links to Gaston's report).
 
 Pipeline page: `/pages/roles.html` (**Edit pipeline** in the lobby), everything on one page. Create a role,
-ask Clara and check her criteria (the one manual step), set the practical requirements, then press **Run
-full pipeline**: Oscar (only CVs read with older section settings), Remi, Jules, the committee and Gaston run
-one after the other in the background, with live progress and a live debate feed. Applicants choose an open
-role on the home page.
+ask Clara and check her criteria (the one manual step), set the practical requirements, choose what it runs
+on (whole pool / its applicants), then press **Run full pipeline**: Oscar (only what this role still needs to
+read), Remi, Jules, the committee and Gaston run one after the other in the background, with live progress and
+a live debate feed. Lists of applicants load 50 at a time and can be searched (name, candidate number, file).
 
 The agents also run from the terminal:
 ```
@@ -101,10 +111,23 @@ npm run pipeline -- R001   # the whole pipeline for one role, like the button (s
 ```
 npm run demo               # a demo role + 15 fictional, deliberately contentious applications (demo/)
 npm run pipeline -- R00x   # run everything on it (the id is printed by the previous command)
+npm run import -- "C:\path\to\cvs"   # put a whole folder of CVs into the pool (see below)
 npm test                   # Node + Python tests: no AI, no cost
 ```
 With `LLM_BACKEND=fake` everything runs offline in seconds: plain rules stand in for the AI, to check the
 plumbing. Switch to `claude_cli` or `api` for the real agents.
+
+**Importing a folder of CVs (for testing with many real CVs).** Stop the server, then
+`npm run import -- <folder>`. Every PDF / DOCX / TXT in the folder and its sub-folders goes into the pool one
+by one, through the same code as the form: Oscar reads it, it gets a candidate number and shows up everywhere.
+The name is the one Oscar finds in the CV (else "Test subject #0045"); the practical details are invented but
+realistic for a home market (default Mauritius / EUR / French + English: most fit, some ask too much, start
+late, miss a language or cannot work there); about 45% get a made-up LinkedIn URL; about half are open
+applications, the rest applied for one of your roles. The same file always gets the same answers. It is safe
+to stop (Ctrl+C) and run again: CVs already in the pool are skipped and never changed. Unreadable and skipped
+files are listed in `data/import-<date>.log`. Options: `--open 0.5` (share of open applications),
+`--country Mauritius --city "Port Louis" --currency EUR --languages French,English`, `--limit 100`, `--seed x`.
+Expect roughly 0.2-3 s per CV (PDFs and scans are the slow ones).
 
 ## Running
 
@@ -141,12 +164,12 @@ The same CV file sent twice for the same position is refused (409); it is recogn
 | GET | `/api/admin/me` | Current admin, or 401 |
 | GET | `/api/roles` | Open roles (public, for the application form) |
 | GET / POST | `/api/admin/roles` | List / create roles |
-| PATCH | `/api/admin/roles/:id` | Edit title, status, job ad, criteria, keep/drop sections, practical requirements |
+| PATCH | `/api/admin/roles/:id` | Edit title, status, job ad, criteria, keep/drop sections, practical requirements, `scope` (`pool` / `direct`), `tieBreak` |
 | POST | `/api/admin/roles/:id/clara` | Clara proposes criteria (background) |
 | POST | `/api/admin/roles/:id/pipeline` | Oscar → Remi → Jules → committee → Gaston (background) |
 | GET | `/api/admin/roles/:id/results` | Step states, progress, Remi, Jules, committee results, live debate feed |
 | GET | `/api/admin/roles/:id/report.md` | Gaston's report (Markdown download) |
-| GET | `/api/admin/applicants?role=R001[&details=1]` | A role's applicants (`details=1`: with their practical answers) |
+| GET | `/api/admin/applicants?role=R001[&details=1][&q=][&limit=50&offset=0]` | The CV pool (`role`: what that role runs on, each with what they applied for; `details=1`: practical answers; `q`: search; `limit`: one page as `{ total, items }`) |
 | GET | `/api/admin/applicants/:id/text`, `/full`, `/record`, `/practical`, `/linkedin` | One applicant's files |
 | GET | `/api/admin/applicants/:id/cv` | The CV file exactly as uploaded (PDF/TXT open, DOCX downloads) |
 

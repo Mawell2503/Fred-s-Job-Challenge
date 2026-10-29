@@ -110,7 +110,9 @@ def assignments(positions: dict, cids, heard=None) -> dict:
     return plan
 
 
-def rank(positions: dict, ids, scores: dict) -> list[dict]:
+def rank(positions: dict, ids, scores: dict, tie_break_direct: bool = False) -> list[dict]:
+    """Average of the members' scores, best first. Ties: Jules's score, then Remi's; with `tie_break_direct`
+    (a role setting, whole-pool runs only) people who applied for this role come first among equal averages."""
     rows = []
     for cid in ids:
         sc = {m: positions[m][cid]["score"] for m in positions if cid in positions[m]}
@@ -118,8 +120,10 @@ def rank(positions: dict, ids, scores: dict) -> list[dict]:
         rows.append({"id": cid, "score": mean, "scores": sc,
                      "verdicts": {m: positions[m][cid]["verdict"] for m in positions if cid in positions[m]},
                      "spread": round(max(sc.values()) - min(sc.values()), 1) if len(sc) > 1 else 0.0,
-                     "jules": scores.get(cid, {}).get("jules", 0.0), "remi": scores.get(cid, {}).get("remi", 0.0)})
-    rows.sort(key=lambda r: (-(r["score"] if r["score"] is not None else -1), -r["jules"], -r["remi"], r["id"]))
+                     "jules": scores.get(cid, {}).get("jules", 0.0), "remi": scores.get(cid, {}).get("remi", 0.0),
+                     "direct": scores.get(cid, {}).get("direct", 0)})
+    rows.sort(key=lambda r: (-(r["score"] if r["score"] is not None else -1),
+                             -(r["direct"] if tie_break_direct else 0), -r["jules"], -r["remi"], r["id"]))
     return rows
 
 
@@ -266,7 +270,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         trace.say(f"Round limit reached ({max_rounds}). The debate is closed.", max_rounds, "orchestrator", "stop")
 
     # ---- 4. final ranking + what is still open
-    ranking = rank(positions, ids, packet.scores)
+    ranking = rank(positions, ids, packet.scores, packet.tie_break_direct)
     top5 = [r["id"] for r in ranking[:5]]
     still = contested(positions, ids)
     unresolved = [r for r in ranking if r["id"] in still and ranking.index(r) < 7]

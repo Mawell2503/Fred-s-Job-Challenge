@@ -2,7 +2,7 @@
 
   python -m hiring clara --input clara_in.json --out job.json
         clara_in.json = {"title": ..., "ad_text": ..., "must_text": ..., "nice_text": ...}
-  python -m hiring remi  --job job.json --runs data/runs [--ids C0001,C0002] --out remi.json
+  python -m hiring remi  --job job.json --runs data/runs [--ids C0001,C0002 | --ids-file ids.txt] --out remi.json
                          [--top 20] [--llm-gate] [--progress progress.json]
   python -m hiring jules --job job.json --runs data/runs --remi remi.json --out jules.json
                          [--top 10] [--progress progress.json]
@@ -10,7 +10,9 @@
                          --out committee.json [--report report.md] [--trace trace.jsonl] [--feed feed.json]
                          [--progress progress.json]
         committee_in.json = {"role": {"id", "title"}, "logistics": {...}, "practical": {cid: {...}},
-                             "linkedin": {cid: true}, "funnel": {"applications", "readable", ...}}
+                             "linkedin": {cid: true}, "names": {cid: name}, "funnel": {"applications", "readable", "scope", ...},
+                             "application": {cid: {"kind": "this" | "open" | "other", "roles": [titles]}},
+                             "tie_break_direct": false}
 
 Exit codes: 0 ok, 2 bad input, 3 the LLM could not be used.
 """
@@ -100,6 +102,7 @@ def main(argv=None) -> int:
     r.add_argument("--job", required=True)
     r.add_argument("--runs", required=True)
     r.add_argument("--ids", help="comma-separated candidate ids (default: all under --runs)")
+    r.add_argument("--ids-file", help="file with one candidate id per line (large pools: no command-line limit)")
     r.add_argument("--out", required=True)
     r.add_argument("--top", type=int, default=20)
     r.add_argument("--llm-gate", action="store_true")
@@ -138,7 +141,12 @@ def main(argv=None) -> int:
         elif a.cmd == "remi":
             from .remi import run
             job = clean_criteria(_read(a.job))
-            ids = [x.strip() for x in a.ids.split(",") if x.strip()] if a.ids else list_candidates(a.runs)
+            if a.ids_file:
+                ids = [x.strip() for x in Path(a.ids_file).read_text(encoding="utf-8").splitlines() if x.strip()]
+            elif a.ids:
+                ids = [x.strip() for x in a.ids.split(",") if x.strip()]
+            else:
+                ids = list_candidates(a.runs)
             cands = [x for x in (load_candidate(a.runs, i) for i in ids) if x]
             out = run(job, cands, top=a.top, use_llm_gate=a.llm_gate, progress=_progress(a.progress, "remi"))
             out["counts"]["without_oscar_output"] = len(ids) - len(cands)

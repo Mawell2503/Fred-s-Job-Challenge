@@ -20,6 +20,7 @@ from pathlib import Path
 from ..citation_checker import quote_exists
 from ..llm import DATA_NOTE, LLMError, complete_json, tag
 from .members import DISPLAY
+from .packet import application_label
 
 _SYSTEM = (Path(__file__).with_name("personas") / "gaston.md").read_text(encoding="utf-8").strip() + "\n\n" + DATA_NOTE
 
@@ -87,13 +88,19 @@ def confidence(state: dict, packet) -> tuple[str, list[str]]:
     return "High", highs + ["no open disagreement in the top 5"]
 
 
+def _is_application_line(quote: str) -> bool:
+    """What the candidate applied for is a fact for the committee, never a strength."""
+    return str(quote).strip().startswith("Application:")
+
+
 def _verified_args(state, cid, sources):
     """The members' own verified arguments for cid, best scorers first, distinct quotes."""
     out, seen = [], set()
     members = sorted(state["positions"], key=lambda m: -state["positions"][m].get(cid, {}).get("score", 0))
     for m in members:
         for a in state["positions"][m].get(cid, {}).get("arguments", []):
-            if a["source"] in ("cv", "practical") and a["quote"] not in seen and quote_exists(a["quote"], sources.get(a["source"], "")):
+            if a["source"] in ("cv", "practical") and a["quote"] not in seen and not _is_application_line(a["quote"]) \
+                    and quote_exists(a["quote"], sources.get(a["source"], "")):
                 seen.add(a["quote"])
                 out.append({**a, "by": DISPLAY[m]})
     return out
@@ -143,7 +150,9 @@ def check(answer: dict, packet, state) -> tuple[dict, list[str]]:
         good = []
         for s in item.get("strengths") or []:
             q, where = str(s.get("quote", "")), s.get("source")
-            if where in ("cv", "practical") and quote_exists(q, src.get(where, "")):
+            if _is_application_line(q):
+                errors.append(f"{cid}: \"{q[:80]}\" says what the candidate applied for; it is not a strength.")
+            elif where in ("cv", "practical") and quote_exists(q, src.get(where, "")):
                 good.append({"point": str(s.get("point", "")).strip(), "quote": q.strip(), "source": where})
             else:
                 errors.append(f"{cid}: the strength quote \"{q[:80]}\" is not in the candidate's {where} text.")
@@ -278,8 +287,10 @@ def write_report(packet, state, meta: dict, trace=None) -> dict:
         },
         "top5": [{"rank": i + 1, "id": r["id"], "name": name(r["id"]), "score": r["score"],
                   "scores": {DISPLAY[m]: s for m, s in r["scores"].items()}, "agreement": agreement(r["spread"]),
+                  "application": application_label(packet.applied.get(r["id"])),
                   "comment": written["by_id"][r["id"]]["comment"]} for i, r in enumerate(top)],
         "candidates": [{"id": r["id"], "name": name(r["id"]),
+                        "application": application_label(packet.applied.get(r["id"])),
                         "strengths": written["by_id"][r["id"]]["strengths"][:3],
                         "improvements": written["by_id"][r["id"]]["improvements"][:2],
                         "missing": list(dict.fromkeys(packet.missing.get(r["id"], []) + written["by_id"][r["id"]]["missing"]))}
@@ -326,11 +337,11 @@ def fake_report(prompt: str) -> dict:
         args, seen = [], set()
         for who, p in sorted(pos.items(), key=lambda kv: -kv[1]["score_after"]):
             for a in p["arguments"]:
-                if a["quote"] not in seen and a["source"] in ("cv", "practical"):
+                if a["quote"] not in seen and a["source"] in ("cv", "practical") and not _is_application_line(a["quote"]):
                     seen.add(a["quote"])
                     args.append({"point": f"{who}: {a['point']}", "quote": a["quote"], "source": a["source"]})
         for ln in practical.get(cid, []):                 # then the practical answers, verbatim
-            if len(args) < 3 and ln not in seen and not ln.startswith("No practical"):
+            if len(args) < 3 and ln not in seen and not ln.startswith(("No practical", "Application:")):
                 seen.add(ln)
                 args.append({"point": "Practical answer.", "quote": ln, "source": "practical"})
         concerns = [c for p in pos.values() for c in p["concerns"]] + missing.get(cid, [])

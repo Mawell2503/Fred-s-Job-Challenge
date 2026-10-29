@@ -210,20 +210,37 @@
                         <button class="btn" id="use-suggestion">Use Clara's suggestion</button>
                         <button class="btn primary" id="save-rules">Save sections</button>
                     </div>
-                    <p class="muted" style="margin:.4rem 0 0">New CVs use the saved sections at once; CVs already received are re-read on the next pipeline run.</p>
+                    <p class="muted" style="margin:.4rem 0 0" id="reads-note">Every CV is read with the default sections when it arrives; a role keeping other sections gets its own reads on its next pipeline run.</p>
                     <p class="status" id="oscar-status"></p>
                     <h2 style="margin-top:1rem">Applicants <small id="app-count"></small></h2>
-                    <div class="scroll"><table id="applicants"></table></div>
+                    <div class="row" style="margin-top:.2rem">
+                        <input id="app-q" type="search" placeholder="Search by name, candidate number or file name" aria-label="Search applicants" style="max-width:420px">
+                    </div>
+                    <div class="scroll" style="margin-top:.5rem"><table id="applicants"></table></div>
+                    <div class="row"><button class="btn" type="button" id="app-more" hidden>Show 50 more</button></div>
                 </section>
 
                 <!-- RUN EVERYTHING AFTER CLARA -->
                 <section class="card run-card" style="margin-top:1rem">
                     <h2>4. Run the full pipeline <small>Oscar → Remi → Jules → Committee → Gaston, in one go</small></h2>
+                    <div class="row" role="radiogroup" aria-label="Who this role runs on">
+                        <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                            <input type="radio" name="scope" value="pool" style="width:auto"> Whole CV pool <span class="muted" id="scope-pool"></span></label>
+                        <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                            <input type="radio" name="scope" value="direct" style="width:auto"> Only people who applied for this role <span class="muted" id="scope-direct"></span></label>
+                    </div>
+                    <div class="row">
+                        <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                            <input type="checkbox" id="tie-break" style="width:auto">
+                            On a tied committee score, people who applied for this role rank first (whole pool only)
+                        </label>
+                    </div>
                     <div class="row">
                         <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
                             <input type="checkbox" id="llm-gate" style="width:auto">
                             Ask the AI to double-check "not mentioned" must-haves in Remi (slower)
                         </label>
+                        <span class="status err" id="llm-gate-warn" style="margin:0"></span>
                     </div>
                     <div class="row"><button class="btn primary" id="run-pipeline">Run full pipeline</button>
                         <span class="muted" id="pipeline-hint"></span></div>
@@ -308,7 +325,7 @@
             list.replaceChildren(...roles.map(r => h('li', {}, h('button', {
                 type: 'button', 'aria-current': String(r.id === (selectId || current?.id)),
                 onclick: () => openRole(r.id),
-            }, r.title, h('span', { class: 'meta', text: `${r.id} · ${r.status} · ${r.applicants} applicant(s)` })))));
+            }, r.title, h('span', { class: 'meta', text: `${r.id} · ${r.status} · ${r.direct} applied · runs on ${r.scope === 'direct' ? 'them' : 'the pool'}` })))));
             if (!roles.length) list.append(h('li', { class: 'muted', text: 'No roles yet.' }));
         }
 
@@ -339,6 +356,9 @@
             renderJob();
             logistics.set(current.logistics);
             sections.set(current.rules);
+            appQuery = '';
+            $('app-q').value = '';
+            renderScope();
             await loadRoles(id);
             await renderApplicants();
             renderResults();
@@ -429,7 +449,9 @@
         $('save-rules').addEventListener('click', async () => {
             try {
                 current = await api('PATCH', `/api/admin/roles/${current.id}`, { rules: sections.get() });
-                say('oscar-status', 'Saved. CVs already received are re-read with these sections on the next pipeline run.');
+                renderScope();
+                say('oscar-status', current.toRead ? `Saved. Oscar reads ${current.toRead.toLocaleString()} CV(s) with these sections on the next pipeline run.`
+                    : 'Saved.');
             } catch (err) { say('oscar-status', err.message, true); }
         });
 
@@ -444,24 +466,77 @@
         }
         $('viewer-close').addEventListener('click', () => $('viewer').close());
 
-        async function renderApplicants() {
-            const apps = await api('GET', `/api/admin/applicants?role=${encodeURIComponent(current.id)}`);
-            $('app-count').textContent = `${apps.length} received`;
-            const viewBtn = (id, kind, label) => h('button', { class: 'btn', type: 'button', text: label, onclick: () => view(id, kind) });
-            $('applicants').replaceChildren(
-                h('tr', {}, ...['ID', 'Name', 'Applied', 'CV', 'Notes', '', 'Practical', 'LinkedIn'].map(t => h('th', { text: t }))),
-                ...apps.map(a => h('tr', {},
-                    h('td', { text: a.id }), h('td', { text: a.name }),
-                    h('td', { text: new Date(a.appliedAt).toLocaleDateString() }),
-                    h('td', {}, h('span', { class: `chip ${a.cvStatus === 'failed' ? 'failed' : 'done'}`, text: a.cvStatus })),
-                    h('td', { class: 'muted', text: (a.cvCodes || []).join(', ') }),
-                    h('td', {}, a.cvStatus === 'failed' ? '' : h('div', { class: 'row', style: 'margin:0' },
-                        viewBtn(a.id, 'text', 'Kept'), viewBtn(a.id, 'full', 'Full'), viewBtn(a.id, 'record', 'Record'))),
-                    h('td', {}, a.hasPractical ? viewBtn(a.id, 'practical', 'View') : h('span', { class: 'muted', text: 'missing' })),
-                    h('td', {}, a.hasLinkedinPdf ? h('a', { href: `/api/admin/applicants/${a.id}/linkedin`, target: '_blank', rel: 'noopener', text: 'PDF' })
-                        : h('span', { class: 'muted', text: '—' })))));
-            if (!apps.length) $('applicants').append(h('tr', {}, h('td', { class: 'muted', text: 'No applications for this role yet.' })));
+        // the role's applicants (its scope: the whole pool or its direct applicants), newest first, 50 at a time
+        const APP_PAGE = 50;
+        let appShown = 0, appQuery = '', appSeq = 0;
+        const APP_KIND = { this: 'this role', open: 'open application' };
+        async function renderApplicants(more = false) {
+            const id = current.id, seq = ++appSeq;
+            if (!more) appShown = 0;
+            const qs = new URLSearchParams({ role: id, limit: APP_PAGE, offset: appShown });
+            if (appQuery) qs.set('q', appQuery);
+            const page = await api('GET', `/api/admin/applicants?${qs}`);
+            if (current?.id !== id || seq !== appSeq) return;
+            const viewBtn = (cid, kind, label) => h('button', { class: 'btn', type: 'button', text: label, onclick: () => view(cid, kind) });
+            const rows = page.items.map(a => h('tr', {},
+                h('td', { text: a.id }), h('td', { text: a.name }),
+                h('td', { text: new Date(a.appliedAt).toLocaleDateString() }),
+                h('td', { text: a.application.kind === 'other' ? `other: ${a.application.roles.join(', ')}` : APP_KIND[a.application.kind] }),
+                h('td', {}, h('span', { class: `chip ${a.cvStatus === 'failed' ? 'failed' : 'done'}`, text: a.cvStatus })),
+                h('td', { class: 'muted', text: (a.cvCodes || []).join(', ') }),
+                h('td', {}, a.cvStatus === 'failed' ? '' : h('div', { class: 'row', style: 'margin:0' },
+                    h('a', { class: 'btn', href: `/api/admin/applicants/${encodeURIComponent(a.id)}/cv`, target: '_blank', rel: 'noopener', text: 'File' }),
+                    viewBtn(a.id, 'text', 'Kept'), viewBtn(a.id, 'full', 'Full'), viewBtn(a.id, 'record', 'Record'))),
+                h('td', {}, a.hasPractical ? viewBtn(a.id, 'practical', 'View') : h('span', { class: 'muted', text: 'missing' })),
+                h('td', {}, a.hasLinkedinPdf ? h('a', { href: `/api/admin/applicants/${a.id}/linkedin`, target: '_blank', rel: 'noopener', text: 'PDF' })
+                    : h('span', { class: 'muted', text: '—' }))));
+            if (!more) {
+                $('applicants').replaceChildren(
+                    h('tr', {}, ...['ID', 'Name', 'Applied', 'Applied for', 'CV', 'Notes', '', 'Practical', 'LinkedIn'].map(t => h('th', { text: t }))));
+                if (!page.total) $('applicants').append(h('tr', {}, h('td', { colspan: 9, class: 'muted',
+                    text: appQuery ? 'Nobody matches this search.' : 'No applications in what this role runs on yet.' })));
+            }
+            $('applicants').append(...rows);
+            appShown += page.items.length;
+            $('app-count').textContent = `${page.total.toLocaleString()} ${appQuery ? 'matching' : current.scope === 'direct'
+                ? 'applied for this role' : 'in the CV pool'} · showing ${appShown.toLocaleString()}`;
+            $('app-more').hidden = appShown >= page.total;
         }
+        $('app-more').addEventListener('click', () => renderApplicants(true));
+        let appTimer = null;
+        $('app-q').addEventListener('input', e => {
+            clearTimeout(appTimer);
+            appTimer = setTimeout(() => { appQuery = e.target.value.trim(); renderApplicants(); }, 250);
+        });
+
+        // ---------------- who the role runs on ----------------
+        function renderScope() {
+            for (const r of document.getElementsByName('scope')) r.checked = r.value === (current.scope || 'pool');
+            $('scope-pool').textContent = `(${current.pool.toLocaleString()} CVs)`;
+            $('scope-direct').textContent = `(${current.direct.toLocaleString()} CVs)`;
+            $('tie-break').checked = current.tieBreak === true;
+            $('tie-break').disabled = current.scope === 'direct';
+            $('reads-note').textContent = current.ownReads
+                ? `This role keeps other sections than the default, so Oscar reads its CVs for it.${current.toRead ? ` ${current.toRead.toLocaleString()} CV(s) to read on the next run.` : ' All read.'}`
+                : 'Every CV is read with the default sections when it arrives; a role keeping other sections gets its own reads on its next pipeline run.';
+            syncGateWarning();
+        }
+        function syncGateWarning() {
+            const n = current.applicants;
+            $('llm-gate-warn').textContent = $('llm-gate').checked && n > 200
+                ? `${n.toLocaleString()} CVs: this can mean hundreds of extra AI calls before the shortlist.` : '';
+        }
+        $('llm-gate').addEventListener('change', syncGateWarning);
+        async function saveScope(body) {
+            try {
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, body);
+                renderScope();
+                renderPipeline();
+                await renderApplicants();
+            } catch (err) { say('pipeline-status', err.message, true); }
+        }
+        for (const r of document.getElementsByName('scope')) r.addEventListener('change', e => saveScope({ scope: e.target.value }));
+        $('tie-break').addEventListener('change', e => saveScope({ tieBreak: e.target.checked }));
 
         // ---------------- the full pipeline (everything after Clara) ----------------
         $('run-pipeline').addEventListener('click', async () => {
@@ -511,7 +586,7 @@
                 h('p', { class: 'muted', text: `${k.read} CVs read · ${k.quotes_checked} quotes checked, ${k.quotes_rejected} rejected by the citation checker · ${j.scoring}` }),
                 ...(j.warnings || []).map(w => h('p', { class: 'status err', text: w })),
                 ...j.finalists.map(f => h('div', { class: 'finalist' },
-                    h('h3', {}, `#${f.rank}`, h('span', { text: f.personal?.name || f.candidate_id }),
+                    h('h3', {}, `#${f.rank}`, h('span', { text: results.names?.[f.candidate_id] || f.personal?.name || f.candidate_id }),
                         h('span', { class: 'muted', text: `${f.candidate_id} ${(f.personal?.emails || [])[0] || ''} ${(f.personal?.phones || [])[0] || ''}` }),
                         h('span', { class: 'score', text: `${f.score} / ${f.max_score}` })),
                     f.overall ? h('p', { text: f.overall }) : '',
@@ -569,7 +644,7 @@
         }
 
         // ---------------- results + polling ----------------
-        const STAGE = { oscar: 'Oscar is reading CVs', remi: 'Remi is checking must-haves and ranking', jules: 'Jules is reading the top 20',
+        const STAGE = { oscar: 'Oscar is reading CVs for this role', remi: 'Remi is checking must-haves and ranking', jules: 'Jules is reading the top 20',
             committee: 'The committee is debating' };
 
         function renderPipeline() {
@@ -620,7 +695,7 @@
                 current = results.role;
                 // a finished Clara run brings a new proposal; a finished Oscar run changes applicants
                 if (wasRunning.includes('clara') && current.agents.clara?.state !== 'running') renderJob();
-                if (wasRunning.includes('pipeline') && current.agents.pipeline?.state !== 'running') { renderApplicants(); loadRoles(); }
+                if (wasRunning.includes('pipeline') && current.agents.pipeline?.state !== 'running') { renderApplicants(); loadRoles(); renderScope(); }
                 renderResults();
             }, 2000);
         }

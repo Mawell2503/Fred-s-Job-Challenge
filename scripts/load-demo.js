@@ -1,6 +1,7 @@
 // Usage: npm run demo
 // Creates the demo role (demo/role.json) and submits the 15 fictional applications in demo/
-// through the same code as the website (Oscar runs on every CV). Stop the server first so the
+// for it, through the same code as the website (Oscar runs on every CV). They join the CV pool;
+// run again, the same CVs are not added twice (they are only marked as applying for the new role). Stop the server first so the
 // two don't write data/*.json at the same time. Then: npm run pipeline -- <the role id printed below>
 import '../env.js';
 import fs from 'node:fs';
@@ -36,9 +37,11 @@ for (const p of people) {
     }
     const practical = cleanPractical(p.practical, role);
     if (practical.error) throw new Error(`${p.name}: ${practical.error}`);
-    const out = await submitApplication({ role, cvPath, cvName: p.cv, linkedinPath, name: p.name, practical: practical.value });
-    if (out.duplicate) {
-        console.log(`  - ${p.name}: already submitted for this role, skipped`);
+    const out = await submitApplication({ roleId: role.id, cvPath, cvName: p.cv, linkedinPath, name: p.name,
+        practical: practical.value, source: 'demo' });
+    if (out.duplicate || out.added) {
+        for (const f of [cvPath, linkedinPath]) if (f) fs.rmSync(f, { force: true });
+        console.log(`  - ${p.name}: already in the CV pool${out.added ? ', now also applying for this role' : ', skipped'}`);
         continue;
     }
     if (!out.applicant) {

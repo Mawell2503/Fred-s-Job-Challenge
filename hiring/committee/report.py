@@ -33,14 +33,19 @@ def to_markdown(rep: dict) -> str:
     ])
 
     L += ["", "## Top 5", ""]
-    L += _table(["#", "Candidate", "Score /10", "Members", "Agreement", "Comment"],
+    applied = any(t.get("application") for t in rep["top5"])          # whole-pool runs only
+    L += _table(["#", "Candidate", "Score /10", "Members", "Agreement"] + (["Application"] if applied else []) + ["Comment"],
                 [[t["rank"], f"{t['name']} ({t['id']})", f"{t['score']:g}",
-                  ", ".join(f"{m} {s:g}" for m, s in t["scores"].items()), t["agreement"], t["comment"]]
+                  ", ".join(f"{m} {s:g}" for m, s in t["scores"].items()), t["agreement"]]
+                 + ([t.get("application") or "–"] if applied else []) + [t["comment"]]
                  for t in rep["top5"]])
 
     L += ["", "## Candidates", ""]
     for c in rep["candidates"]:
-        L += [f"### {c['name']} ({c['id']})", "", "**Strengths**", ""]
+        L += [f"### {c['name']} ({c['id']})", ""]
+        if c.get("application"):
+            L += [f"*{c['application']}.*", ""]
+        L += ["**Strengths**", ""]
         L += [f"{i}. {s['point']}  \n   > \"{s['quote']}\" ({'CV' if s['source'] == 'cv' else 'practical answers'})"
               for i, s in enumerate(c["strengths"], 1)]
         L += ["", "**Areas for improvement**", ""] + [f"- {x}" for x in c["improvements"]]

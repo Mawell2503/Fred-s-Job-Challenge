@@ -229,7 +229,7 @@
         .money { display: flex; gap: 8px; align-items: center; }
         .money input { flex: 1; }
         .money select { flex: 0 0 130px; }
-        .money .cur { font-weight: 600; color: var(--muted); min-width: 36px; }
+        .money select.cur-select { flex: 0 0 96px; }
         .lang-row { display: flex; gap: 8px; align-items: center; }
         .lang-row input { flex: 1; }
         .lang-row select { flex: 0 0 150px; }
@@ -297,8 +297,8 @@
                     </div>
                     <div class="field">
                         <label for="role-select" class="sr-only">Position you are applying for</label>
-                        <select id="role-select" name="roleId" required>
-                            <option value="">Loading positions…</option>
+                        <select id="role-select" name="roleId">
+                            <option value="open">Open application: any position</option>
                         </select>
                     </div>
                 </div>
@@ -379,7 +379,7 @@
                             <label for="p-salary">Salary expectation</label>
                             <div class="money">
                                 <input id="p-salary" type="number" min="1" step="1" inputmode="numeric" required>
-                                <span class="cur" id="p-currency">EUR</span>
+                                <select id="p-currency" class="cur-select" aria-label="Currency"></select>
                                 <select id="p-period" aria-label="Per month or per year">
                                     <option value="month">per month</option>
                                     <option value="year">per year</option>
@@ -438,13 +438,8 @@
                             </select>
                         </div>
                         <div class="field">
-                            <label for="p-auth" id="p-auth-label">Right to work in the country of this position?</label>
-                            <select id="p-auth" required>
-                                <option value="">Choose…</option>
-                                <option value="yes">Yes</option>
-                                <option value="sponsorship">I would need sponsorship</option>
-                                <option value="no">No</option>
-                            </select>
+                            <label for="p-wcountries">Countries you can work in without a visa</label>
+                            <input id="p-wcountries" type="text" maxlength="300" placeholder="e.g. Mauritius, France" required>
                         </div>
                     </div>
                     <div class="field">
@@ -540,22 +535,39 @@
         // ---------------- open positions for the role picker ----------------
         const roleSelect = document.getElementById('role-select');
         let openRoles = [];
+        // "Open application" is always there and chosen by default: the CV joins the pool for any position
         (async () => {
             try {
                 openRoles = await (await fetch('/api/roles')).json();
-                roleSelect.replaceChildren(new Option(openRoles.length ? "Position you're applying for" : 'No open positions right now', ''));
                 for (const r of openRoles) roleSelect.add(new Option(r.title, r.id));
-            } catch { roleSelect.replaceChildren(new Option('Could not load positions', '')); }
+            } catch { /* the open application still works */ }
         })();
 
-        // the salary currency and the "right to work in ..." question follow the chosen position
+        // the applicant picks the salary currency; until they do, it follows the chosen position
+        const CURRENCIES = ['EUR', 'USD', 'GBP', 'MUR', 'INR', 'ZAR', 'CHF', 'CAD', 'AUD', 'AED', 'SGD', 'MGA', 'KES', 'NGN'];
+        const curSelect = document.getElementById('p-currency');
+        for (const c of CURRENCIES) curSelect.add(new Option(c, c));
+        let curTouched = false;
+        curSelect.addEventListener('change', () => { curTouched = true; });
         function syncRoleDetails() {
             const r = openRoles.find(x => x.id === roleSelect.value);
-            document.getElementById('p-currency').textContent = r?.currency || 'EUR';
-            document.getElementById('p-auth-label').textContent = r?.work_country
-                ? `Right to work in ${r.work_country}?` : 'Right to work in the country of this position?';
+            if (!curTouched) curSelect.value = r?.currency && CURRENCIES.includes(r.currency) ? r.currency : 'EUR';
         }
         roleSelect.addEventListener('change', syncRoleDetails);
+        syncRoleDetails();
+
+        // the country they live in is a good first guess for where they can work: offered (and selected, so
+        // typing their own list replaces it) the moment they enter the empty field, never written behind their back
+        const wcInput = document.getElementById('p-wcountries');
+        let wcGuessed = false;
+        wcInput.addEventListener('focus', () => {
+            const home = document.getElementById('p-country').value.trim();
+            if (wcInput.value.trim() || !home) return;
+            wcInput.value = home;
+            wcGuessed = true;
+            wcInput.select();
+        });
+        wcInput.addEventListener('input', () => { wcGuessed = false; });
 
         // ---------------- languages (repeatable rows) ----------------
         const LEVELS = [['A1', 'A1 - Beginner'], ['A2', 'A2 - Elementary'], ['B1', 'B1 - Intermediate'],
@@ -612,20 +624,22 @@
             if (!v('p-start')) return { error: 'Enter the earliest date you could start.' };
             if (!v('p-country')) return { error: 'Enter the country you live in.' };
             for (const [id, what] of [['p-relocate', 'whether you would relocate'], ['p-travel', 'how much you can travel'],
-                ['p-arrangement', 'your preferred way of working'], ['p-auth', 'whether you have the right to work there']]) {
+                ['p-arrangement', 'your preferred way of working']]) {
                 if (!v(id)) return { error: `Choose ${what}.` };
             }
+            const workCountries = v('p-wcountries').split(/[,;]/).map(x => x.trim()).filter(Boolean);
+            if (!workCountries.length) return { error: 'List the countries you can work in without a visa.' };
             if (!languages.length) return { error: 'Add at least one language you speak, with your level.' };
             const half = languages.find(l => !l.language || !l.level);
             if (half) return { error: 'Give each language a name and a level.' };
             return {
                 value: {
-                    salary: { amount: Number(v('p-salary')), period: v('p-period') },
+                    salary: { amount: Number(v('p-salary')), period: v('p-period'), currency: v('p-currency') },
                     available_from: v('p-start'),
                     notice_weeks: v('p-notice') === '' ? null : Number(v('p-notice')),
                     location: { country: v('p-country'), city: v('p-city') },
                     relocate: v('p-relocate'), travel: v('p-travel'), arrangement: v('p-arrangement'),
-                    work_authorization: v('p-auth'),
+                    work_countries: workCountries,
                     languages,
                 },
             };
@@ -859,14 +873,16 @@
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) return say(data.error || 'Upload failed.', 'error');
                 applyForm.reset();
+                curTouched = false;
                 pForm.reset();
+                wcGuessed = false;
                 clearFile();
                 liFile = null;
                 showLinkedin();
                 resetLangs();
                 syncRoleDetails();
                 syncPracticalBtn();
-                say('Application received. Thank you!', 'ok');
+                say(data.message || 'Application received. Thank you!', 'ok');
             } catch {
                 say('Could not reach the server.', 'error');
             } finally {

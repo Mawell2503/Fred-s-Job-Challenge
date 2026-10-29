@@ -7,7 +7,8 @@
     "practical": {
       "salary": {
         "amount": 4800,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-20",
       "notice_weeks": 4,
@@ -18,7 +19,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -28,6 +28,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -39,7 +42,8 @@
     "practical": {
       "salary": {
         "amount": 6500,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2027-01-15",
       "notice_weeks": 8,
@@ -50,7 +54,6 @@
       "relocate": "yes",
       "travel": "frequent",
       "arrangement": "remote",
-      "work_authorization": "sponsorship",
       "languages": [
         {
           "language": "English",
@@ -64,6 +67,9 @@
           "language": "French",
           "level": "A2"
         }
+      ],
+      "work_countries": [
+        "India"
       ]
     }
   },
@@ -75,7 +81,8 @@
     "practical": {
       "salary": {
         "amount": 3800,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-15",
       "notice_weeks": 2,
@@ -86,7 +93,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -96,6 +102,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -107,7 +116,8 @@
     "practical": {
       "salary": {
         "amount": 4200,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-12-01",
       "notice_weeks": 4,
@@ -118,7 +128,6 @@
       "relocate": "no",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -128,6 +137,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -139,7 +151,8 @@
     "practical": {
       "salary": {
         "amount": 4600,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2027-03-01",
       "notice_weeks": 12,
@@ -150,7 +163,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -160,6 +172,9 @@
           "language": "English",
           "level": "C2"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -171,7 +186,8 @@
     "practical": {
       "salary": {
         "amount": 4500,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-25",
       "notice_weeks": null,
@@ -182,7 +198,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "sponsorship",
       "languages": [
         {
           "language": "French",
@@ -192,6 +207,9 @@
           "language": "English",
           "level": "B2"
         }
+      ],
+      "work_countries": [
+        "France"
       ]
     }
   },
@@ -203,7 +221,8 @@
     "practical": {
       "salary": {
         "amount": 3600,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-15",
       "notice_weeks": null,
@@ -214,7 +233,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -224,6 +242,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -235,7 +256,8 @@
     "practical": {
       "salary": {
         "amount": 64800,
-        "period": "year"
+        "period": "year",
+        "currency": "EUR"
       },
       "available_from": "2026-12-01",
       "notice_weeks": null,
@@ -246,7 +268,6 @@
       "relocate": "open",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "sponsorship",
       "languages": [
         {
           "language": "French",
@@ -256,6 +277,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "France"
       ]
     }
   },
@@ -267,7 +291,8 @@
     "practical": {
       "salary": {
         "amount": 5000,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-12-01",
       "notice_weeks": null,
@@ -278,7 +303,6 @@
       "relocate": "yes",
       "travel": "frequent",
       "arrangement": "hybrid",
-      "work_authorization": "sponsorship",
       "languages": [
         {
           "language": "English",
@@ -288,6 +312,9 @@
           "language": "Swahili",
           "level": "native"
         }
+      ],
+      "work_countries": [
+        "Kenya"
       ]
     }
   },
@@ -299,7 +326,8 @@
     "practical": {
       "salary": {
         "amount": 3900,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-30",
       "notice_weeks": null,
@@ -310,7 +338,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -320,6 +347,9 @@
           "language": "English",
           "level": "B2"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -331,7 +361,8 @@
     "practical": {
       "salary": {
         "amount": 4000,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-20",
       "notice_weeks": null,
@@ -342,7 +373,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -352,6 +382,9 @@
           "language": "English",
           "level": "C1"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -363,7 +396,8 @@
     "practical": {
       "salary": {
         "amount": 3700,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-15",
       "notice_weeks": null,
@@ -374,7 +408,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -384,6 +417,9 @@
           "language": "English",
           "level": "B2"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -395,7 +431,8 @@
     "practical": {
       "salary": {
         "amount": 4400,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-12-01",
       "notice_weeks": null,
@@ -406,7 +443,6 @@
       "relocate": "yes",
       "travel": "none",
       "arrangement": "remote",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "English",
@@ -420,6 +456,9 @@
           "language": "Mandarin",
           "level": "native"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -431,7 +470,8 @@
     "practical": {
       "salary": {
         "amount": 3000,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2026-11-01",
       "notice_weeks": null,
@@ -442,7 +482,6 @@
       "relocate": "yes",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "yes",
       "languages": [
         {
           "language": "French",
@@ -452,6 +491,9 @@
           "language": "English",
           "level": "B2"
         }
+      ],
+      "work_countries": [
+        "Mauritius"
       ]
     }
   },
@@ -463,7 +505,8 @@
     "practical": {
       "salary": {
         "amount": 5000,
-        "period": "month"
+        "period": "month",
+        "currency": "EUR"
       },
       "available_from": "2027-01-04",
       "notice_weeks": null,
@@ -474,7 +517,6 @@
       "relocate": "open",
       "travel": "occasional",
       "arrangement": "hybrid",
-      "work_authorization": "sponsorship",
       "languages": [
         {
           "language": "German",
@@ -488,6 +530,9 @@
           "language": "French",
           "level": "B1"
         }
+      ],
+      "work_countries": [
+        "Germany"
       ]
     }
   }

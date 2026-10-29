@@ -123,6 +123,12 @@
             font-size: 13px; line-height: 1.4; color: var(--muted); white-space: pre-line;
             display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
         }
+        .app-badge {
+            align-self: flex-start; font-size: 11.5px; font-weight: 600; line-height: 1.3; padding: 3px 8px; border-radius: 99px;
+            background: var(--soft); color: var(--muted); overflow-wrap: anywhere;
+        }
+        .app-badge.this { background: #E3F4E8; color: #1F6B35; }
+        .app-badge.other { background: #FFF1D6; color: #7A4A00; }
         .cv .bars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
         .cv .bars i { display: block; height: 5px; border-radius: 3px; background: var(--soft); }
         .cv .foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -274,7 +280,7 @@
         .cd-foot .msg.err, .card-dialog .msg.err { color: var(--error); }
 
         .card-dialog label, .card-dialog .lab { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 6px; }
-        .card-dialog input:not([type="checkbox"]), .card-dialog select, .card-dialog textarea {
+        .card-dialog input:not([type="checkbox"]):not([type="radio"]), .card-dialog select, .card-dialog textarea {
             width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;
             background: var(--soft); color: var(--ink); font: 15px/1.4 'DM Sans', sans-serif;
         }
@@ -296,6 +302,11 @@
         .rowline .hint { flex: 1 1 240px; }
         .banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: #FFF7E8; border: 1px solid #F6D9A8; }
         .banner span { flex: 1 1 260px; font-size: 14px; }
+        .scope { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+        .scope label, .card-dialog label.check { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 10px 12px;
+            border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); font-size: 14px; cursor: pointer; }
+        .scope label:has(input:checked) { border-color: var(--ink); background: var(--soft); }
+        .scope input, label.check input { margin-top: 3px; accent-color: var(--ink); }
         .ghost { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); font-size: 14px; }
 
         /* the shared editors (admin-forms.js) */
@@ -343,6 +354,13 @@
         .pfull .kv b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
         .pfull .kv.all { grid-column: 1 / -1; }
         .apps-empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+        .apps-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 24px; border-bottom: 1px solid var(--line); }
+        .apps-tools input { flex: 1 1 280px; min-height: 40px; padding: 8px 12px; border: 1px solid transparent; border-radius: 10px;
+            background: var(--soft); color: var(--ink); font: 14px 'DM Sans', sans-serif; }
+        .apps-tools input:focus { outline: 2px solid var(--accent-strong); outline-offset: 1px; background: #FFF; }
+        .apps-more { display: flex; justify-content: center; padding: 16px; }
+        .apps-more:has(button[hidden]) { display: none; }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
         @media (max-width: 700px) {
             .topbar { padding: 12px 16px; }
@@ -443,8 +461,14 @@
                             stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
                     </button>
         </header>
-        <div class="cd-body apps-body">
+        <div class="apps-tools">
+            <label for="apps-q" class="sr-only">Search applications</label>
+            <input id="apps-q" type="search" placeholder="Search by name, candidate number or file name" autocomplete="off">
+            <span class="hint" id="apps-count" role="status" aria-live="polite"></span>
+        </div>
+        <div class="cd-body apps-body" id="apps-body">
             <div class="apps-rows" id="apps-rows" role="list"></div>
+            <div class="apps-more"><button type="button" class="btn btn-sm" id="apps-more" hidden>Show 50 more</button></div>
         </div>
         <footer class="cd-foot">
             <p class="msg">Read-only: what each applicant sent. Open a CV to see the file; open Practical details to see every answer.</p>
@@ -498,8 +522,17 @@
             <div class="sections" id="c-sections"></div>
             <div class="rowline">
                 <button type="button" class="btn btn-sm" id="c-suggest">Use Clara's suggestion</button>
-                <span class="hint">CVs already received are re-read with these sections on the next pipeline run.</span>
+                <span class="hint" id="c-reads">Every CV is read with the default sections when it arrives. If this role keeps other sections, Oscar reads the CVs again for this role on its next run.</span>
             </div>
+
+            <div class="stepno"><i>4</i>Who this role runs on</div>
+            <fieldset class="scope" aria-label="Who this role runs on">
+                <label><input type="radio" name="c-scope" value="pool"> <span><b>The whole CV pool</b> <span class="hint" id="c-scope-pool"></span><br>
+                    <span class="hint">Everyone who sent a CV, whatever position they chose. Nina is told who applied for this role.</span></span></label>
+                <label><input type="radio" name="c-scope" value="direct"> <span><b>Only people who applied for this role</b> <span class="hint" id="c-scope-direct"></span></span></label>
+            </fieldset>
+            <label class="check"><input type="checkbox" id="c-tiebreak">
+                <span>On a tied committee score, people who applied for this role rank first <span class="hint">(whole pool only)</span></span></label>
         </div>
         <footer class="cd-foot">
             <p class="msg" id="c-msg" role="status" aria-live="polite"></p>
@@ -632,18 +665,18 @@
             if (when(a.startedAt) === when(a.finishedAt)) return when(a.startedAt);     // done within the minute
             return sameDay(start, end) ? `${when(a.startedAt)} – ${clock(end)}` : `${when(a.startedAt)} – ${when(a.finishedAt)}`;
         }
-        function dayRange(list) {
-            if (!list.length) return '';
-            const ds = list.map(a => new Date(a.appliedAt)).sort((a, b) => a - b);
-            const f = d => d.toLocaleDateString([], { day: 'numeric', month: 'short' });
-            return f(ds[0]) === f(ds.at(-1)) ? f(ds[0]) : `${f(ds[0])} – ${f(ds.at(-1))}`;
+        function dayRange(from, to) {
+            if (!from) return '';
+            const f = d => new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' });
+            return f(from) === f(to) ? f(from) : `${f(from)} – ${f(to)}`;
         }
-        const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+        const count = n => Number(n || 0).toLocaleString();
+        const plural = (n, one, many = one + 's') => `${count(n)} ${n === 1 ? one : many}`;
         const num = n => (Number.isInteger(n) ? String(n) : Number(n).toFixed(1));
         const MEMBER = { helene: 'Hélène', victor: 'Victor', nina: 'Nina' };
 
         // ---------------- state ----------------
-        let roles = [], roleId = null, results = null, applicants = [], view = null, pollTimer = null, lastNow = null;
+        let roles = [], roleId = null, results = null, view = null, pollTimer = null, lastNow = null;
 
         // ---------------- timeline: steps from the real role / agent state ----------------
         const OSCAR = [
@@ -667,9 +700,12 @@
             const prog = stage => (p?.stage === stage && p.total ? ` · ${p.done}/${p.total}` : '');
 
             // applications
-            add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(applicants), card: 'apps',
-                sub: applicants.length ? `${plural(applicants.length, 'CV')} from the application form` : 'No applications yet',
-                status: applicants.length ? 'done' : 'now', idle: !applicants.length, tag: applicants.length ? '' : 'Waiting for applicants' });
+            const n = role.applicants;
+            add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(role.appliedFrom, role.appliedTo), card: 'apps',
+                sub: !n ? (role.scope === 'direct' ? 'Nobody applied for this role yet' : 'The CV pool is empty')
+                    : role.scope === 'direct' ? `${plural(n, 'CV')} from people who applied for this role`
+                        : `${plural(n, 'CV')} in the pool · ${count(role.direct)} applied for this role`,
+                status: n ? 'done' : 'now', idle: !n, tag: n ? '' : 'Waiting for applicants' });
 
             // the admin's inputs + Clara + the criteria + Oscar's sections: one card
             const job = role.job || {}, nMust = job.must_haves?.length || 0, nNice = job.nice_to_haves?.length || 0;
@@ -680,13 +716,16 @@
                 status: running('clara') ? 'now' : saved ? 'done' : 'next',
                 tag: running('clara') ? 'Clara is reading the job' : '' });
 
-            // Oscar: runs on every CV as it arrives (and again in the pipeline for CVs read with old section settings)
+            // Oscar: reads every CV as it arrives; a role keeping other CV sections gets its own reads in the pipeline
             const unreadable = role.applicants - role.readable;
             const oscarState = running('oscar') ? 'now' : failed('oscar') ? 'failed' : role.readable ? 'done' : 'next';
+            const recordSub = [unreadable > 0 ? `${plural(unreadable, 'CV')} unreadable` : '',
+                role.toRead > 0 && !running('oscar') ? `${plural(role.toRead, 'CV')} to read for this role's sections on the next run` : '']
+                .filter(Boolean).join(' · ');
             OSCAR.forEach(([key, label, sub], i) => add({
-                key, icon: key, label, sub: key === 'record' && unreadable > 0 ? `${sub} · ${plural(unreadable, 'CV')} unreadable` : sub,
+                key, icon: key, label, sub: key === 'record' && recordSub ? `${sub} · ${recordSub}` : sub,
                 group: i === 0 ? 'Oscar · reads each CV' : '', time: oscarState === 'next' ? '' : (running('oscar') ? 'running' : 'on upload'),
-                status: oscarState, tag: i === 0 && oscarState === 'now' ? `Re-reading CVs${prog('oscar')}` : '',
+                status: oscarState, tag: i === 0 && oscarState === 'now' ? `Reading CVs for this role${prog('oscar')}` : '',
             }));
 
             // Clara's criteria, as saved from the "Job & criteria" card
@@ -837,10 +876,20 @@
             return why ? `${MEMBER[m] || m}: ${why}` : '';
         }
 
+        // what an applicant applied for, towards this role: badge text + style ('' when not shown)
+        function appLabel(l) {
+            if (!l || results?.role?.scope === 'direct') return null;     // direct only: everyone applied for it
+            if (l.kind === 'this') return { text: 'Applied for this role', cls: 'this' };
+            if (l.kind === 'open') return { text: 'Open application', cls: 'open' };
+            return { text: `Applied for ${(l.roles || []).join(', ') || 'another role'}`, cls: 'other' };
+        }
+        const appBadge = l => { const b = appLabel(l); return b ? h('span', { class: `app-badge ${b.cls}`, text: b.text }) : ''; };
+
         function cvCard({ rank, id, name, headline, scoreLabel, score, kept }) {
             return h('article', { class: `cv${kept ? ' kept' : ''}`, 'aria-label': `#${rank} ${name}` },
                 h('div', { class: 'rank' }, h('b', { text: `#${rank}` }), h('span', { text: id })),
                 h('div', { class: 'name', text: name }),
+                appBadge(results.application?.[id]),
                 headline ? h('div', { class: 'headline', text: headline }) : '',
                 h('div', { class: 'bars', 'aria-hidden': 'true' }, h('i', { style: 'width:92%' }), h('i', { style: 'width:74%' }), h('i', { style: 'width:84%' })),
                 h('div', { class: 'foot' }, h('span', { text: scoreLabel }), h('b', { text: score })));
@@ -851,7 +900,8 @@
             const ag = role.agents || {};
             const busy = Object.values(ag).some(a => a.state === 'running');
             const hl = headlines();
-            const names = Object.fromEntries((jules?.finalists || []).map(f => [f.candidate_id, f.personal?.name || f.candidate_id]));
+            const names = Object.fromEntries((jules?.finalists || []).map(f => [f.candidate_id,
+                results.names?.[f.candidate_id] || f.personal?.name || f.candidate_id]));
             const hasTop5 = Boolean(committee?.report);
             const hasTop10 = Boolean(jules?.finalists?.length);
             if (!view || (view === 'top5' && !hasTop5)) view = hasTop5 ? 'top5' : 'top10';
@@ -928,13 +978,9 @@
             view = null;
             lastNow = null;
             try { localStorage.setItem('lobby.role', id); } catch { /* storage off: fine */ }
-            const [res, apps] = await Promise.all([
-                api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
-                api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
-            ]);
+            const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
             if (roleId !== id) return;
             results = res;
-            applicants = apps;
             render();
             poll();
         }
@@ -942,13 +988,9 @@
         // after a save or a start: fetch again now, then keep polling while something runs
         async function refresh() {
             const id = roleId;
-            const [res, apps] = await Promise.all([
-                api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
-                api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
-            ]);
+            const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
             if (roleId !== id) return;
             results = res;
-            applicants = apps;
             const r = roles.find(x => x.id === id);
             if (r && r.title !== res.role.title) {          // renamed from the card: the role picker follows
                 r.title = res.role.title;
@@ -966,13 +1008,9 @@
             pollTimer = setTimeout(async () => {
                 const id = roleId;
                 try {
-                    const [res, apps] = await Promise.all([
-                        api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
-                        api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
-                    ]);
+                    const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
                     if (roleId !== id) return;
                     results = res;
-                    applicants = apps;
                     render();
                 } catch (err) {
                     console.warn('poll failed, retrying:', err.message);    // a blip must not stop the live view
@@ -1022,7 +1060,7 @@
         const pageLines = () => h('span', { class: 'pg', 'aria-hidden': 'true' },
             ...[70, 92, 84, 60, 88, 76, 90, 54].map(w => h('i', { style: `width:${w}%` })));
 
-        function appRow(a, roleTitle) {
+        function appRow(a) {
             const p = a.practical;
             const url = safeUrl(a.linkedinUrl);
             const enc = encodeURIComponent(a.id);
@@ -1033,7 +1071,8 @@
                     ['Notice period', p.notice_weeks === null || p.notice_weeks === undefined ? 'Not given' : plural(p.notice_weeks, 'week')],
                     ['Lives in', place], ['Willing to relocate?', ANSWER.relocate[p.relocate] || p.relocate],
                     ['Willing to travel?', ANSWER.travel[p.travel] || p.travel], ['Way of working', ANSWER.arrangement[p.arrangement] || p.arrangement],
-                    ['Right to work in the country of the job?', ANSWER.work_authorization[p.work_authorization] || p.work_authorization]]
+                    p.work_countries ? ['Can work without a visa in', p.work_countries.join(', ') || 'None given']
+                        : ['Right to work in the country of the job?', ANSWER.work_authorization[p.work_authorization] || p.work_authorization]]
                     .map(([k, v]) => h('div', { class: 'kv' }, h('span', { text: k }), h('b', { text: v }))),
                 h('div', { class: 'kv all' }, h('span', { text: 'Languages' }),
                     h('b', { text: (p.languages || []).map(l => `${l.language} ${l.level === 'native' ? 'native' : l.level}`).join(' · ') }))) : '';
@@ -1052,7 +1091,8 @@
                 h('div', { class: 'aname' },
                     h('b', { text: a.name }),
                     h('span', { class: 'id', text: `${a.id} · applied ${fmtDate(a.appliedAt)}` }),
-                    h('span', { class: 'small', text: roleTitle }),
+                    h('span', { class: 'small', text: a.appliedFor.length ? `Applied for: ${a.appliedFor.map(r => r.title).join(', ')}` : 'Open application: any position' }),
+                    appBadge(a.application),
                     url ? h('a', { class: 'small', href: url, target: '_blank', rel: 'noopener noreferrer', text: url.replace(/^https?:\/\/(www\.)?/, '') })
                         : h('span', { class: 'small none', text: 'No LinkedIn URL' }),
                     a.hasLinkedinPdf ? h('a', { class: 'chip', href: `/api/admin/applicants/${enc}/linkedin`, target: '_blank', rel: 'noopener', text: 'LinkedIn PDF' }) : ''),
@@ -1062,20 +1102,46 @@
                 pdBtn, detail);
         }
 
-        async function fillApps() {
-            const role = results.role, id = roleId;
-            $('apps-lead').textContent = `${plural(applicants.length, 'application')} for ${role.title}, shown exactly as each applicant submitted them.`;
-            $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: 'Loading…' }));
+        // newest first, 50 at a time; the search runs on the server so it covers the whole pool
+        const PAGE = 50;
+        let appsQuery = '', appsShown = 0, appsTotal = 0, appsSeq = 0;
+        async function loadApps(reset) {
+            const id = roleId, seq = ++appsSeq;
+            if (reset) { appsShown = 0; $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: 'Loading…' })); }
+            $('apps-more').disabled = true;
             try {
-                const list = await api(`/api/admin/applicants?role=${encodeURIComponent(id)}&details=1`);
-                if (roleId !== id) return;
-                $('apps-lead').textContent = `${plural(list.length, 'application')} for ${role.title}, shown exactly as each applicant submitted them.`;
-                $('apps-rows').replaceChildren(...(list.length ? list.map(a => appRow(a, role.title))
-                    : [h('div', { class: 'apps-empty', text: 'No applications yet. Candidates apply from the home page.' })]));
+                const qs = new URLSearchParams({ role: id, details: '1', limit: PAGE, offset: appsShown });
+                if (appsQuery) qs.set('q', appsQuery);
+                const page = await api(`/api/admin/applicants?${qs}`);
+                if (roleId !== id || seq !== appsSeq) return;
+                appsTotal = page.total;
+                const rows = page.items.map(appRow);
+                if (reset) $('apps-rows').replaceChildren(...(rows.length ? rows : [h('div', { class: 'apps-empty',
+                    text: appsQuery ? 'Nobody matches this search.' : 'No applications yet. Candidates apply from the home page.' })]));
+                else $('apps-rows').append(...rows);
+                appsShown += page.items.length;
+                $('apps-more').hidden = appsShown >= appsTotal;
+                $('apps-more').textContent = `Show ${Math.min(PAGE, appsTotal - appsShown)} more`;
+                $('apps-count').textContent = appsTotal ? `Showing ${count(appsShown)} of ${count(appsTotal)}${appsQuery ? ' matching' : ''}` : '';
             } catch (err) {
-                $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: err.message }));
-            }
+                if (reset) $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: err.message }));
+            } finally { $('apps-more').disabled = false; }
         }
+        function fillApps() {
+            const role = results.role;
+            $('apps-lead').textContent = role.scope === 'direct'
+                ? `${plural(role.applicants, 'application')} for ${role.title} (this role runs only on people who applied for it), shown exactly as submitted.`
+                : `The whole CV pool (${plural(role.applicants, 'application')}), which this role runs on, shown exactly as submitted. ${count(role.direct)} applied for ${role.title}.`;
+            appsQuery = '';
+            $('apps-q').value = '';
+            loadApps(true);
+        }
+        let searchTimer = null;
+        $('apps-q').addEventListener('input', e => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => { appsQuery = e.target.value.trim(); loadApps(true); }, 250);
+        });
+        $('apps-more').addEventListener('click', () => loadApps(false));
 
         // ----- "Job & criteria": inputs -> Ask Clara -> Load into the editor -> criteria -> Oscar's sections -> Save -----
         const criteria = AdminForms.criteriaEditor({ summary: $('c-summary'), mustList: $('c-must-list'), niceList: $('c-nice-list') });
@@ -1090,9 +1156,23 @@
             $('c-nice').value = role.niceText || '';
             criteria.set(role.job);
             sections.set(role.rules);
+            for (const r of document.getElementsByName('c-scope')) r.checked = r.value === (role.scope || 'pool');
+            $('c-scope-pool').textContent = `(${plural(role.pool, 'CV')})`;
+            $('c-scope-direct').textContent = `(${plural(role.direct, 'CV')})`;
+            $('c-tiebreak').checked = role.tieBreak === true;
+            syncTieBreak();
+            $('c-reads').textContent = role.ownReads
+                ? `This role keeps other sections than the default, so it has its own reads.${role.toRead ? ` ${plural(role.toRead, 'CV')} will be read again on the next run.` : ''}`
+                : 'Every CV is read with the default sections when it arrives. If this role keeps other sections, Oscar reads the CVs again for this role on its next run.';
             showEditor(criteria.count() > 0);          // criteria saved earlier: edit them straight away
             say('c-msg', role.jobUpdatedAt ? `Last saved ${new Date(role.jobUpdatedAt).toLocaleString()}.` : 'Not saved yet.');
             renderClara();
+        }
+
+        function fillCriteriaReads() {
+            const role = results.role;
+            $('c-scope-pool').textContent = `(${plural(role.pool, 'CV')})`;
+            $('c-scope-direct').textContent = `(${plural(role.direct, 'CV')})`;
         }
 
         // Clara's state + proposal only: never touches what the admin is typing
@@ -1111,6 +1191,9 @@
         }
 
         const roleInputs = () => ({ title: $('c-title').value, adText: $('c-ad').value, mustText: $('c-must').value, niceText: $('c-nice').value });
+        const chosenScope = () => [...document.getElementsByName('c-scope')].find(r => r.checked)?.value || 'pool';
+        function syncTieBreak() { $('c-tiebreak').disabled = chosenScope() === 'direct'; }
+        for (const r of document.getElementsByName('c-scope')) r.addEventListener('change', syncTieBreak);
 
         $('c-ask').addEventListener('click', async () => {
             if (!$('c-title').value.trim()) return say('c-clara', 'Give the role a profession first (Admin input #1).', true);
@@ -1140,10 +1223,13 @@
             if (!criteria.count()) return say('c-msg', 'Add at least one must-have or nice-to-have (or load Clara\'s proposal) first.', true);
             try {
                 $('c-save').disabled = true;
-                await patchRole({ ...roleInputs(), job: criteria.get(), rules: sections.get() });
+                await patchRole({ ...roleInputs(), job: criteria.get(), rules: sections.get(), scope: chosenScope(), tieBreak: $('c-tiebreak').checked });
                 await refresh();
                 criteria.set(results.role.job);
-                say('c-msg', 'Saved: your inputs, the criteria and the CV sections. Run the pipeline to use them.');
+                const r = results.role;
+                say('c-msg', `Saved: your inputs, the criteria, the CV sections and who it runs on (${plural(r.applicants, 'CV')}).` +
+                    (r.toRead ? ` Oscar will read ${plural(r.toRead, 'CV')} for this role on the next run.` : ' Run the pipeline to use them.'));
+                fillCriteriaReads();
             } catch (err) { say('c-msg', err.message, true); }
             finally { $('c-save').disabled = false; }
         });

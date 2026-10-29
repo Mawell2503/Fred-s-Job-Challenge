@@ -94,7 +94,8 @@
 
                 h('h2', { text: 'Top 5' }),
                 table(['#', 'Candidate', 'Score /10', 'Members', 'Agreement', 'Comment'], rep.top5.map(t => [
-                    String(t.rank), h('span', {}, h('b', { text: t.name }), h('div', { class: 'muted', text: t.id })),
+                    String(t.rank), h('span', {}, h('b', { text: t.name }), h('div', { class: 'muted', text: t.id }),
+                        t.application ? h('div', { class: 'muted', text: t.application }) : ''),
                     h('b', { class: 'num', text: fmt(t.score) }),
                     Object.entries(t.scores).map(([m, s]) => `${m} ${fmt(s)}`).join(' · '),
                     h('span', { class: 'tag', text: t.agreement }), t.comment])),
@@ -102,6 +103,7 @@
                 h('h2', { text: 'Candidates' }),
                 ...rep.candidates.map(c => h('section', { class: 'cand' },
                     h('h3', { text: `${c.name} (${c.id})` }),
+                    c.application ? h('p', { class: 'muted', text: c.application }) : '',
                     h('h4', { text: 'Strengths' }),
                     h('ol', { class: 'strengths' }, ...c.strengths.map(s => h('li', {}, s.point,
                         h('blockquote', { text: `“${s.quote}” (${s.source === 'cv' ? 'CV' : 'practical answers'})` })))),

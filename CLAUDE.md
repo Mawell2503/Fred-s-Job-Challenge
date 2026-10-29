@@ -26,6 +26,7 @@ npm run create-admin -- <username> <password>
 npm run create-admin -- --list
 npm run demo                     # demo role + 15 fictional applications (demo/)
 npm run pipeline -- <roleId>     # the full pipeline from the terminal (stop the server first)
+npm run import -- <folder>       # a folder of CVs into the pool, invented practical details (stop the server first)
 npm test                         # node --test tests/*.test.mjs && python3 -m unittest discover -s tests
 ```
 
@@ -56,24 +57,38 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   `sid` cookie, atomic writes (`.tmp` + rename). No session store/DB.
 - `rolesStore.js` — one role per open position, stored in `data/roles.json`; each role's agent output
   lives under `data/roles/<id>/` (`job.json`, `clara_out.json`, `remi.json`, `jules.json`,
-  `progress.json`). Owns the validation/sanitizing of what the admin UI sends (`cleanJob`,
-  `cleanRules`, `cleanCriterion`).
+  `progress.json`, and `runs/` + `reads.json` when it has its own reads). Owns the validation/sanitizing
+  of what the admin UI sends (`cleanJob`, `cleanRules`, `cleanCriterion`), `DEFAULT_RULES` (the sections
+  every CV is read with on arrival), `rulesKey`, and per role `scope` (`pool` | `direct`) and `tieBreak`.
 - `apply.js` — routes only: multipart upload (multer, 5 MB, fields `resume` pdf/docx/txt and optional
   `linkedin` pdf, plus a required `practical` JSON string) → `submitApplication`. Admin reads:
   `GET /api/admin/applicants?role=&details=1` (with practical answers), `.../:id/cv` (the original file,
   `nosniff`, sandboxed unless PDF), `.../:id/{text,full,record,practical,linkedin}`.
-- `applicants.js` — no express: the applicant store (`data/applicants.json`), the single `Promise` queue
-  (`inQueue`, one Python subprocess at a time so candidate numbering stays safe), `submitApplication`,
-  `reprocessRole(..., { onlyStale })`. Each applicant stores `cvSha256` (same file + same role → 409,
-  checked inside the queue), `rulesKey` (the keep/drop settings its CV was read with), `cvName` (the
-  original file name, cleaned by `cleanFileName`; older records fall back to `CV.<ext>`), `linkedinFile`,
-  and `practical`.
-- `practical.js` — no express: `cleanPractical` (applicant answers, required), `cleanLogistics` (the
-  role's practical requirements for Nina), `publicRoleInfo` (what the public form may know: currency and
-  work country, never the budget).
-- `pipeline.js` — no express: `runPipeline(role, { llmGate }, progressFile)` = Oscar (only stale CVs) →
-  Remi → Jules `--top 10` → writes `committee_in.json` → `hiring committee`; sets `role.agents[step]`
-  for each step; `startAgent`, `runHiring`, `pipelineProblem` live here too.
+- `applicants.js` — no express: the **CV pool** (`data/applicants.json`, written compact), the single
+  `Promise` queue (`inQueue`, one Python subprocess at a time so candidate numbering stays safe),
+  `submitApplication({ roleId | null, ... })`, `refreshDefaultReads`, `applicantsInScope(role)`,
+  `directApplicants`, `applicationFor(a, roleId)` → `this | open | other`. Applicants do NOT belong to a
+  role: each stores `appliedFor` (role ids; `[]` = open application), `cvSha256` (one CV once in the whole
+  pool; the same CV for another role is added to `appliedFor`), `rulesKey` (the sections its arrival read
+  used), `cvName`, `linkedinFile`, `practical`, `source` (`form` | `import` | `demo`). On start, records from
+  before the pool are converted once (`roleId` → `appliedFor`, right-to-work → `work_countries`).
+- `reads.js` — no express: Oscar's reads per role. A role whose sections equal `DEFAULT_RULES` uses the
+  arrival reads in `data/runs/`; any other role gets its own in `data/roles/<id>/runs/`, indexed by
+  `reads.json` (`{cid: {key, status, ...}}`) and only redone when its `rulesKey` changes
+  (`ensureReads`, `staleCount`, `runsDirFor`).
+- `practical.js` — no express: `cleanPractical` (applicant answers, required: salary with the currency
+  they choose, `work_countries` instead of right-to-work), `cleanLogistics` (the role's practical
+  requirements for Nina), `upgradePractical` (old records), `publicRoleInfo` (what the public form may
+  know: currency and work country, never the budget).
+- `pipeline.js` — no express: `runPipeline(role, { llmGate }, progressFile)` = who it runs on (fixed at the
+  start: `applicantsInScope`) → Oscar (`ensureReads`: only what this role still needs) → Remi (ids through
+  `ids.txt`, `--ids-file`: Windows command lines are too short for big pools) → Jules `--top 10` → writes
+  `committee_in.json` (practical answers, LinkedIn flags, `names`, and on whole-pool runs `application`
+  labels + `tie_break_direct`) → `hiring committee`; sets `role.agents[step]` for each step;
+  `startAgent`, `runHiring`, `pipelineProblem`, `applicationLabel` live here too.
+- `scripts/import-cvs.js` — `npm run import -- <folder>`: every CV through `submitApplication` (name from
+  the CV via `nameFromCv`, else "Test subject #N"), invented practical details seeded by the file's sha256
+  (same file → same answers), never touches applicants already in the pool.
 - Sign-up (`index.js`) is closed by default: only allowed while no admin exists, or with
   `ALLOW_SIGNUP=true`. Other admins are created with `npm run create-admin`.
 - `env.js` — tiny `.env` parser (`parseEnv`): `#` after whitespace starts a comment unless the value
@@ -153,14 +168,17 @@ prompt (`personas/<name>.md` + shared `RULES`). Everything else is plain code.
 
 - `packet.py` — what each member reads per candidate: shared core (job, Jules's assessment, full CV) +
   lens (Hélène: LinkedIn status; Victor: `career_timeline` from Oscar's record; Nina: `practical_text`
-  (quotable answers) + `practical_checks` vs the role's logistics). Built from `committee_in.json`, which
-  the Node side writes with the practical answers of Jules's 10 finalists ONLY.
+  (quotable answers) + `practical_checks` vs the role's logistics, incl. the `application` check and its
+  quotable "Application: ..." line on whole-pool runs; a salary in another currency than the budget is
+  "unknown", never converted). Built from `committee_in.json`, which the Node side writes with the
+  practical answers of Jules's 10 finalists ONLY. `packet.names` (report only) prefers the name on the
+  application, then the one Oscar found.
 - `validate.py` — every member answer: ids, score range, verdict band, each quote verified against its
   source (`cv`/`practical`/`linkedin`), members kept in their lane, round-0 `top5`.
 - `orchestrator.py` — round 0 alone (Hélène → Victor → Nina; Nina skipped if nothing practical), then up
   to 3 debate rounds on `contested()` candidates with `assignments()` (highest/lowest scorer, the middle one once, + Victor's
   rescue), one re-prompt on validation errors, stop on consensus / deadlock / max rounds, `rank()` =
-  average score (ties: Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`.
+  average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`.
 - `gaston.py` — `confidence()` and every fact by code; one AI call for the wording; strengths' quotes
   verified; one re-prompt; `fill()` completes from the members' verified arguments; works with the AI down.
 - `report.py` — `to_markdown()`; `pages/report.html` renders the same report JSON (print → PDF).
@@ -181,7 +199,11 @@ poll and show a live progress indicator while an agent runs in the background.
   The criteria, CV-section and practical-requirement editors live once in `pages/admin-forms.js`
   (`window.AdminForms`) and are used by both the lobby cards and `roles.html`: change them there.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the
-  applicant record and only handed to the committee (for Jules's 10 finalists) in `pipeline.js`.
+  applicant record and only handed to the committee (for Jules's 10 finalists) in `pipeline.js`. The same
+  goes for what someone applied for: it is a fact for the committee (Nina's lane), never a funnel score.
+- **One CV pool, roles run on it.** Never tie an applicant to one role again; use `appliedFor`,
+  `applicantsInScope`, `applicationFor`. Anything that depends on a role's CV sections must go through
+  `reads.js` (`runsDirFor(role)`), never straight to `data/runs/`.
 - **Scores, ranking, confidence and disagreements are computed by code, never by the LLM.** The LLM only
   gives each member's position and Gaston's wording; every quote it produces is verified.
 - **Personal info never reaches the LLM-facing text.** `pii.py` strips it out during Oscar's segment
