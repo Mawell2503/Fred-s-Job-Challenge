@@ -581,7 +581,9 @@
             status.className = 'status' + (finishedHere ? ' done' : S.paused ? '' : ' live');
             const label = d.phase === 'gaston' ? 'Gaston is writing the report' : finishedHere ? 'Finished'
                 : d.round === 0 ? 'Round 0 · positions' : `Round ${d.round} of ${maxR}`;
-            $('status-text').textContent = (S.mode === 'replay' ? 'Replay · ' : finishedHere ? '' : 'Live · ') + label;
+            $('status-text').textContent = S.mode === 'replay' && S.evaluation && all && S.paused
+                ? `Evaluation of ${nameOf(S.focus)}`
+                : (S.mode === 'replay' ? 'Replay · ' : finishedHere ? '' : 'Live · ') + label;
             const steps = $('steps'); steps.replaceChildren();
             const items = [['Round 0 · positions', 0]];
             for (let r = 1; r <= maxR; r++) items.push([`Round ${r} · debate`, r]);
@@ -645,7 +647,7 @@
             $('b1-id').textContent = cid ? [cid, S.apps[cid]?.cvName].filter(Boolean).join(' · ') : '';
             const tag = $('b1-tag'); tag.replaceChildren();
             if (cid && d.contested.includes(cid)) tag.append(h('span', { class: 'pill contested' }, 'Contested'));
-            else if (S.pinned) tag.append(h('button', { type: 'button', class: 'pill', style: 'border:0;cursor:pointer', onclick: () => { S.pinned = false; renderLive(); } }, 'Follow the debate'));
+            else if (S.pinned && !S.evaluation) tag.append(h('button', { type: 'button', class: 'pill', style: 'border:0;cursor:pointer', onclick: () => { S.pinned = false; renderLive(); } }, 'Follow the debate'));
             const chips = $('b1-chips'); chips.replaceChildren();
             if (c.jules_rank) chips.append(h('span', { class: 'chip' }, `Jules #${c.jules_rank}` + (c.jules ? ` · ${c.jules}` : '')));
             if (typeof c.remi === 'number') chips.append(h('span', { class: 'chip' }, `Remi ${fmt(c.remi * 100)}%`));
@@ -940,11 +942,11 @@
         $('app').addEventListener('click', e => { if (e.target === $('app')) $('app').close(); });
 
         /* ------------------------------------------------------------------ controls */
-        document.querySelectorAll('.filters button').forEach(b => b.addEventListener('click', () => {
-            S.filter = b.dataset.filter; S.stick = true;
-            document.querySelectorAll('.filters button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-            renderLive();
-        }));
+        function setFilter(f) {
+            S.filter = f; S.stick = true;
+            document.querySelectorAll('.filters button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.filter === f)));
+        }
+        document.querySelectorAll('.filters button').forEach(b => b.addEventListener('click', () => { setFilter(b.dataset.filter); renderLive(); }));
         document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
             S.speed = Number(b.dataset.speed);
             document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
@@ -956,8 +958,8 @@
             renderLive(); schedule();
         });
         $('rp-end').addEventListener('click', () => { S.shown = S.feed.length; S.paused = true; renderLive(); schedule(); });
-        $('rp-close').addEventListener('click', () => show('done'));
-        $('v-replay').addEventListener('click', () => { S.shown = 0; S.paused = false; S.pinned = false; S.stick = true; show('replay'); });
+        $('rp-close').addEventListener('click', () => { S.evaluation = false; S.pinned = false; setFilter('all'); show('done'); });
+        $('v-replay').addEventListener('click', () => { S.evaluation = false; S.shown = 0; S.paused = false; S.pinned = false; S.stick = true; show('replay'); });
         $('see-results').addEventListener('click', e => { e.preventDefault(); show('done'); });
 
         function show(mode) {
@@ -986,12 +988,16 @@
                     S.apps = Object.fromEntries(list.map(a => [a.id, a]));
                 } catch { /* names still come from live.json */ }
             }
+            const wanted = first ? new URLSearchParams(location.search).get('cid') : null;
+            if (wanted && finalistIds().includes(wanted)) { S.focus = wanted; S.pinned = true; setFilter('cid'); }
             if (res.committee?.report && !committeeRunning) {
-                if (first) show('done');
+                // opened from a lobby card: that candidate's evaluation (the end of the debate, pinned on them)
+                if (first && S.pinned && S.feed.length) { S.evaluation = true; S.shown = S.feed.length; S.paused = true; show('replay'); }
+                else if (first) show('done');
                 else if (S.mode === 'live') { renderLive(); schedule(); }   // finished while watching: "See the results"
                 stopPolling();
             } else if (committeeRunning || S.feed.length) {
-                if (S.mode !== 'live') { S.shown = Math.max(0, S.feed.length - 3); S.stick = true; show('live'); }
+                if (S.mode !== 'live') { S.shown = S.pinned ? S.feed.length : Math.max(0, S.feed.length - 3); S.stick = true; show('live'); }
                 else { renderLive(); schedule(); }
                 if (!committeeRunning && ag.committee?.state === 'failed') notice(`The committee stopped: ${ag.committee.message || 'see the pipeline page'}.`);
             } else {
