@@ -143,6 +143,8 @@ export function roleRoutes({ requireAuth }) {
             committee,
             // live debate feed while the committee runs (committee.json carries it once finished)
             feed: committee?.feed || readJson(path.join(dir, 'feed.json')) || [],
+            // the committee page's live state: phase, who speaks, positions, each finalist's facts (live.py)
+            live: readJson(path.join(dir, 'live.json')),
         });
     });
 

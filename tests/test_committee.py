@@ -183,5 +183,51 @@ class CareerTimeline(unittest.TestCase):
         self.assertIn("Same role (Nurse", facts)
 
 
+class FeedAndLive(unittest.TestCase):
+    """What the committee page draws from: feed lines with candidate ids and scores, and live.json."""
+
+    def tearDown(self):
+        llm.set_fake_handler(None)
+
+    def test_feed_and_live_file_follow_the_debate(self):
+        import tempfile
+        from pathlib import Path
+        from hiring.committee.live import Live
+        ids = [f"C{i:04d}" for i in range(1, 7)]
+        t = flat({"helene": 7, "victor": 7, "nina": 7}, ids, rounds=3)
+        t["helene"][0]["C0001"], t["victor"][0]["C0001"] = 2, 9
+        t["helene"][1]["C0001"] = t["helene"][2]["C0001"] = 6        # Hélène moves up in round 1
+        pk = make_packet(6)
+        seen = []
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "live.json"
+
+            class Spy(Live):
+                def update(self, **fields):
+                    super().update(**fields)
+                    seen.append(json.loads(path.read_text(encoding="utf-8")))
+            llm.set_fake_handler(scripted(t))
+            st = O.run(pk, live=Spy(path, pk))
+            final = json.loads(path.read_text(encoding="utf-8"))
+
+        feed = st["feed"]
+        # round 0: one scored line per member and candidate, with the evidence
+        scored = [f for f in feed if f["kind"] == "score"]
+        self.assertEqual(len(scored), 3 * 6)
+        self.assertTrue(all(f["cid"] in ids and "score" in f and f["arg"]["quote"] for f in scored))
+        # the debate: the move carries from / to
+        move = next(f for f in feed if f["kind"] == "change")
+        self.assertEqual((move["member"], move["cid"], move["from"], move["to"]), ("helene", "C0001", 2, 6))
+        self.assertIn("C0001", next(f for f in feed if f["kind"] == "decision" and f["round"] == 1)["cids"])
+        # live.json: who speaks while they speak, the facts of each finalist, the final ranking
+        self.assertIn("helene", [s["speaking"] for s in seen])
+        self.assertTrue(any(s["phase"] == "debate" and "C0001" in s["contested"] for s in seen))
+        self.assertEqual(final["phase"], "report")
+        self.assertEqual(set(final["candidates"]), set(ids))
+        self.assertIn("checks", final["candidates"]["C0001"])
+        self.assertEqual([r["id"] for r in final["ranking"]][:5], st["top5"])
+        self.assertEqual(final["positions"]["helene"]["C0001"]["score"], 6)
+
+
 if __name__ == "__main__":
     unittest.main()
