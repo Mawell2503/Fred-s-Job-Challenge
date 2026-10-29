@@ -46,3 +46,17 @@ test('a readable CV is kept, and the same file twice for one role is refused', a
     const dup = await submitApplication({ role, cvPath: upload('cv.txt', GOOD_CV), name: 'Amélie', practical: null });
     assert.equal(dup.duplicate, true);
 });
+
+test('the original CV file name is kept, made safe, with the stored file\'s extension', async () => {
+    const { cleanFileName } = await import(path.join(REPO, 'applicants.js'));
+    assert.equal(cleanFileName('Amélie Laurent CV.pdf', 'x/abc.pdf'), 'Amélie Laurent CV.pdf');
+    assert.equal(cleanFileName('C:\\Users\\me\\cv.pdf', 'abc.pdf'), 'cv.pdf');
+    assert.equal(cleanFileName('../../etc/passwd', 'abc.txt'), 'passwd.txt');
+    assert.equal(cleanFileName('bad"name<>.docx', 'abc.docx'), 'badname.docx');
+    assert.equal(cleanFileName('', 'abc.pdf'), 'CV.pdf');
+    assert.equal(cleanFileName('.hidden', 'abc.txt'), 'CV.txt');
+
+    const role = createRole('Data engineer');
+    const ok = await submitApplication({ role, cvPath: upload('cv.txt', GOOD_CV + '\n'), cvName: 'Amélie CV.txt', name: 'Amélie N', practical: null });
+    assert.equal(ok.applicant.cvName, 'Amélie CV.txt');
+});

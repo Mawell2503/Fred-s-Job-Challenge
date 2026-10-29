@@ -4,7 +4,7 @@
 //
 // One applicant record:
 //   { number, candidateId: "C0007", roleId, name, linkedinUrl, instagramUrl, appliedAt,
-//     cvFile, cvSha256, cvStatus, cvCodes, rulesKey,         <- the CV, through Oscar
+//     cvFile, cvName, cvSha256, cvStatus, cvCodes, rulesKey, <- the CV, through Oscar (cvName: its original file name)
 //     linkedinFile,                                          <- optional LinkedIn PDF (for Helene; parser to come)
 //     practical: { salary, available_from, ... } }           <- for Nina only, never through the funnel
 import fs from 'node:fs';
@@ -42,6 +42,19 @@ export const rulesKey = rules => JSON.stringify(Object.entries(rules?.sections |
     if (added) saveApplicants();
 }
 
+/**
+ * The file name the applicant's CV had on their computer, safe to show and to send back as a download
+ * name: no folders, no control or quote characters, the stored file's extension. Falls back to "CV.<ext>".
+ */
+export function cleanFileName(name, storedPath) {
+    const ext = path.extname(storedPath || '').toLowerCase();
+    let base = path.basename(String(name ?? '').replace(/\\/g, '/'));
+    base = base.replace(/[\u0000-\u001f\u007f"<>|*?:]/g, '').trim().slice(0, 120);
+    if (!base || base.startsWith('.')) base = `CV${ext}`;
+    if (ext && path.extname(base).toLowerCase() !== ext) base += ext;
+    return base;
+}
+
 // One CV at a time: keeps numbering safe and the machine responsive.
 let queue = Promise.resolve();
 export const inQueue = job => (queue = queue.then(job, job));
@@ -57,7 +70,7 @@ export const findApplicant = candidateId => applicants.find(a => a.candidateId =
  * A CV Oscar cannot read at all (status failed) is NOT recorded: the applicant is told so and can send
  * another file (or the same one again) at once. `applicant` is then null; the caller deletes the uploads.
  */
-export async function submitApplication({ role, cvPath, linkedinPath = null, name, linkedinUrl = '', instagramUrl = '', practical }) {
+export async function submitApplication({ role, cvPath, cvName = '', linkedinPath = null, name, linkedinUrl = '', instagramUrl = '', practical }) {
     const sha = fileHash(cvPath);
     return inQueue(async () => {
         // checked inside the queue so two identical uploads at once can't both get in
@@ -72,7 +85,7 @@ export async function submitApplication({ role, cvPath, linkedinPath = null, nam
             number, candidateId: r.candidateId, roleId: role.id, name, instagramUrl, linkedinUrl,
             appliedAt: new Date().toISOString(),
             cvStatus: r.status, cvCodes: r.codes,
-            cvFile: path.basename(cvPath), cvSha256: sha, rulesKey: rulesKey(role.rules),
+            cvFile: path.basename(cvPath), cvName: cleanFileName(cvName, cvPath), cvSha256: sha, rulesKey: rulesKey(role.rules),
             linkedinFile: linkedinPath ? path.basename(linkedinPath) : null,
             practical,
         };

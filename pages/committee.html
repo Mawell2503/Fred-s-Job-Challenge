@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Committee</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap">
+    <!-- The committee's own page, opened from the lobby's "3 · Committee" button (?role=R001).
+         What it shows is still to be designed: for now a placeholder + Gaston's report once it exists. -->
+    <style>
+        :root {
+            --bg: #FBF8F4; --card: #FFFFFF; --ink: #2A2420; --muted: #6F655D; --faint: #776B62;
+            --line: #EDE5DC; --line-strong: #E3D9CF; --soft: #F4EFE9;
+            --accent: #FFB443; --accent-strong: #E8961E; --error: #B42318;
+            --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+            font: 15px/1.5 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            display: flex; flex-direction: column;
+        }
+        a { color: inherit; }
+        :focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            min-height: 44px; padding: 0 20px; border-radius: 99px;
+            border: 1px solid var(--line-strong); background: var(--card); color: var(--ink);
+            font: 700 14px/1 'DM Sans', sans-serif; text-decoration: none; cursor: pointer; white-space: nowrap;
+        }
+        .btn:hover { background: var(--soft); }
+        .btn-primary { background: var(--accent); border-color: var(--accent); }
+        .btn-primary:hover { background: #FFA826; }
+        .topbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 28px; border-bottom: 1px solid var(--line); }
+        .brand { font-weight: 800; font-size: 20px; }
+        .sep { color: #C9BDB2; }
+        .role { font-size: 14px; color: var(--muted); }
+        .grow { flex: 1; }
+        .who { font-size: 13px; color: var(--muted); }
+        main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px; }
+        .kicker { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; }
+        .placeholder {
+            flex: 1; min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; padding: 48px 24px; border: 1px dashed var(--line-strong); border-radius: 20px;
+            background: var(--card); color: var(--muted); text-align: center;
+        }
+        .placeholder b { color: var(--ink); font-size: 18px; }
+        .actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+        .notice { margin: 0; color: var(--error); }
+        @media (max-width: 700px) { .topbar { padding: 12px 16px; } main { padding: 20px 16px; } h1 { font-size: 28px; } .sep { display: none; } }
+    </style>
+</head>
+
+<body>
+    <header class="topbar">
+        <a class="btn" id="back" href="adminlobby.html">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+            Lobby
+        </a>
+        <span class="brand">Committee</span>
+        <span class="sep" aria-hidden="true">/</span>
+        <span class="role" id="role"></span>
+        <span class="grow"></span>
+        <span class="who" id="who"></span>
+    </header>
+
+    <main>
+        <div>
+            <div class="kicker">Hélène · Victor · Nina · Gaston</div>
+            <h1>3 · Committee</h1>
+        </div>
+        <p class="notice" id="notice" role="alert" hidden></p>
+        <section class="placeholder" aria-labelledby="ph-title">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+                <circle cx="17" cy="9" r="2.5" /><path d="M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8" />
+            </svg>
+            <b id="ph-title">The committee page</b>
+            <span id="ph-text">This page is still being designed.</span>
+            <div class="actions" id="actions" hidden>
+                <a class="btn btn-primary" id="report" href="#">Open Gaston's report</a>
+                <a class="btn" id="report-md" href="#">Download Markdown</a>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const $ = id => document.getElementById(id);
+        async function api(url) {
+            const res = await fetch(url);
+            if (res.status === 401) { location.href = '/#admin'; throw new Error('Logged out.'); }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            return data;
+        }
+
+        (async () => {
+            try {
+                const me = await api('/api/admin/me');
+                $('who').textContent = me.user;
+                let id = new URLSearchParams(location.search).get('role');
+                if (!id) { try { id = localStorage.getItem('lobby.role'); } catch { /* storage off */ } }
+                if (!id) { $('ph-text').textContent = 'Choose a role in the lobby first.'; return; }
+                $('back').href = `adminlobby.html?role=${encodeURIComponent(id)}`;
+                const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
+                $('role').textContent = `${res.role.title} · ${res.role.id}`;
+                document.title = `Committee · ${res.role.title}`;
+                const report = res.committee?.report;
+                $('ph-text').textContent = report
+                    ? 'This page is still being designed. Until then, Gaston\'s report is here.'
+                    : 'This page is still being designed. The committee has not met for this role yet.';
+                $('actions').hidden = !report;
+                $('report').href = `report.html?role=${encodeURIComponent(id)}`;
+                $('report-md').href = `/api/admin/roles/${encodeURIComponent(id)}/report.md`;
+            } catch (err) {
+                $('notice').hidden = false;
+                $('notice').textContent = err.message;
+            }
+        })();
+    </script>
+</body>
+
+</html>

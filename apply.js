@@ -2,7 +2,9 @@
 //   POST /api/apply                         (public)  multipart form: roleId, name, linkedinUrl,
 //                                                     resume (file), linkedin (optional LinkedIn PDF),
 //                                                     practical (JSON string, required, for Nina)
-//   GET  /api/admin/applicants[?role=R001]  (admin)   list of applicants + CV status
+//   GET  /api/admin/applicants[?role=R001][&details=1]  (admin)  list of applicants + CV status
+//                                                     (details=1: with each one's practical answers)
+//   GET  /api/admin/applicants/:id/cv       (admin)   the CV file exactly as uploaded
 //   GET  /api/admin/applicants/:id/text     (admin)   the cleaned CV text block (kept sections)
 //   GET  /api/admin/applicants/:id/full     (admin)   every section, personal details removed (what Jules reads)
 //   GET  /api/admin/applicants/:id/record   (admin)   Oscar's structured record (JSON)
@@ -16,12 +18,13 @@ import crypto from 'node:crypto';
 import { getRole } from './rolesStore.js';
 import { cleanPractical } from './practical.js';
 import {
-    DATA_DIR, UPLOAD_DIR, applicantsForRole, findApplicant, listApplicants, submitApplication,
+    DATA_DIR, UPLOAD_DIR, applicantsForRole, cleanFileName, findApplicant, listApplicants, submitApplication,
 } from './applicants.js';
 
 
 const ALLOWED = { resume: new Set(['.pdf', '.docx', '.txt']), linkedin: new Set(['.pdf']) };
 const upload = multer({
+    defParamCharset: 'utf8',                     // "Amélie_CV.pdf" keeps its accent (the default reads it as latin1)
     storage: multer.diskStorage({
         destination: UPLOAD_DIR,
         filename: (req, file, cb) => cb(null, crypto.randomUUID() + path.extname(file.originalname).toLowerCase()),
@@ -78,7 +81,7 @@ export function applyRoutes({ requireAuth }) {
                 if (practical.error) return refuse(practical.error);
 
                 const out = await submitApplication({
-                    role, cvPath: cv.path, linkedinPath: li?.path || null, name, linkedinUrl, instagramUrl,
+                    role, cvPath: cv.path, cvName: cv.originalname, linkedinPath: li?.path || null, name, linkedinUrl, instagramUrl,
                     practical: practical.value,
                 });
                 if (out.duplicate) {
@@ -97,12 +100,37 @@ export function applyRoutes({ requireAuth }) {
             }
         });
 
+    // ?details=1 adds each applicant's practical answers (the lobby's "Applications in" card shows them all at once)
     router.get('/api/admin/applicants', requireAuth, (req, res) => {
         const role = req.query.role ? String(req.query.role) : null;
+        const details = req.query.details === '1';
         res.json((role ? applicantsForRole(role) : listApplicants())
-            .map(({ candidateId, roleId, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes, linkedinFile, practical }) =>
+            .map(({ candidateId, roleId, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes, cvFile, cvName, linkedinFile, practical }) =>
                 ({ id: candidateId, roleId, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes,
-                    hasLinkedinPdf: Boolean(linkedinFile), hasPractical: Boolean(practical) })));
+                    cvName: cvName || cleanFileName('', cvFile),
+                    hasLinkedinPdf: Boolean(linkedinFile), hasPractical: Boolean(practical),
+                    ...(details ? { practical: practical || null } : {}) })));
+    });
+
+    // The CV file exactly as the applicant uploaded it. PDF and TXT open in the browser, DOCX downloads.
+    // nosniff (+ sandbox for text): an uploaded file can never run as a page on this site. No sandbox on
+    // PDFs: Chrome refuses to show a PDF under a sandbox CSP, and its PDF viewer runs no site script anyway.
+    const CV_TYPES = { '.pdf': 'application/pdf', '.txt': 'text/plain; charset=utf-8',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+    router.get('/api/admin/applicants/:id/cv', requireAuth, (req, res) => {
+        const a = findApplicant(req.params.id);
+        const ext = a ? path.extname(a.cvFile).toLowerCase() : '';
+        const file = a ? path.join(UPLOAD_DIR, path.basename(a.cvFile)) : '';
+        if (!a || !CV_TYPES[ext] || !fs.existsSync(file)) return res.status(404).json({ error: 'No CV file for this applicant.' });
+        const name = a.cvName || cleanFileName('', a.cvFile);
+        res.set({
+            'Content-Type': CV_TYPES[ext],
+            'Content-Disposition': `${ext === '.docx' ? 'attachment' : 'inline'}; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'private, no-store',
+        });
+        if (ext !== '.pdf') res.set('Content-Security-Policy', 'sandbox');
+        fs.createReadStream(file).pipe(res);
     });
 
     // Oscar's files for one applicant: text (kept sections), full (all sections), record (JSON)

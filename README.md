@@ -73,10 +73,17 @@ committee. The admin sets the role's *practical requirements* (budget, client co
 required languages...) in the "Practical requirements" card. *The LinkedIn PDF parser is not built yet:
 Hélène is told whether a profile was provided and judges from the CV.*
 
-Admin page: `/pages/roles.html` (linked from the lobby). Create a role, ask Clara and check her criteria
-(the one manual step), set the practical requirements, then press **Run full pipeline**: Oscar (only CVs
-read with older section settings), Remi, Jules, the committee and Gaston run one after the other in the
-background, with live progress and a live debate feed. Applicants choose an open role on the home page.
+Admin lobby: `/pages/adminlobby.html`. Its timeline opens cards (they turn blue on hover): **Applications
+in** (every application as submitted: name, CV file, practical details), **Job & criteria** (profession, job
+ad, your must-haves / nice-to-haves → Ask Clara → Load into the editor → check the criteria → Oscar's CV
+sections → Save criteria) and **Practical requirements** (for Nina). **3 · Committee** opens the committee
+page (`/pages/committee.html`, still to be designed; links to Gaston's report).
+
+Pipeline page: `/pages/roles.html` (**Edit pipeline** in the lobby), everything on one page. Create a role,
+ask Clara and check her criteria (the one manual step), set the practical requirements, then press **Run
+full pipeline**: Oscar (only CVs read with older section settings), Remi, Jules, the committee and Gaston run
+one after the other in the background, with live progress and a live debate feed. Applicants choose an open
+role on the home page.
 
 The agents also run from the terminal:
 ```
@@ -139,6 +146,8 @@ The same CV file sent twice for the same position is refused (409); it is recogn
 | POST | `/api/admin/roles/:id/pipeline` | Oscar → Remi → Jules → committee → Gaston (background) |
 | GET | `/api/admin/roles/:id/results` | Step states, progress, Remi, Jules, committee results, live debate feed |
 | GET | `/api/admin/roles/:id/report.md` | Gaston's report (Markdown download) |
+| GET | `/api/admin/applicants?role=R001[&details=1]` | A role's applicants (`details=1`: with their practical answers) |
 | GET | `/api/admin/applicants/:id/text`, `/full`, `/record`, `/practical`, `/linkedin` | One applicant's files |
+| GET | `/api/admin/applicants/:id/cv` | The CV file exactly as uploaded (PDF/TXT open, DOCX downloads) |
 
 Everything under `/pages` requires a logged-in admin. Set `NODE_ENV=production` to make the cookie HTTPS-only.

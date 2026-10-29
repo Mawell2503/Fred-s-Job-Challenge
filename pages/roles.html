@@ -260,10 +260,8 @@
         <pre id="viewer-body"></pre>
     </dialog>
 
+    <script src="admin-forms.js"></script>
     <script>
-        const SECTIONS = ['summary', 'experience', 'education', 'skills', 'languages', 'certifications', 'training',
-            'projects', 'awards', 'publications', 'volunteering', 'interests', 'references', 'personal', 'declaration', 'unknown'];
-        const TYPES = ['skill', 'language', 'years', 'degree', 'certification', 'other'];
         const VERDICT = { met: 'Met', not_met: 'Not met', not_mentioned: 'Not mentioned', unverified: 'Quote not found' };
         const $ = id => document.getElementById(id);
 
@@ -297,7 +295,11 @@
             $(id).classList.toggle('err', !!isError);
         }
 
-        let roles = [], current = null, results = null, editJob = null, editRules = null, pollTimer = null;
+        let roles = [], current = null, results = null, pollTimer = null;
+        // the editors are shared with the lobby's timeline cards (admin-forms.js)
+        const criteria = AdminForms.criteriaEditor({ summary: $('summary'), mustList: $('must-list'), niceList: $('nice-list') });
+        const sections = AdminForms.sectionsEditor($('sections'));
+        const logistics = AdminForms.logisticsEditor('lg-');
 
         // ---------------- roles list ----------------
         async function loadRoles(selectId) {
@@ -325,8 +327,6 @@
             clearTimeout(pollTimer);
             results = await api('GET', `/api/admin/roles/${id}/results`);
             current = results.role;
-            editJob = structuredClone(current.job);
-            editRules = structuredClone(current.rules || { sections: {} });
             $('no-role').hidden = true;
             $('role').hidden = false;
             $('title').value = current.title;
@@ -335,9 +335,10 @@
             $('must').value = current.mustText || '';
             $('nice').value = current.niceText || '';
             for (const id of ['clara-status', 'job-status', 'oscar-status', 'logistics-status', 'pipeline-status']) say(id, '');
+            criteria.set(current.job);
             renderJob();
-            renderLogistics();
-            renderSections();
+            logistics.set(current.logistics);
+            sections.set(current.rules);
             await loadRoles(id);
             await renderApplicants();
             renderResults();
@@ -369,32 +370,14 @@
         $('save-role').addEventListener('click', async () => {
             try {
                 current = await api('PATCH', `/api/admin/roles/${current.id}`, { title: $('title').value, status: $('state').value });
-                editJob.title = current.title;
                 await loadRoles();
                 renderSteps();
             } catch (err) { alert(err.message); }
         });
 
         // ---------------- Clara + criteria editor ----------------
-        function critRow(list, c, i) {
-            const kw = h('input', { value: (c.keywords || []).join(', '), placeholder: 'keywords', 'aria-label': 'Keywords',
-                oninput: e => { c.keywords = e.target.value.split(',').map(s => s.trim()).filter(Boolean); } });
-            const years = h('input', { type: 'number', min: 0, max: 60, step: 0.5, value: c.min_years ?? '', placeholder: 'years',
-                'aria-label': 'Minimum years', disabled: c.type !== 'years', oninput: e => { c.min_years = Number(e.target.value); } });
-            const type = h('select', { 'aria-label': 'Type', onchange: e => { c.type = e.target.value; years.disabled = c.type !== 'years'; } },
-                ...TYPES.map(t => h('option', { value: t, selected: c.type === t, text: t })));
-            return h('div', { class: 'crit' },
-                h('input', { value: c.text || '', placeholder: 'e.g. At least 5 years of accounting experience', 'aria-label': 'Criterion',
-                    oninput: e => { c.text = e.target.value; } }),
-                type, kw, years,
-                h('button', { class: 'btn x', type: 'button', title: 'Remove', 'aria-label': 'Remove', text: '×',
-                    onclick: () => { list.splice(i, 1); renderJob(); } }));
-        }
-
+        // the rows are drawn by AdminForms.criteriaEditor; this only shows when it was saved + Clara's proposal
         function renderJob() {
-            $('summary').value = editJob.summary || '';
-            $('must-list').replaceChildren(...editJob.must_haves.map((c, i) => critRow(editJob.must_haves, c, i)));
-            $('nice-list').replaceChildren(...editJob.nice_to_haves.map((c, i) => critRow(editJob.nice_to_haves, c, i)));
             $('job-meta').textContent = current.jobUpdatedAt ? `Last saved ${new Date(current.jobUpdatedAt).toLocaleString()}` : 'Not saved yet';
             const p = current.claraProposal;
             $('proposal').hidden = !p;
@@ -402,21 +385,17 @@
                 `Clara proposed ${p.must_haves.length} must-have(s) and ${p.nice_to_haves.length} nice-to-have(s) on ${new Date(p.proposedAt).toLocaleString()}.`;
         }
 
-        $('summary').addEventListener('input', e => { editJob.summary = e.target.value; });
-        $('add-must').addEventListener('click', () => { editJob.must_haves.push({ text: '', type: 'skill', keywords: [] }); renderJob(); });
-        $('add-nice').addEventListener('click', () => { editJob.nice_to_haves.push({ text: '', type: 'skill', keywords: [] }); renderJob(); });
+        $('add-must').addEventListener('click', () => criteria.add('must'));
+        $('add-nice').addEventListener('click', () => criteria.add('nice'));
         $('load-proposal').addEventListener('click', () => {
-            const p = current.claraProposal;
-            editJob = { ...editJob, summary: p.summary, must_haves: structuredClone(p.must_haves),
-                nice_to_haves: structuredClone(p.nice_to_haves), suggested_drop_sections: p.suggested_drop_sections };
-            renderJob();
+            criteria.loadProposal(current.claraProposal);
             say('job-status', 'Loaded. Check every criterion and its keywords, then press "Save criteria".');
         });
 
         $('save-job').addEventListener('click', async () => {
             try {
-                current = await api('PATCH', `/api/admin/roles/${current.id}`, { job: editJob });
-                editJob = structuredClone(current.job);
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { job: criteria.get() });
+                criteria.set(current.job);
                 renderJob();
                 say('job-status', 'Criteria saved. Run Remi again to use them.');
             } catch (err) { say('job-status', err.message, true); }
@@ -432,68 +411,24 @@
         });
 
         // ---------------- practical requirements (Nina) ----------------
-        const LEVELS = [['A1', 'A1'], ['A2', 'A2'], ['B1', 'B1'], ['B2', 'B2'], ['C1', 'C1'], ['C2', 'C2'], ['native', 'Native']];
-        let editLangs = [];
-        function langRow(l, i) {
-            return h('div', { class: 'lang-row' },
-                h('input', { value: l.language || '', placeholder: 'e.g. French', 'aria-label': 'Language',
-                    oninput: e => { l.language = e.target.value; } }),
-                h('select', { 'aria-label': 'Minimum level', onchange: e => { l.min_level = e.target.value; } },
-                    h('option', { value: '', text: 'Minimum level…' }),
-                    ...LEVELS.map(([v, t]) => h('option', { value: v, selected: l.min_level === v, text: t }))),
-                h('button', { class: 'btn x', type: 'button', 'aria-label': 'Remove', text: '×',
-                    onclick: () => { editLangs.splice(i, 1); renderLangs(); } }));
-        }
-        function renderLangs() { $('lg-langs').replaceChildren(...editLangs.map(langRow)); }
-        function renderLogistics() {
-            const l = current.logistics || {};
-            $('lg-currency').value = l.currency || 'EUR';
-            $('lg-min').value = l.budget_min ?? '';
-            $('lg-max').value = l.budget_max ?? '';
-            $('lg-period').value = l.budget_period || 'month';
-            $('lg-client').value = l.client_country || '';
-            $('lg-start').value = l.start_date || '';
-            $('lg-wcountry').value = l.work_country || '';
-            $('lg-wcity').value = l.work_city || '';
-            $('lg-arr').value = l.arrangement || '';
-            $('lg-travel').value = l.travel || '';
-            $('lg-notes').value = l.notes || '';
-            editLangs = structuredClone(l.languages || []);
-            renderLangs();
-        }
-        $('lg-add-lang').addEventListener('click', () => { editLangs.push({ language: '', min_level: '' }); renderLangs(); });
+        $('lg-add-lang').addEventListener('click', () => logistics.addLang());
         $('save-logistics').addEventListener('click', async () => {
-            const val = id => $(id).value.trim();
             try {
-                current = await api('PATCH', `/api/admin/roles/${current.id}`, { logistics: {
-                    currency: val('lg-currency'), budget_min: val('lg-min'), budget_max: val('lg-max'),
-                    budget_period: val('lg-period'), client_country: val('lg-client'), start_date: val('lg-start'),
-                    work_country: val('lg-wcountry'), work_city: val('lg-wcity'), arrangement: val('lg-arr'),
-                    travel: val('lg-travel'), notes: val('lg-notes'), languages: editLangs,
-                } });
-                renderLogistics();
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { logistics: logistics.get() });
+                logistics.set(current.logistics);
                 say('logistics-status', 'Saved. Nina will use these on the next pipeline run.');
             } catch (err) { say('logistics-status', err.message, true); }
         });
 
         // ---------------- Oscar sections ----------------
-        function renderSections() {
-            const s = editRules.sections || (editRules.sections = {});
-            $('sections').replaceChildren(...SECTIONS.map(t => h('label', {},
-                h('input', { type: 'checkbox', checked: s[t] !== 'drop', onchange: e => { s[t] = e.target.checked ? 'keep' : 'drop'; } }), t)));
-        }
-
         $('use-suggestion').addEventListener('click', () => {
-            const drop = new Set(editJob.suggested_drop_sections || []);
-            if (!drop.size) return say('oscar-status', 'Clara has no suggestion yet (ask Clara, then save the criteria).', true);
-            editRules.sections = Object.fromEntries(SECTIONS.map(t => [t, drop.has(t) ? 'drop' : 'keep']));
-            renderSections();
+            if (!sections.suggest(criteria.suggestedDrop())) return say('oscar-status', 'Clara has no suggestion yet (ask Clara, then save the criteria).', true);
             say('oscar-status', 'Suggestion applied. Press "Save sections" to keep it.');
         });
 
         $('save-rules').addEventListener('click', async () => {
             try {
-                current = await api('PATCH', `/api/admin/roles/${current.id}`, { rules: editRules });
+                current = await api('PATCH', `/api/admin/roles/${current.id}`, { rules: sections.get() });
                 say('oscar-status', 'Saved. CVs already received are re-read with these sections on the next pipeline run.');
             } catch (err) { say('oscar-status', err.message, true); }
         });
@@ -695,7 +630,7 @@
             location.href = '/';
         });
 
-        // ?role=R001 (from the lobby's Pipeline button) opens that role straight away
+        // ?role=R001 (from the lobby's Edit pipeline button) opens that role straight away
         const wanted = new URLSearchParams(location.search).get('role');
         loadRoles().then(() => {
             if (wanted && roles.some(r => r.id === wanted)) openRole(wanted);

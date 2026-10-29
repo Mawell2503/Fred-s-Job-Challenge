@@ -59,11 +59,14 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   `progress.json`). Owns the validation/sanitizing of what the admin UI sends (`cleanJob`,
   `cleanRules`, `cleanCriterion`).
 - `apply.js` — routes only: multipart upload (multer, 5 MB, fields `resume` pdf/docx/txt and optional
-  `linkedin` pdf, plus a required `practical` JSON string) → `submitApplication`.
+  `linkedin` pdf, plus a required `practical` JSON string) → `submitApplication`. Admin reads:
+  `GET /api/admin/applicants?role=&details=1` (with practical answers), `.../:id/cv` (the original file,
+  `nosniff`, sandboxed unless PDF), `.../:id/{text,full,record,practical,linkedin}`.
 - `applicants.js` — no express: the applicant store (`data/applicants.json`), the single `Promise` queue
   (`inQueue`, one Python subprocess at a time so candidate numbering stays safe), `submitApplication`,
   `reprocessRole(..., { onlyStale })`. Each applicant stores `cvSha256` (same file + same role → 409,
-  checked inside the queue), `rulesKey` (the keep/drop settings its CV was read with), `linkedinFile`,
+  checked inside the queue), `rulesKey` (the keep/drop settings its CV was read with), `cvName` (the
+  original file name, cleaned by `cleanFileName`; older records fall back to `CV.<ext>`), `linkedinFile`,
   and `practical`.
 - `practical.js` — no express: `cleanPractical` (applicant answers, required), `cleanLogistics` (the
   role's practical requirements for Nina), `publicRoleInfo` (what the public form may know: currency and
@@ -170,7 +173,13 @@ poll and show a live progress indicator while an agent runs in the background.
 
 - **Admin vs. applicant separation**: `index.html` is the only page applicants see (role picker +
   upload form, public `/api/apply`, public `/api/roles`). Everything else — `pages/adminlobby.html`,
-  `pages/roles.html`, and all `/api/admin/*` routes — requires a logged-in admin session.
+  `pages/roles.html`, `pages/committee.html`, and all `/api/admin/*` routes — requires a logged-in admin session.
+- **Admin pages**: `adminlobby.html` (top 10 / top 5 board + live timeline; the timeline's "Applications in",
+  "Job & criteria" and "Practical requirements" steps are buttons that open `<dialog>` cards over a blurred
+  page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
+  `committee.html` (opened by "3 · Committee"; placeholder for now), `report.html` (Gaston's report).
+  The criteria, CV-section and practical-requirement editors live once in `pages/admin-forms.js`
+  (`window.AdminForms`) and are used by both the lobby cards and `roles.html`: change them there.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the
   applicant record and only handed to the committee (for Jules's 10 finalists) in `pipeline.js`.
 - **Scores, ranking, confidence and disagreements are computed by code, never by the LLM.** The LLM only

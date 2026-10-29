@@ -30,6 +30,10 @@
             --rail-done: #BDB3A9;
             --rail-next: #DDD5CC;
             --error: #B42318;
+            /* blue: only for things you can click open on the timeline (and in its cards) */
+            --blue: #2F6FEB;
+            --blue-ink: #1D4FBF;
+            --blue-soft: #E8F0FE;
             --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
 
@@ -61,6 +65,8 @@
         .btn-dark { background: var(--ink); border-color: var(--ink); color: var(--bg); }
         .btn-dark:hover { background: #3F3733; }
         .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+        .btn:disabled { opacity: .45; cursor: not-allowed; }
+        .btn-sm { min-height: 36px; padding: 0 14px; font-size: 13px; }
 
         /* ---------- header ---------- */
         .topbar {
@@ -217,6 +223,127 @@
         .tl-foot { padding: 14px 24px 22px; border-top: 1px solid var(--line); margin-top: auto; }
         .tl-foot .btn { width: 100%; min-height: 50px; font-size: 15px; }
 
+
+        /* ---------- clickable timeline steps: they open a card; blue on hover / keyboard focus ---------- */
+        button.step {
+            width: 100%; margin: 0; padding: 0 8px 0 0; border: 0; border-radius: 18px; background: none;
+            color: inherit; font: inherit; text-align: left; cursor: pointer;
+        }
+        .opens { display: inline-flex; vertical-align: -2px; margin-left: 4px; color: var(--faint); transition: color .15s, transform .15s; }
+        button.step .bubble { transition: box-shadow .15s, background .15s, color .15s; }
+        button.step:hover, button.step:focus-visible {
+            outline: none; background: linear-gradient(90deg, rgba(47, 111, 235, .08), rgba(47, 111, 235, 0) 85%);
+        }
+        button.step:hover .bubble, button.step:focus-visible .bubble {
+            background: var(--blue-soft) !important; color: var(--blue-ink);
+            box-shadow: inset 0 0 0 2px var(--blue), 0 0 0 5px rgba(47, 111, 235, .18); animation: none;
+        }
+        button.step:hover .bubble .grain, button.step:focus-visible .bubble .grain { display: none; }
+        button.step:hover .lbl, button.step:focus-visible .lbl { color: var(--blue-ink); }
+        button.step:hover .opens, button.step:focus-visible .opens { color: var(--blue); transform: translateX(2px); }
+
+        /* ---------- the cards: a dialog over a blurred page (same as the applicant's practical details) ---------- */
+        .card-dialog {
+            width: min(940px, calc(100vw - 32px)); max-height: min(90vh, 900px);
+            padding: 0; border: 0; border-radius: 18px; background: #FFFFFF; color: var(--ink);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, .22), 0 2px 8px rgba(0, 0, 0, .08); overflow: hidden;
+        }
+        .card-dialog.wide { width: min(1080px, calc(100vw - 32px)); }
+        .card-dialog.narrow { width: min(820px, calc(100vw - 32px)); }
+        .card-dialog[open] { display: flex; flex-direction: column; animation: cd-in .28s cubic-bezier(.2, .8, .2, 1); }
+        .card-dialog::backdrop {
+            background: rgba(42, 36, 32, .28);
+            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+            animation: cd-fade .28s ease;
+        }
+        @keyframes cd-in { from { opacity: 0; transform: translateY(16px) scale(.98); } }
+        @keyframes cd-fade { from { opacity: 0; } }
+        body:has(.card-dialog[open]) { overflow: hidden; }
+        .cd-head { display: flex; align-items: flex-start; gap: 16px; padding: 22px 24px 16px; border-bottom: 1px solid var(--line); }
+        .cd-head > div { flex: 1; min-width: 0; }
+        .cd-head h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+        .cd-lead { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+        .cd-close {
+            flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+            border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;
+        }
+        .cd-close:hover { background: var(--soft); color: var(--ink); }
+        .cd-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+        .cd-foot { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--line); background: #FCFAF7; }
+        .cd-foot .msg { flex: 1; margin: 0; font-size: 13px; color: var(--muted); }
+        .cd-foot .msg.err, .card-dialog .msg.err { color: var(--error); }
+
+        .card-dialog label, .card-dialog .lab { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 6px; }
+        .card-dialog input:not([type="checkbox"]), .card-dialog select, .card-dialog textarea {
+            width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;
+            background: var(--soft); color: var(--ink); font: 15px/1.4 'DM Sans', sans-serif;
+        }
+        .card-dialog textarea { resize: vertical; min-height: 5.5rem; }
+        .card-dialog input:focus, .card-dialog select:focus, .card-dialog textarea:focus {
+            outline: 2px solid var(--accent-strong); outline-offset: 1px; background: #FFFFFF;
+        }
+        .card-dialog input:disabled { opacity: .5; }
+        .g2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .g3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .stepno { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 800; font-size: 16px; margin-top: 6px; }
+        .stepno i { font-style: normal; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #FFF; font-size: 13px; }
+        .stepno small { font-weight: 400; font-size: 13px; color: var(--muted); }
+        .subhead { font-weight: 800; font-size: 15px; margin-top: 4px; }
+        .subhead small { font-weight: 400; font-size: 13px; color: var(--muted); }
+        .sect { display: flex; align-items: center; gap: 12px; font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-top: 4px; }
+        .sect::after { content: ""; flex: 1; height: 1px; background: var(--line-strong); }
+        .rowline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .rowline .hint { flex: 1 1 240px; }
+        .banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: 12px; background: #FFF7E8; border: 1px solid #F6D9A8; }
+        .banner span { flex: 1 1 260px; font-size: 14px; }
+        .ghost { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 22px; text-align: center; color: var(--muted); font-size: 14px; }
+
+        /* the shared editors (admin-forms.js) */
+        .crit { display: grid; grid-template-columns: minmax(0, 1.5fr) 130px minmax(0, 1.2fr) 84px 40px; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .crit-head { display: grid; grid-template-columns: minmax(0, 1.5fr) 130px minmax(0, 1.2fr) 84px 40px; gap: 8px; font-size: 12px; color: var(--muted); }
+        .lang-row { display: grid; grid-template-columns: minmax(0, 1fr) 170px 40px; gap: 8px; margin-bottom: 8px; }
+        .btn.x { width: 40px; min-height: 40px; padding: 0; border-radius: 10px; font-size: 18px; font-weight: 400; color: var(--muted); }
+        .sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+        .sections label { display: flex; gap: 8px; align-items: center; margin: 0; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); font-size: 14px; cursor: pointer; }
+        .sections input { width: 16px; height: 16px; accent-color: var(--ink); }
+
+        /* "Applications in": one row per applicant (name · CV file · practical details) */
+        .apps-body { padding: 0; gap: 0; }
+        .apps-rows { border-left: 3px solid var(--accent); margin: 0 0 0 24px; }
+        .arow { display: flex; align-items: center; gap: 36px; flex-wrap: wrap; padding: 24px 28px 24px 36px; border-bottom: 5px solid #E6E2DE; }
+        .arow:last-child { border-bottom: 0; }
+        .aname { flex: 0 0 220px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .aname b { font-size: 17px; font-weight: 800; overflow-wrap: anywhere; }
+        .aname .id { font: 400 12px var(--mono); color: var(--faint); }
+        .aname .small { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+        .aname a.small { color: var(--blue-ink); }
+        .aname .chip { align-self: flex-start; margin-top: 4px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 99px; background: var(--soft); color: var(--muted); text-decoration: none; }
+        .aname a.chip:hover { background: var(--blue-soft); color: var(--blue-ink); }
+        .none { color: var(--faint); font-style: italic; }
+        .tile {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+            border: 1px solid transparent; border-radius: 6px; background: #E3E1DF; color: var(--ink);
+            font: inherit; text-align: center; text-decoration: none; cursor: pointer; padding: 12px;
+            transition: background .15s, border-color .15s, box-shadow .15s;
+        }
+        .tile:hover, .tile:focus-visible { background: var(--blue-soft); border-color: var(--blue); outline: none; box-shadow: 0 0 0 4px rgba(47, 111, 235, .15); }
+        .tile b { font-weight: 500; font-size: 16px; line-height: 1.2; }
+        .tile.cv { width: 158px; height: 198px; }
+        .tile.cv .pg { display: flex; flex-direction: column; gap: 5px; width: 100%; padding: 0 6px; margin-bottom: 6px; }
+        .tile.cv .pg i { display: block; height: 4px; border-radius: 2px; background: rgba(42, 36, 32, .13); }
+        .tile.cv .fn { font: 400 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+        .tile.pd { width: 110px; height: 164px; }
+        .tile.pd span { font-size: 11.5px; line-height: 1.3; color: var(--muted); overflow-wrap: anywhere; }
+        .tile.pd .more { margin-top: 4px; font-weight: 600; color: var(--blue-ink); }
+        .tile.pd[aria-expanded="true"] { background: var(--blue-soft); border-color: var(--blue); }
+        .tile.pd:disabled { cursor: default; opacity: .7; box-shadow: none; border-color: transparent; background: #E3E1DF; }
+        .pfull { flex: 1 1 320px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; padding: 14px 16px; border-radius: 12px; background: var(--soft); }
+        .pfull .kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .pfull .kv span { font-size: 12px; color: var(--muted); }
+        .pfull .kv b { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+        .pfull .kv.all { grid-column: 1 / -1; }
+        .apps-empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+
         @media (max-width: 700px) {
             .topbar { padding: 12px 16px; }
             main { padding: 20px 16px; }
@@ -226,10 +353,17 @@
             .cv { aspect-ratio: auto; min-height: 220px; padding: 14px; }
             .cv .foot b { font-size: 14px; }
             .topbar .sep { display: none; }
+            .g2, .g3 { grid-template-columns: 1fr; }
+            .crit, .crit-head { grid-template-columns: 1fr 1fr; }
+            .crit-head { display: none; }
+            .cd-head, .cd-body, .cd-foot { padding-left: 16px; padding-right: 16px; }
+            .apps-rows { margin-left: 12px; }
+            .arow { gap: 18px; padding: 20px 16px; }
+            .aname { flex-basis: 100%; }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .now .bubble, #board.swap { animation: none; }
+            .now .bubble, #board.swap, .card-dialog[open], .card-dialog::backdrop { animation: none; }
             .rail { scroll-behavior: auto; }
         }
     </style>
@@ -265,8 +399,8 @@
             <div id="board" aria-live="polite"></div>
 
             <div class="bottom">
-                <!-- "3 · Committee": its own page comes later; for now it opens Gaston's report -->
-                <a class="btn btn-dark" id="committee" href="#" aria-disabled="true">
+                <!-- "3 · Committee": opens the committee page (pages/committee.html) -->
+                <a class="btn btn-dark" id="committee" href="committee.html">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
@@ -286,13 +420,136 @@
             <div class="rail" id="rail" tabindex="0" aria-label="Pipeline steps"></div>
             <div class="tl-foot">
                 <a class="btn btn-primary" id="pipeline" href="roles.html">
-                    Pipeline
+                    Edit pipeline
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </a>
             </div>
         </aside>
     </div>
+
+
+    <!-- ================= the timeline's cards (each opens over a blurred page) ================= -->
+
+    <!-- "Applications in": every application exactly as submitted -->
+    <dialog id="card-apps" class="card-dialog wide" aria-labelledby="apps-title">
+        <header class="cd-head">
+            <div>
+                <h2 id="apps-title">Applications in</h2>
+                <p class="cd-lead" id="apps-lead"></p>
+            </div>
+            <button type="button" class="cd-close" data-close aria-label="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                    </button>
+        </header>
+        <div class="cd-body apps-body">
+            <div class="apps-rows" id="apps-rows" role="list"></div>
+        </div>
+        <footer class="cd-foot">
+            <p class="msg">Read-only: what each applicant sent. Open a CV to see the file; open Practical details to see every answer.</p>
+            <button type="button" class="btn btn-sm" data-close>Close</button>
+        </footer>
+    </dialog>
+
+    <!-- "Job & criteria": admin inputs -> Clara -> the criteria editors -> Oscar's sections, one save -->
+    <dialog id="card-criteria" class="card-dialog" aria-labelledby="crit-title">
+        <header class="cd-head">
+            <div>
+                <h2 id="crit-title">Job &amp; criteria</h2>
+                <p class="cd-lead">Your inputs, Clara's proposal, the criteria you approve and the CV sections Oscar keeps, in one place.</p>
+            </div>
+            <button type="button" class="cd-close" data-close aria-label="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                    </button>
+        </header>
+        <div class="cd-body">
+            <div class="stepno"><i>1</i>Your inputs <small>what Clara reads</small></div>
+            <div><label for="c-title">Profession (Admin input #1)</label><input id="c-title" maxlength="120"></div>
+            <div><label for="c-ad">Job description (free text, e.g. the job ad)</label><textarea id="c-ad" maxlength="20000" rows="5"></textarea></div>
+            <div class="g2">
+                <div><label for="c-must">Your must-haves (Admin input #2, optional, one per line)</label><textarea id="c-must" maxlength="5000"></textarea></div>
+                <div><label for="c-nice">Your nice-to-haves (Admin input #3, optional, one per line)</label><textarea id="c-nice" maxlength="5000"></textarea></div>
+            </div>
+            <div class="rowline">
+                <button type="button" class="btn btn-dark" id="c-ask">Ask Clara</button>
+                <span class="hint msg" id="c-clara" role="status" aria-live="polite"></span>
+            </div>
+            <div class="banner" id="c-proposal" hidden>
+                <span id="c-proposal-text"></span>
+                <button type="button" class="btn btn-primary" id="c-load">Load into the editor</button>
+            </div>
+
+            <div class="stepno"><i>2</i>Check the criteria <small>edit anything, then save</small></div>
+            <div class="ghost" id="c-ghost">The must-have and nice-to-have editors open here once you press "Load into the editor".</div>
+            <div id="c-editor" hidden style="display:flex;flex-direction:column;gap:12px">
+                <div><label for="c-summary">Summary of the role</label><textarea id="c-summary" rows="2" style="min-height:3.5rem"></textarea></div>
+                <div class="subhead">Must-haves <small>missing one = eliminated by Remi</small></div>
+                <div class="crit-head" aria-hidden="true"><span>Criterion</span><span>Type</span><span>Keywords (any one counts)</span><span>Min years</span><span></span></div>
+                <div id="c-must-list"></div>
+                <div><button type="button" class="btn btn-sm" id="c-add-must">+ Must-have</button></div>
+                <div class="subhead">Nice-to-haves <small>count for points, never eliminate</small></div>
+                <div id="c-nice-list"></div>
+                <div><button type="button" class="btn btn-sm" id="c-add-nice">+ Nice-to-have</button></div>
+            </div>
+
+            <div class="stepno"><i>3</i>Oscar: CV sections to keep <small>unticked sections are dropped from this role's CVs</small></div>
+            <div class="sections" id="c-sections"></div>
+            <div class="rowline">
+                <button type="button" class="btn btn-sm" id="c-suggest">Use Clara's suggestion</button>
+                <span class="hint">CVs already received are re-read with these sections on the next pipeline run.</span>
+            </div>
+        </div>
+        <footer class="cd-foot">
+            <p class="msg" id="c-msg" role="status" aria-live="polite"></p>
+            <button type="button" class="btn btn-primary" id="c-save">Save criteria</button>
+        </footer>
+    </dialog>
+
+    <!-- "Practical requirements": what Nina checks the top 10 against -->
+    <dialog id="card-practical" class="card-dialog narrow" aria-labelledby="prac-title">
+        <header class="cd-head">
+            <div>
+                <h2 id="prac-title">Practical requirements</h2>
+                <p class="cd-lead">What Nina (operations) checks the top 10 against. Never used by the funnel. Optional: without them Nina sits the debate out.</p>
+            </div>
+            <button type="button" class="cd-close" data-close aria-label="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                    </button>
+        </header>
+        <div class="cd-body">
+            <div class="sect">Budget</div>
+            <div class="g3" style="grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) 150px">
+                <div><label for="lg-currency">Currency</label><input id="lg-currency" maxlength="3" placeholder="EUR"></div>
+                <div><label for="lg-min">Budget from</label><input id="lg-min" type="number" min="0" step="1"></div>
+                <div><label for="lg-max">Budget up to</label><input id="lg-max" type="number" min="0" step="1"></div>
+                <div><label for="lg-period">Budget is</label>
+                    <select id="lg-period"><option value="month">per month</option><option value="year">per year</option></select></div>
+            </div>
+            <div class="sect">Where and when</div>
+            <div class="g3">
+                <div><label for="lg-client">Client country</label><input id="lg-client" maxlength="60" placeholder="e.g. France"></div>
+                <div><label for="lg-wcountry">Work country</label><input id="lg-wcountry" maxlength="60" placeholder="e.g. Mauritius"></div>
+                <div><label for="lg-wcity">Work city</label><input id="lg-wcity" maxlength="60"></div>
+                <div><label for="lg-start">Start date</label><input id="lg-start" type="date"></div>
+                <div><label for="lg-arr">Way of working</label>
+                    <select id="lg-arr"><option value="">Not set</option><option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option></select></div>
+                <div><label for="lg-travel">Travel</label>
+                    <select id="lg-travel"><option value="">Not set</option><option value="none">None</option><option value="occasional">Occasional</option><option value="frequent">Frequent</option></select></div>
+            </div>
+            <div class="sect">Required languages (minimum level)</div>
+            <div id="lg-langs"></div>
+            <div><button type="button" class="btn btn-sm" id="lg-add-lang">+ Language</button></div>
+            <div><label for="lg-notes">Anything else Nina should know</label>
+                <textarea id="lg-notes" maxlength="1000" rows="2" style="min-height:3.5rem" placeholder="e.g. The client will call in French from the first week."></textarea></div>
+        </div>
+        <footer class="cd-foot">
+            <p class="msg" id="lg-msg" role="status" aria-live="polite"></p>
+            <button type="button" class="btn btn-primary" id="lg-save">Save requirements</button>
+        </footer>
+    </dialog>
 
     <!-- the film-grain texture on the bubbles -->
     <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -302,6 +559,7 @@
         </filter>
     </svg>
 
+    <script src="admin-forms.js"></script>
     <script>
         const $ = id => document.getElementById(id);
         const SVG = 'http://www.w3.org/2000/svg';
@@ -350,6 +608,9 @@
             committee: [['circle', { cx: 9, cy: 8, r: 3 }], ['path', { d: 'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6' }], ['circle', { cx: 17, cy: 9, r: 2.5 }], ['path', { d: 'M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8' }]],
             report: [['path', { d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z' }], ['path', { d: 'M14 3v5h5' }], ['path', { d: 'M9 13h6M9 17h4' }]],
             ready: [['path', { d: 'm5 12.5 4.5 4.5L19 7.5' }]],
+            setup: [['path', { d: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4' }]],
+            practical: [['rect', { x: 5, y: 4, width: 14, height: 17, rx: 2 }], ['path', { d: 'M9 4h6v3H9z' }], ['path', { d: 'M9 12h6M9 16h4' }]],
+            chevron: [['path', { d: 'm9 6 6 6-6 6' }]],
         };
         const icon = (name, size) => s('svg', { class: 'ic', width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
             stroke: 'currentColor', 'stroke-width': 1.9, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' },
@@ -406,9 +667,18 @@
             const prog = stage => (p?.stage === stage && p.total ? ` · ${p.done}/${p.total}` : '');
 
             // applications
-            add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(applicants),
+            add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(applicants), card: 'apps',
                 sub: applicants.length ? `${plural(applicants.length, 'CV')} from the application form` : 'No applications yet',
                 status: applicants.length ? 'done' : 'now', idle: !applicants.length, tag: applicants.length ? '' : 'Waiting for applicants' });
+
+            // the admin's inputs + Clara + the criteria + Oscar's sections: one card
+            const job = role.job || {}, nMust = job.must_haves?.length || 0, nNice = job.nice_to_haves?.length || 0;
+            const saved = Boolean(nMust + nNice);
+            add({ key: 'setup', icon: 'setup', label: 'Job & criteria', card: 'criteria',
+                time: running('clara') ? 'running' : saved && role.jobUpdatedAt ? when(role.jobUpdatedAt) : '',
+                sub: saved ? `Job ad, ${plural(nMust + nNice, 'criterion', 'criteria')}, CV sections` : 'Job ad, must-haves, nice-to-haves, CV sections',
+                status: running('clara') ? 'now' : saved ? 'done' : 'next',
+                tag: running('clara') ? 'Clara is reading the job' : '' });
 
             // Oscar: runs on every CV as it arrives (and again in the pipeline for CVs read with old section settings)
             const unreadable = role.applicants - role.readable;
@@ -419,13 +689,23 @@
                 status: oscarState, tag: i === 0 && oscarState === 'now' ? `Re-reading CVs${prog('oscar')}` : '',
             }));
 
-            // Clara: the admin's own step
-            const job = role.job || {}, nMust = job.must_haves?.length || 0, nNice = job.nice_to_haves?.length || 0;
+            // Clara's criteria, as saved from the "Job & criteria" card
             add({ key: 'criteria', icon: 'criteria', label: 'Criteria approved',
-                time: running('clara') ? 'running' : role.jobUpdatedAt ? when(role.jobUpdatedAt) : '',
-                sub: nMust + nNice ? `Clara · ${plural(nMust, 'must-have')}, ${plural(nNice, 'nice-to-have')}` : 'Ask Clara, check and save the criteria',
-                status: running('clara') ? 'now' : nMust + nNice ? 'done' : 'next',
-                tag: running('clara') ? 'Clara is reading the job' : '' });
+                time: saved && role.jobUpdatedAt ? when(role.jobUpdatedAt) : '',
+                sub: saved ? `Clara · ${plural(nMust, 'must-have')}, ${plural(nNice, 'nice-to-have')}` : 'Saved from the Job & criteria card',
+                status: saved ? 'done' : 'next' });
+
+            // what Nina checks the top 10 against (optional: without it she sits the debate out)
+            const lg = role.logistics, hasLg = AdminForms.hasLogistics(lg);
+            const later = Boolean(remi || jules || committee || running('pipeline'));
+            const money = n => Number(n).toLocaleString();
+            const budget = lg && (lg.budget_min ?? lg.budget_max) != null
+                ? `${lg.currency || 'EUR'} ${[lg.budget_min, lg.budget_max].filter(v => v != null).map(money).join('–')} / ${lg.budget_period || 'month'}` : '';
+            add({ key: 'practical', icon: 'practical', label: 'Practical requirements', card: 'practical',
+                sub: hasLg ? [budget, lg.work_city || lg.work_country, lg.languages?.length ? plural(lg.languages.length, 'language') : '']
+                    .filter(Boolean).join(' · ') || 'Set for Nina'
+                    : later ? 'Not set: Nina sat this one out' : 'Budget, place, start date, languages for Nina',
+                status: hasLg || later ? 'done' : 'next' });
 
             // the three big steps
             const big = (key, height, label, doneSub, runSub) => {
@@ -462,8 +742,9 @@
                 if (first) {
                     first.status = 'now';
                     first.idle = true;
-                    first.tag = first.key === 'criteria' ? 'Your turn: set the criteria'
-                        : first.key === 'remi' ? (role.pipelineProblem ? 'Not ready yet' : 'Ready to run') : 'Up next';
+                    first.tag = first.key === 'setup' ? 'Your turn: set the criteria'
+                        : first.key === 'practical' ? 'Your turn (optional): for Nina'
+                            : first.key === 'remi' ? (role.pipelineProblem ? 'Not ready yet' : 'Ready to run') : 'Up next';
                 }
             }
             if (pipe?.state === 'failed' && !steps.some(x => x.status === 'failed')) {
@@ -484,12 +765,14 @@
                 const bubble = h('div', { class: 'bubble', style: st.major ? `height:${st.major}px` : null },
                     s('svg', { class: 'grain', 'aria-hidden': 'true' }, s('rect', { width: '100%', height: '100%', filter: 'url(#grain)' })),
                     icon(st.icon, st.major ? 22 : 20));
-                kids.push(h('div', { class: `step ${st.status}${st.idle ? ' idle' : ''} ${st.major ? 'major' : 'minor'}`, 'data-key': st.key,
-                    'aria-current': st.status === 'now' ? 'step' : null },
+                // a step with a card is a button: blue on hover, opens its card
+                kids.push(h(st.card ? 'button' : 'div', { class: `step ${st.status}${st.idle ? ' idle' : ''} ${st.major ? 'major' : 'minor'}`, 'data-key': st.key,
+                    'aria-current': st.status === 'now' ? 'step' : null,
+                    ...(st.card ? { type: 'button', 'aria-haspopup': 'dialog', 'data-card': st.card, title: `Open ${st.label}` } : {}) },
                     h('div', { class: 'node' }, h('div', { class: 'ln top' }), h('div', { class: 'ln bottom' }), bubble),
                     h('div', { class: 'meta' },
                         st.time ? h('div', { class: 'time', text: st.time }) : (st.status === 'next' ? h('div', { class: 'time', text: 'up next' }) : ''),
-                        h('div', { class: 'lbl', text: st.label }),
+                        h('div', { class: 'lbl' }, st.label, st.card ? h('span', { class: 'opens' }, icon('chevron', 15)) : ''),
                         st.sub ? h('div', { class: 'sub', text: st.sub }) : '',
                         st.tag ? h('span', { class: 'tag', text: st.tag }) : '')));
             });
@@ -500,7 +783,7 @@
 
             const done = steps.filter(x => x.status === 'done').length;
             $('tl-sub').textContent = steps.at(-1).status === 'now' ? 'Every step done. Your turn.'
-                : `${done} of ${steps.length} steps done. Scroll up for what's done, down for what's left.`;
+                : `${done} of ${steps.length} steps done. Steps that turn blue open a card.`;
 
             // follow the current step when it changes (and once on first load)
             const nowKey = steps[nowIdx]?.key || null;
@@ -588,9 +871,8 @@
                 const what = ag.jules?.state === 'running' ? ['Jules is reading the shortlist.', 'The top 10 appears here as soon as he is done.']
                     : busy ? ['The pipeline is running.', 'The top 10 appears here once Jules has read the shortlist.']
                         : !role.applicants ? ['No applications yet.', 'Candidates apply from the home page.']
-                            : ['The top 10 appears here once the pipeline has run.', role.pipelineProblem || 'Open the pipeline and press "Run full pipeline".'];
-                board.replaceChildren(h('div', { class: 'empty' }, h('b', { text: what[0] }), what[1],
-                    busy ? '' : h('div', {}, h('a', { class: 'btn', href: pipelineHref(), text: 'Open the pipeline' }))));
+                            : ['The top 10 appears here once the pipeline has run.', role.pipelineProblem || 'Press "Run full pipeline" on the Edit pipeline page.'];
+                board.replaceChildren(h('div', { class: 'empty' }, h('b', { text: what[0] }), what[1]));
                 return;
             }
 
@@ -622,16 +904,14 @@
         }
 
         function renderButtons() {
-            const has = Boolean(results.committee?.report);
-            const c = $('committee');
-            c.setAttribute('aria-disabled', String(!has));
-            c.href = has ? `report.html?role=${encodeURIComponent(roleId)}` : '#';
-            $('committee-hint').textContent = has ? '' : 'Opens once the committee has finished.';
+            $('committee').href = `committee.html?role=${encodeURIComponent(roleId)}`;
+            $('committee-hint').textContent = results.committee?.report ? '' : 'The committee has not met for this role yet.';
             $('pipeline').href = pipelineHref();
         }
         const pipelineHref = () => `roles.html${roleId ? `?role=${encodeURIComponent(roleId)}` : ''}`;
 
         function render() {
+            if ($('card-criteria').open) renderClara();
             const pipe = results.role.agents?.pipeline;
             $('notice').hidden = pipe?.state !== 'failed';
             $('notice').textContent = pipe?.state === 'failed' ? `The last pipeline run failed: ${pipe.message}` : '';
@@ -643,6 +923,7 @@
         // ---------------- loading + live updates ----------------
         async function load(id) {
             clearTimeout(pollTimer);
+            for (const d of document.querySelectorAll('.card-dialog[open]')) d.close();
             roleId = id;
             view = null;
             lastNow = null;
@@ -654,6 +935,26 @@
             if (roleId !== id) return;
             results = res;
             applicants = apps;
+            render();
+            poll();
+        }
+
+        // after a save or a start: fetch again now, then keep polling while something runs
+        async function refresh() {
+            const id = roleId;
+            const [res, apps] = await Promise.all([
+                api(`/api/admin/roles/${encodeURIComponent(id)}/results`),
+                api(`/api/admin/applicants?role=${encodeURIComponent(id)}`),
+            ]);
+            if (roleId !== id) return;
+            results = res;
+            applicants = apps;
+            const r = roles.find(x => x.id === id);
+            if (r && r.title !== res.role.title) {          // renamed from the card: the role picker follows
+                r.title = res.role.title;
+                const opt = [...$('role').options].find(o => o.value === id);
+                if (opt) opt.textContent = `${r.title} · ${r.id}${r.status === 'closed' ? ' (closed)' : ''}`;
+            }
             render();
             poll();
         }
@@ -679,6 +980,191 @@
                 if (roleId === id) poll();
             }, 2000);
         }
+
+
+        // ---------------- the timeline's cards ----------------
+        $('rail').addEventListener('click', e => {
+            const b = e.target.closest('button[data-card]');
+            if (b) openCard(b.dataset.card, b);
+        });
+        let opener = null;
+        function openCard(name, from) {
+            if (!results) return;
+            opener = from || null;
+            const d = $(`card-${name}`);
+            ({ apps: fillApps, criteria: fillCriteria, practical: fillPractical })[name]();
+            d.showModal();
+            d.querySelector('.cd-body').scrollTop = 0;
+        }
+        for (const d of document.querySelectorAll('.card-dialog')) {
+            d.addEventListener('click', e => {
+                if (e.target === d || e.target.closest('[data-close]')) d.close();   // the blurred area outside counts as "close"
+            });
+            d.addEventListener('close', () => { if (opener?.isConnected) opener.focus(); else $('rail').focus(); });
+        }
+        const say = (id, text, isError = false) => { $(id).textContent = text || ''; $(id).classList.toggle('err', Boolean(isError)); };
+        const patchRole = body => api(`/api/admin/roles/${encodeURIComponent(roleId)}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+        // ----- "Applications in": every application as submitted -----
+        const fmtDate = iso => {
+            if (!iso) return '';
+            const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso + 'T00:00:00' : iso);
+            return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+        const ANSWER = {
+            relocate: { yes: 'Yes', open: 'Open to it', no: 'No' },
+            travel: { none: 'No travel', occasional: 'Occasionally', frequent: 'Frequently' },
+            arrangement: { onsite: 'On-site', hybrid: 'Hybrid', remote: 'Remote' },
+            work_authorization: { yes: 'Yes', sponsorship: 'Would need sponsorship', no: 'No' },
+        };
+        const safeUrl = u => { try { return ['http:', 'https:'].includes(new URL(u).protocol) ? u : ''; } catch { return ''; } };
+        const pageLines = () => h('span', { class: 'pg', 'aria-hidden': 'true' },
+            ...[70, 92, 84, 60, 88, 76, 90, 54].map(w => h('i', { style: `width:${w}%` })));
+
+        function appRow(a, roleTitle) {
+            const p = a.practical;
+            const url = safeUrl(a.linkedinUrl);
+            const enc = encodeURIComponent(a.id);
+            const salary = p ? `${p.salary.currency} ${Number(p.salary.amount).toLocaleString()} / ${p.salary.period}` : '';
+            const place = p ? [p.location.city, p.location.country].filter(Boolean).join(', ') : '';
+            const detail = p ? h('div', { class: 'pfull', id: `pd-${a.id}`, hidden: true },
+                ...[['Salary expectation', salary], ['Earliest start date', fmtDate(p.available_from)],
+                    ['Notice period', p.notice_weeks === null || p.notice_weeks === undefined ? 'Not given' : plural(p.notice_weeks, 'week')],
+                    ['Lives in', place], ['Willing to relocate?', ANSWER.relocate[p.relocate] || p.relocate],
+                    ['Willing to travel?', ANSWER.travel[p.travel] || p.travel], ['Way of working', ANSWER.arrangement[p.arrangement] || p.arrangement],
+                    ['Right to work in the country of the job?', ANSWER.work_authorization[p.work_authorization] || p.work_authorization]]
+                    .map(([k, v]) => h('div', { class: 'kv' }, h('span', { text: k }), h('b', { text: v }))),
+                h('div', { class: 'kv all' }, h('span', { text: 'Languages' }),
+                    h('b', { text: (p.languages || []).map(l => `${l.language} ${l.level === 'native' ? 'native' : l.level}`).join(' · ') }))) : '';
+            const pdBtn = h('button', { type: 'button', class: 'tile pd', disabled: !p, 'aria-expanded': 'false',
+                'aria-controls': p ? `pd-${a.id}` : null, 'aria-label': `Practical details of ${a.name}`,
+                onclick: e => {
+                    const open = e.currentTarget.getAttribute('aria-expanded') !== 'true';
+                    e.currentTarget.setAttribute('aria-expanded', String(open));
+                    e.currentTarget.querySelector('.more').textContent = open ? 'Hide' : 'See all';
+                    detail.hidden = !open;
+                } },
+                h('b', { text: 'Practical details' }),
+                ...(p ? [h('span', { text: salary }), h('span', { text: `From ${fmtDate(p.available_from)}` }), h('span', { text: p.location.country }),
+                    h('span', { class: 'more', text: 'See all' })] : [h('span', { text: 'Not given' })]));
+            return h('article', { class: 'arow', role: 'listitem' },
+                h('div', { class: 'aname' },
+                    h('b', { text: a.name }),
+                    h('span', { class: 'id', text: `${a.id} · applied ${fmtDate(a.appliedAt)}` }),
+                    h('span', { class: 'small', text: roleTitle }),
+                    url ? h('a', { class: 'small', href: url, target: '_blank', rel: 'noopener noreferrer', text: url.replace(/^https?:\/\/(www\.)?/, '') })
+                        : h('span', { class: 'small none', text: 'No LinkedIn URL' }),
+                    a.hasLinkedinPdf ? h('a', { class: 'chip', href: `/api/admin/applicants/${enc}/linkedin`, target: '_blank', rel: 'noopener', text: 'LinkedIn PDF' }) : ''),
+                h('a', { class: 'tile cv', href: `/api/admin/applicants/${enc}/cv`, target: '_blank', rel: 'noopener',
+                    'aria-label': `CV file of ${a.name}: ${a.cvName}` },
+                    pageLines(), h('b', { text: 'CV file' }), h('span', { class: 'fn', text: a.cvName })),
+                pdBtn, detail);
+        }
+
+        async function fillApps() {
+            const role = results.role, id = roleId;
+            $('apps-lead').textContent = `${plural(applicants.length, 'application')} for ${role.title}, shown exactly as each applicant submitted them.`;
+            $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: 'Loading…' }));
+            try {
+                const list = await api(`/api/admin/applicants?role=${encodeURIComponent(id)}&details=1`);
+                if (roleId !== id) return;
+                $('apps-lead').textContent = `${plural(list.length, 'application')} for ${role.title}, shown exactly as each applicant submitted them.`;
+                $('apps-rows').replaceChildren(...(list.length ? list.map(a => appRow(a, role.title))
+                    : [h('div', { class: 'apps-empty', text: 'No applications yet. Candidates apply from the home page.' })]));
+            } catch (err) {
+                $('apps-rows').replaceChildren(h('div', { class: 'apps-empty', text: err.message }));
+            }
+        }
+
+        // ----- "Job & criteria": inputs -> Ask Clara -> Load into the editor -> criteria -> Oscar's sections -> Save -----
+        const criteria = AdminForms.criteriaEditor({ summary: $('c-summary'), mustList: $('c-must-list'), niceList: $('c-nice-list') });
+        const sections = AdminForms.sectionsEditor($('c-sections'));
+        const showEditor = on => { $('c-editor').hidden = !on; $('c-ghost').hidden = on; };
+
+        function fillCriteria() {
+            const role = results.role;
+            $('c-title').value = role.title;
+            $('c-ad').value = role.adText || '';
+            $('c-must').value = role.mustText || '';
+            $('c-nice').value = role.niceText || '';
+            criteria.set(role.job);
+            sections.set(role.rules);
+            showEditor(criteria.count() > 0);          // criteria saved earlier: edit them straight away
+            say('c-msg', role.jobUpdatedAt ? `Last saved ${new Date(role.jobUpdatedAt).toLocaleString()}.` : 'Not saved yet.');
+            renderClara();
+        }
+
+        // Clara's state + proposal only: never touches what the admin is typing
+        function renderClara() {
+            const role = results.role, a = role.agents?.clara;
+            const busy = Object.values(role.agents || {}).some(x => x.state === 'running');
+            $('c-ask').disabled = busy;
+            if (a?.state === 'running') say('c-clara', 'Clara is reading the job…');
+            else if (a?.state === 'failed') say('c-clara', a.message || 'Clara could not finish.', true);
+            else if (busy) say('c-clara', 'The pipeline is running; ask Clara once it is done.');
+            else say('c-clara', role.claraProposal ? '' : 'Saves your inputs, then Clara proposes criteria (takes a moment).');
+            const p = role.claraProposal;
+            $('c-proposal').hidden = !p || a?.state === 'running';
+            if (p) $('c-proposal-text').textContent =
+                `Clara proposed ${plural(p.must_haves.length, 'must-have')} and ${plural(p.nice_to_haves.length, 'nice-to-have')} on ${new Date(p.proposedAt).toLocaleString()}.`;
+        }
+
+        const roleInputs = () => ({ title: $('c-title').value, adText: $('c-ad').value, mustText: $('c-must').value, niceText: $('c-nice').value });
+
+        $('c-ask').addEventListener('click', async () => {
+            if (!$('c-title').value.trim()) return say('c-clara', 'Give the role a profession first (Admin input #1).', true);
+            try {
+                $('c-ask').disabled = true;
+                await patchRole(roleInputs());
+                await api(`/api/admin/roles/${encodeURIComponent(roleId)}/clara`, { method: 'POST' });
+                say('c-clara', 'Clara is reading the job…');
+                await refresh();
+            } catch (err) { say('c-clara', err.message, true); $('c-ask').disabled = false; }
+        });
+        $('c-load').addEventListener('click', () => {
+            criteria.loadProposal(results.role.claraProposal);
+            showEditor(true);
+            say('c-msg', 'Loaded. Check every criterion and its keywords, then press "Save criteria".');
+            $('c-summary').focus();
+        });
+        $('c-add-must').addEventListener('click', () => { showEditor(true); criteria.add('must'); });
+        $('c-add-nice').addEventListener('click', () => { showEditor(true); criteria.add('nice'); });
+        $('c-suggest').addEventListener('click', () => {
+            const drop = criteria.suggestedDrop().length ? criteria.suggestedDrop() : results.role.claraProposal?.suggested_drop_sections;
+            say('c-msg', sections.suggest(drop) ? 'Clara\'s suggestion applied. Press "Save criteria" to keep it.'
+                : 'Clara has no suggestion yet: ask Clara first.', !drop?.length);
+        });
+        $('c-save').addEventListener('click', async () => {
+            if (!$('c-title').value.trim()) return say('c-msg', 'Give the role a profession (Admin input #1).', true);
+            if (!criteria.count()) return say('c-msg', 'Add at least one must-have or nice-to-have (or load Clara\'s proposal) first.', true);
+            try {
+                $('c-save').disabled = true;
+                await patchRole({ ...roleInputs(), job: criteria.get(), rules: sections.get() });
+                await refresh();
+                criteria.set(results.role.job);
+                say('c-msg', 'Saved: your inputs, the criteria and the CV sections. Run the pipeline to use them.');
+            } catch (err) { say('c-msg', err.message, true); }
+            finally { $('c-save').disabled = false; }
+        });
+
+        // ----- "Practical requirements" for Nina -----
+        const logistics = AdminForms.logisticsEditor('lg-');
+        function fillPractical() {
+            logistics.set(results.role.logistics || {});
+            say('lg-msg', AdminForms.hasLogistics(results.role.logistics) ? 'Nina checks the top 10 against these after Jules.' : 'Not set yet.');
+        }
+        $('lg-add-lang').addEventListener('click', () => logistics.addLang());
+        $('lg-save').addEventListener('click', async () => {
+            try {
+                $('lg-save').disabled = true;
+                await patchRole({ logistics: logistics.get() });
+                await refresh();
+                logistics.set(results.role.logistics);
+                say('lg-msg', 'Saved. Nina will use these on the next pipeline run.');
+            } catch (err) { say('lg-msg', err.message, true); }
+            finally { $('lg-save').disabled = false; }
+        });
 
         $('stage').addEventListener('click', e => {
             const b = e.target.closest('button[data-stage]');
@@ -713,9 +1199,9 @@
                     sel.replaceChildren(new Option('No roles yet', ''));
                     $('heading').textContent = 'No roles yet';
                     $('board').replaceChildren(h('div', { class: 'empty' }, h('b', { text: 'Create your first role.' }),
-                        'Set it up in the pipeline: title, job ad, criteria.', h('div', {}, h('a', { class: 'btn', href: 'roles.html', text: 'Open the pipeline' }))));
+                        'Press Edit pipeline to give it a title; then set its job ad and criteria from the timeline.'));
                     $('rail').replaceChildren();
-                    $('committee-hint').textContent = 'Opens once the committee has finished.';
+                    $('committee').setAttribute('aria-disabled', 'true');
                     return;
                 }
                 sel.replaceChildren(...roles.map(r => new Option(`${r.title} · ${r.id}${r.status === 'closed' ? ' (closed)' : ''}`, r.id)));

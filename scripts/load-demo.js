@@ -36,7 +36,7 @@ for (const p of people) {
     }
     const practical = cleanPractical(p.practical, role);
     if (practical.error) throw new Error(`${p.name}: ${practical.error}`);
-    const out = await submitApplication({ role, cvPath, linkedinPath, name: p.name, practical: practical.value });
+    const out = await submitApplication({ role, cvPath, cvName: p.cv, linkedinPath, name: p.name, practical: practical.value });
     if (out.duplicate) {
         console.log(`  - ${p.name}: already submitted for this role, skipped`);
         continue;
