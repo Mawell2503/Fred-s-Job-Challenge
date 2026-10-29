@@ -167,6 +167,14 @@ def _application_check(a: dict | None) -> dict | None:
     return None
 
 
+def _day(v) -> date | None:
+    """An ISO date, or None when missing or not a real calendar day."""
+    try:
+        return date.fromisoformat(str(v)) if v else None
+    except ValueError:
+        return None
+
+
 def _norm_country(c: str) -> str:
     return re.sub(r"[^a-z]", "", (c or "").lower())
 
@@ -203,8 +211,12 @@ def practical_checks(p: dict | None, l: dict | None, application: dict | None = 
     else:
         add("salary vs budget", "unknown", "No budget set for the role.")
 
-    if l.get("start_date") and p.get("available_from"):
-        late = (date.fromisoformat(p["available_from"]) - date.fromisoformat(l["start_date"])).days
+    start, avail = _day(l.get("start_date")), _day(p.get("available_from"))
+    if l.get("start_date") and p.get("available_from") and not (start and avail):
+        # e.g. "2026-02-31", saved before the form checked for real calendar days: never crash the committee on it
+        add("start date", "unknown", f"Start date not comparable (role: {l['start_date']}, candidate: {p['available_from']}).")
+    elif start and avail:
+        late = (avail - start).days
         if late <= 0:
             add("start date", "ok", "Available by the start date.")
         elif late <= 30:
@@ -212,11 +224,16 @@ def practical_checks(p: dict | None, l: dict | None, application: dict | None = 
         else:
             add("start date", "blocker", f"Available {late} days after the start date.")
 
-    have = {_lang_key(x["language"]): x["level"] for x in p.get("languages") or []}
+    have = {_lang_key(x.get("language", "")): x.get("level") for x in p.get("languages") or []
+            if isinstance(x, dict) and x.get("language")}
     for req in l.get("languages") or []:
+        if not isinstance(req, dict) or not req.get("language") or req.get("min_level") not in LEVELS:
+            continue                                     # an incomplete requirement checks nothing
         lvl = have.get(_lang_key(req["language"]))
         need = LEVELS.index(req["min_level"])
-        if lvl is None:
+        if lvl is not None and lvl not in LEVELS:
+            add(f"language: {req['language']}", "unknown", f"Level '{lvl}' given, not a known level.")
+        elif lvl is None:
             add(f"language: {req['language']}", "blocker", f"{req['language']} is not among the candidate's languages.")
         elif LEVELS.index(lvl) >= need:
             add(f"language: {req['language']}", "ok", f"{lvl}, at least {req['min_level']} required.")
@@ -225,14 +242,15 @@ def practical_checks(p: dict | None, l: dict | None, application: dict | None = 
         else:
             add(f"language: {req['language']}", "blocker", f"{lvl}, well below the {req['min_level']} required.")
 
-    wc = (l.get("work_country") or "").strip().lower()
-    here = ((p.get("location") or {}).get("country") or "").strip().lower()
+    wc = _norm_country(l.get("work_country"))
+    here = _norm_country((p.get("location") or {}).get("country"))
     if wc and l.get("arrangement") in ("onsite", "hybrid") and here and here != wc:
         rel = p.get("relocate")
         add("location", {"yes": "ok", "open": "risk", "no": "blocker"}.get(rel, "unknown"),
             f"Lives outside {l['work_country']}; willing to relocate: {_RELOCATE.get(rel, rel)}.")
     if l.get("arrangement") and p.get("arrangement") and l["arrangement"] != p["arrangement"]:
-        add("way of working", "risk", f"Role is {_ARR[l['arrangement']]}, candidate prefers {_ARR.get(p['arrangement'])}.")
+        add("way of working", "risk", f"Role is {_ARR.get(l['arrangement'], l['arrangement'])}, "
+                                      f"candidate prefers {_ARR.get(p['arrangement'], p['arrangement'])}.")
 
     order = ["none", "occasional", "frequent"]
     if l.get("travel") in order and p.get("travel") in order:

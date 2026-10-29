@@ -91,6 +91,9 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   (same file → same answers), never touches applicants already in the pool.
 - Sign-up (`index.js`) is closed by default: only allowed while no admin exists, or with
   `ALLOW_SIGNUP=true`. Other admins are created with `npm run create-admin`.
+- `root.js` — imported first by `index.js`: `chdir`s to the project folder, so the server finds `data/`,
+  `.env` and the Python packages wherever it is started from. Only the server imports it (the tests run
+  the other modules from a scratch folder on purpose).
 - `env.js` — tiny `.env` parser (`parseEnv`): `#` after whitespace starts a comment unless the value
   is quoted. Python reads numeric settings through `hiring.llm.env_number`, which tolerates the same.
 - `cvRunner.js` — runs `python -m cv_reader` on one file, assigns it `C####`, and reads back

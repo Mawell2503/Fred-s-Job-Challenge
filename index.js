@@ -1,3 +1,4 @@
+import './root.js';                // run from this folder, wherever the server is started from
 import './env.js';                 // .env settings (LLM_BACKEND, PYTHON_BIN, ...) before anything else
 import express from 'express';
 import path from 'node:path';
@@ -36,7 +37,10 @@ function readCookie(req, name) {
     const header = req.headers.cookie || '';
     for (const part of header.split(';')) {
         const i = part.indexOf('=');
-        if (i > -1 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+        if (i > -1 && part.slice(0, i).trim() === name) {
+            // a malformed value ("%E0%A4%A") is simply no session, never a server error
+            try { return decodeURIComponent(part.slice(i + 1).trim()); } catch { return null; }
+        }
     }
     return null;
 }
@@ -62,6 +66,8 @@ function tooManyAttempts(key) {
 }
 
 function recordFailure(key) {
+    // forget expired windows now and then, so random usernames can't grow this map forever
+    if (attempts.size > 5000) for (const [k, r] of attempts) if (r.reset < Date.now()) attempts.delete(k);
     const rec = attempts.get(key);
     if (!rec || rec.reset < Date.now()) attempts.set(key, { count: 1, reset: Date.now() + WINDOW_MS });
     else rec.count++;
@@ -131,6 +137,17 @@ app.get('/styles.css', publicFile('styles.css'));
 
 // Everything under /pages needs a valid admin session
 app.use('/pages', requireAuth, express.static(path.join(__dirname, 'pages'), { dotfiles: 'deny' }));
+
+// Anything that reaches here failed: a JSON body that does not parse, or an unexpected error.
+// API callers get JSON, never Express's HTML page with the server's stack trace in it.
+app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    const status = err.status >= 400 && err.status < 500 ? err.status : 500;
+    if (status === 500) console.error(err);
+    const error = status === 500 ? 'Something went wrong. Please try again.' : 'Invalid request.';
+    if (req.originalUrl.startsWith('/api/')) return res.status(status).json({ error });
+    res.status(status).type('text/plain').send(error);
+});
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}/`);

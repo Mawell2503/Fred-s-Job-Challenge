@@ -6,8 +6,8 @@ import unicodedata
 
 from .models import ExtractedDoc, Line
 
-_ZERO_WIDTH = {ord(c): None for c in "​‌‍⁠﻿­"}
-_PUA = re.compile("[-]")
+_ZERO_WIDTH = {ord(c): None for c in "\u200b\u200c\u200d\u2060\ufeff\u00ad"}   # zero-width chars + soft hyphen
+_PUA = re.compile("[\ue000-\uf8ff]")                       # private-use icons (font glyphs)
 _SYMBOL_BULLET = re.compile(
     "^\\s*[•‣◦⁃∙▪▫●○■□▶►▸"
     "➢➤✔✓·◆◇→➜➔❖-]\\s*")

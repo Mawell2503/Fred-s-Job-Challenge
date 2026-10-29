@@ -103,7 +103,9 @@ export function applyRoutes({ requireAuth }) {
                 }
                 if (out.result.status === 'failed') {
                     discard();                                  // nothing was recorded: keep no files
-                    return res.status(422).json({ error: 'We could not read that file. Please upload a text-based PDF, a DOCX or a TXT.' });
+                    return res.status(422).json({ error: out.result.codes?.includes('PASSWORD_PROTECTED')
+                        ? 'That PDF is password-protected. Please upload a copy without a password.'
+                        : 'We could not read that file. Please upload a text-based PDF, a DOCX or a TXT.' });
                 }
                 res.status(201).json({ received: true });
             } catch (err) {
@@ -155,7 +157,10 @@ export function applyRoutes({ requireAuth }) {
             'Cache-Control': 'private, no-store',
         });
         if (ext !== '.pdf') res.set('Content-Security-Policy', 'sandbox');
-        fs.createReadStream(file).pipe(res);
+        // a read error (file removed meanwhile) must end this response, not crash the server
+        fs.createReadStream(file)
+            .on('error', err => { console.error(`CV ${a.candidateId}:`, err.message); res.headersSent ? res.destroy() : res.status(404).json({ error: 'No CV file for this applicant.' }); })
+            .pipe(res);
     });
 
     // Oscar's files for one applicant: text (kept sections), full (all sections), record (JSON)
@@ -167,8 +172,12 @@ export function applyRoutes({ requireAuth }) {
             return a.practical ? res.json(a.practical) : res.status(404).json({ error: 'No practical details for this applicant.' });
         }
         if (req.params.kind === 'linkedin') {
-            if (!a.linkedinFile) return res.status(404).json({ error: 'No LinkedIn PDF for this applicant.' });
-            return res.type('application/pdf').sendFile(path.join(UPLOAD_DIR, a.linkedinFile));
+            const li = a.linkedinFile ? path.join(UPLOAD_DIR, path.basename(a.linkedinFile)) : '';
+            if (!li || !fs.existsSync(li)) return res.status(404).json({ error: 'No LinkedIn PDF for this applicant.' });
+            res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store' });
+            return res.type('application/pdf').sendFile(li, err => {
+                if (err && !res.headersSent) res.status(404).json({ error: 'No LinkedIn PDF for this applicant.' });
+            });
         }
         const out = OUTPUTS[req.params.kind];
         if (!out) return res.status(404).json({ error: 'Unknown applicant.' });

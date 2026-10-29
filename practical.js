@@ -22,7 +22,12 @@ export const PERIODS = ['month', 'year'];
 
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const isDate = v => DATE_RE.test(v) && !Number.isNaN(Date.parse(v + 'T00:00:00Z'));
+// a real calendar day: "2026-02-31" parses (JavaScript rolls it over to March 3) but is not one
+const isDate = v => {
+    if (!DATE_RE.test(v)) return false;
+    const d = new Date(v + 'T00:00:00Z');
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
 const num = v => (v === '' || v === null || v === undefined ? NaN : Number(v));
 const isCurrency = v => /^[A-Z]{3}$/.test(String(v ?? '').trim().toUpperCase());
 
@@ -40,13 +45,16 @@ export function cleanCountries(v) {
     return out;
 }
 
-function cleanLanguages(list, levelKey, { required }) {
+// `lenient` (the role's requirements, which never fail): an incomplete row is dropped on its own,
+// the other languages are kept. Otherwise (the applicant's answers) it is an error they must fix.
+function cleanLanguages(list, levelKey, { required, lenient = false }) {
     const out = [];
     const seen = new Set();
     for (const item of Array.isArray(list) ? list : []) {
         const language = str(item?.language, 40);
         const level = item?.[levelKey];
         if (!language && !level) continue;                 // an empty row the user left
+        if (lenient && (!language || !LEVELS.includes(level))) continue;
         if (!language) return { error: 'Name each language you list.' };
         if (!LEVELS.includes(level)) return { error: `Choose a level for ${language}.` };
         const key = language.toLowerCase();
@@ -130,7 +138,7 @@ export function cleanLogistics(raw) {
         arrangement: ARRANGEMENT.includes(l.arrangement) ? l.arrangement : '',
         travel: TRAVEL.includes(l.travel) ? l.travel : '',
         start_date: isDate(start) ? start : '',
-        languages: cleanLanguages(l.languages, 'min_level', { required: false }).value || [],
+        languages: cleanLanguages(l.languages, 'min_level', { required: false, lenient: true }).value,
         notes: str(l.notes, 1000),
     };
 }

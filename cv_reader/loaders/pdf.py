@@ -295,6 +295,17 @@ def _garbled(words: list[dict]) -> bool:
         return False
     bad = sum(1 for w in words if "(cid:" in w["text"] or "�" in w["text"])
     return bad / len(words) > 0.3
+def _password_protected(e: BaseException) -> bool:
+    """pdfplumber wraps pdfminer's PDFPasswordIncorrect (whose message is empty): look down the chain."""
+    seen = 0
+    while e is not None and seen < 10:
+        if "password" in type(e).__name__.lower() or "password" in str(e).lower():
+            return True
+        e = e.__cause__ or e.__context__ or (e.args[0] if e.args and isinstance(e.args[0], BaseException) else None)
+        seen += 1
+    return False
+
+
 # Entry point
 
 
@@ -364,6 +375,9 @@ def load_pdf(path: Path, cfg: Config) -> ExtractedDoc:
     except LoaderError:
         raise
     except Exception as e:
+        if _password_protected(e):
+            raise LoaderError("PASSWORD_PROTECTED",
+                              "The PDF is password-protected. Ask for a copy without a password.") from e
         raise LoaderError("UNREADABLE",
                           f"Could not read the PDF ({type(e).__name__}: {e}). "
                           f"It may be corrupted or password-protected.")

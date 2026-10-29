@@ -214,6 +214,16 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
                   f"({best[1]['score']:g}/10).", 0, m, "position")
     if not positions:
         raise LLMError("No committee member could give a position (every call failed).")
+    # a candidate nobody could score (every answer about it invalid twice) has no average: it cannot be
+    # ranked, so it is left out of the debate and the ranking, and the report says so
+    unscored = [c for c in ids if not any(c in p for p in positions.values())]
+    if unscored:
+        ids = [c for c in ids if c not in unscored]
+        state["warnings"].append("No member gave a valid score for " + ", ".join(unscored) +
+                                 ": left out of the ranking. Check these CVs by hand.")
+        trace.say(f"No valid score for {', '.join(unscored)}: left out of the ranking.", 0, "orchestrator", "warning")
+        if not ids:
+            raise LLMError("No committee member gave a valid score for any candidate.")
     state["members"] = list(positions)
     before = copy.deepcopy(positions)
     state["rounds"].append(r0)

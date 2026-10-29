@@ -84,3 +84,21 @@ test('the public form never sees the budget', () => {
     const info = publicRoleInfo(role);
     assert.deepEqual(info, { id: 'R001', title: 'Data engineer', currency: 'EUR', work_country: 'France' });
 });
+
+test('a start date must be a real calendar day', () => {
+    const at = d => cleanPractical({ ...good, available_from: d }, role).error;
+    assert.equal(at('2027-02-28'), undefined);
+    assert.equal(at('2028-02-29'), undefined);                                   // leap year
+    for (const bad of ['2026-02-31', '2027-02-29', '2026-04-31', '2026-13-01', '2026-00-10', '2026-1-5']) {
+        assert.match(at(bad), /earliest date/, bad);
+    }
+    assert.equal(cleanLogistics({ start_date: '2026-02-31' }).start_date, '');   // the role's date too
+});
+
+test('an incomplete language row on the role drops only that row', () => {
+    const l = cleanLogistics({ languages: [{ language: 'French', min_level: 'B2' }, { language: 'English', min_level: '' },
+        { language: '', min_level: 'C1' }, { language: 'Spanish', min_level: 'Z9' }, { language: 'German', min_level: 'A2' }] });
+    assert.deepEqual(l.languages, [{ language: 'French', min_level: 'B2' }, { language: 'German', min_level: 'A2' }]);
+    // the applicant, though, must fix an incomplete row
+    assert.match(cleanPractical({ ...good, languages: [{ language: 'English', level: '' }] }, role).error, /level for English/);
+});

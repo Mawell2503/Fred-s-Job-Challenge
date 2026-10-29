@@ -95,7 +95,7 @@ def check(c: dict, v: CandidateView) -> dict:
     if typ == "language" and v.rec.get("languages_listed"):
         return {"status": FAIL, "evidence": "Languages listed: " + ", ".join(v.rec["languages_listed"])}
     if typ == "degree" and v.has_section("education"):
-        first = (v.rec.get("education") or [""])[0].splitlines()[0] if v.rec.get("education") else ""
+        first = next((ln for e in v.rec.get("education") or [] for ln in str(e).splitlines() if ln.strip()), "")
         return {"status": FAIL, "evidence": f"Education listed without it. {first}".strip()}
     return {"status": UNKNOWN, "evidence": "Not mentioned in the CV."}
 

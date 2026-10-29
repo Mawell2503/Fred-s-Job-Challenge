@@ -142,6 +142,9 @@ def check(answer: dict, packet, state) -> tuple[dict, list[str]]:
     ids = [r["id"] for r in state["ranking"][:5]]
     errors, by_id = [], {}
     for item in answer.get("top5") or []:
+        if not isinstance(item, dict):
+            errors.append("Every entry of top5 must be an object with id, comment, strengths, improvements, missing.")
+            continue
         cid = str(item.get("id", ""))
         if cid not in ids:
             errors.append(f"'{cid}' is not one of the five candidates in <ranking>.")
@@ -149,6 +152,9 @@ def check(answer: dict, packet, state) -> tuple[dict, list[str]]:
         src = packet.sources.get(cid, {})
         good = []
         for s in item.get("strengths") or []:
+            if not isinstance(s, dict):
+                errors.append(f"{cid}: each strength must be an object with point, quote and source.")
+                continue
             q, where = str(s.get("quote", "")), s.get("source")
             if _is_application_line(q):
                 errors.append(f"{cid}: \"{q[:80]}\" says what the candidate applied for; it is not a strength.")
