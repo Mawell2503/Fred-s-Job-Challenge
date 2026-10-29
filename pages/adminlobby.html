@@ -226,6 +226,16 @@
         }
         .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
 
+        /* the "Run full pipeline" button sits on the rail between two steps: a button, not a step */
+        .run { display: flex; gap: 16px; }
+        .run .node { padding: 0; }
+        .run .node .ln { top: 0; bottom: 0; }
+        .run.next .node .ln { border-left: 2px dashed var(--rail-next); }
+        .run .run-body { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 0 12px; min-width: 0; }
+        .run .btn { gap: 8px; }
+        .run .run-msg { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+        .run .run-msg.err { color: var(--error); }
+
         .tl-foot { padding: 14px 24px 22px; border-top: 1px solid var(--line); margin-top: auto; }
         .tl-foot .btn { width: 100%; min-height: 50px; font-size: 15px; }
 
@@ -627,6 +637,7 @@
 
         // ---------------- icons (one stroke set) ----------------
         const ICONS = {
+            play: [['path', { d: 'M8 5.5v13l10.5-6.5z' }]],
             inbox: [['path', { d: 'M4 13h4l1.5 2.5h5L16 13h4' }], ['path', { d: 'M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z' }]],
             load: [['path', { d: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z' }], ['path', { d: 'M14 3v5h5' }], ['path', { d: 'M12 17v-6' }], ['path', { d: 'm9.5 13.5 2.5-2.5 2.5 2.5' }]],
             extract: [['path', { d: 'M5 6h14M5 10h14M5 14h9M5 18h6' }]],
@@ -677,6 +688,7 @@
 
         // ---------------- state ----------------
         let roles = [], roleId = null, results = null, view = null, pollTimer = null, lastNow = null;
+        let runError = '', runStarting = false;    // the timeline's "Run full pipeline" button
 
         // ---------------- timeline: steps from the real role / agent state ----------------
         const OSCAR = [
@@ -814,6 +826,7 @@
                         h('div', { class: 'lbl' }, st.label, st.card ? h('span', { class: 'opens' }, icon('chevron', 15)) : ''),
                         st.sub ? h('div', { class: 'sub', text: st.sub }) : '',
                         st.tag ? h('span', { class: 'tag', text: st.tag }) : '')));
+                if (st.key === 'setup') kids.push(runButton(steps[i + 1]));
             });
             kids.push(h('div', { class: 'cap end' }));
             const keep = rail.scrollTop;
@@ -834,6 +847,38 @@
                 }
                 lastNow = nowKey;
             }
+        }
+
+        // ---------------- "Run full pipeline", on the rail between Job & criteria and Oscar ----------------
+        function runButton(after) {
+            const role = results.role, ag = role.agents || {};
+            const busy = Object.values(ag).some(a => a.state === 'running');
+            const going = runStarting || ag.pipeline?.state === 'running';
+            const btn = h('button', { type: 'button', class: 'btn btn-primary btn-sm', id: 'run-pipeline',
+                title: 'Oscar → Remi → Jules → Committee → Gaston, in one go' },
+                icon('play', 16), going ? 'Running…' : 'Run full pipeline');
+            btn.disabled = going || busy || Boolean(role.pipelineProblem);
+            btn.addEventListener('click', runPipeline);
+            const msg = runError ? { text: runError, err: true }
+                : going ? { text: 'Keeps going on the server: you can leave this page.' }
+                    : busy ? { text: 'Wait for the running step to finish.' }
+                        : role.pipelineProblem ? { text: role.pipelineProblem } : null;
+            return h('div', { class: `run ${after?.status === 'done' ? '' : 'next'}` },
+                h('div', { class: 'node' }, h('div', { class: 'ln' })),
+                h('div', { class: 'run-body' }, btn, msg ? h('p', { class: `run-msg${msg.err ? ' err' : ''}`, text: msg.text }) : ''));
+        }
+        async function runPipeline() {
+            const id = roleId;
+            runError = ''; runStarting = true;
+            renderTimeline();
+            try {
+                await api(`/api/admin/roles/${encodeURIComponent(id)}/pipeline`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+            } catch (err) {
+                if (roleId === id) runError = err.message;
+            }
+            runStarting = false;
+            if (roleId === id) await refresh().catch(err => { runError = err.message; renderTimeline(); });
         }
 
         // ---------------- the CV cards ----------------
@@ -921,7 +966,7 @@
                 const what = ag.jules?.state === 'running' ? ['Jules is reading the shortlist.', 'The top 10 appears here as soon as he is done.']
                     : busy ? ['The pipeline is running.', 'The top 10 appears here once Jules has read the shortlist.']
                         : !role.applicants ? ['No applications yet.', 'Candidates apply from the home page.']
-                            : ['The top 10 appears here once the pipeline has run.', role.pipelineProblem || 'Press "Run full pipeline" on the Edit pipeline page.'];
+                            : ['The top 10 appears here once the pipeline has run.', role.pipelineProblem || 'Press "Run full pipeline" on the timeline.'];
                 board.replaceChildren(h('div', { class: 'empty' }, h('b', { text: what[0] }), what[1]));
                 return;
             }
@@ -973,6 +1018,7 @@
         // ---------------- loading + live updates ----------------
         async function load(id) {
             clearTimeout(pollTimer);
+            runError = '';
             for (const d of document.querySelectorAll('.card-dialog[open]')) d.close();
             roleId = id;
             view = null;
@@ -1001,22 +1047,26 @@
             poll();
         }
 
+        // while something runs: every 2 s, redrawn each time. Otherwise a slow background check (15 s) that
+        // only redraws when an agent's state changed, e.g. a run started from the Edit pipeline page.
+        const agentStates = r => JSON.stringify(Object.entries(r?.role?.agents || {}).map(([k, a]) => [k, a.state, a.startedAt]));
         function poll() {
             clearTimeout(pollTimer);
             const busy = Object.values(results?.role?.agents || {}).some(a => a.state === 'running');
-            if (!busy) return;
             pollTimer = setTimeout(async () => {
                 const id = roleId;
                 try {
                     const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
                     if (roleId !== id) return;
-                    results = res;
-                    render();
+                    if (busy || agentStates(res) !== agentStates(results)) {
+                        results = res;
+                        render();
+                    }
                 } catch (err) {
                     console.warn('poll failed, retrying:', err.message);    // a blip must not stop the live view
                 }
                 if (roleId === id) poll();
-            }, 2000);
+            }, busy ? 2000 : 15000);
         }
 
 
