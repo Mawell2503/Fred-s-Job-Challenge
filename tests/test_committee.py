@@ -68,7 +68,8 @@ class OrchestratorRules(unittest.TestCase):
             t["helene"][r]["C0001"], t["victor"][r]["C0001"] = 2, 9
         st, h = self.run_with(t)
         self.assertEqual(st["stop_reason"], "deadlock")
-        self.assertEqual([c[:2] for c in h.calls if c[1] == 1], [("helene", 1), ("victor", 1)])   # only those in conflict
+        # the two ends of the conflict, plus Nina (in the middle) once, in this first debate round
+        self.assertEqual([c[:2] for c in h.calls if c[1] == 1], [("helene", 1), ("victor", 1), ("nina", 1)])
         self.assertIn("C0001", [u["id"] for u in st["unresolved"]])
 
     def test_debate_never_goes_beyond_three_rounds(self):
@@ -102,6 +103,24 @@ class OrchestratorRules(unittest.TestCase):
         plan = O.assignments(pos, ["C1"])
         self.assertEqual(set(plan), {"helene", "victor", "nina"})
         self.assertIn("rescue", plan["victor"]["C1"])
+
+    def test_the_member_in_the_middle_is_heard_once_then_only_the_two_ends(self):
+        pos = {"helene": {"C1": {"score": 7, "verdict": "advance"}},
+               "victor": {"C1": {"score": 5, "verdict": "maybe"}},
+               "nina": {"C1": {"score": 1, "verdict": "reject"}}}
+        first = O.assignments(pos, ["C1"], heard=set())
+        self.assertEqual(set(first), {"helene", "victor", "nina"})
+        self.assertIn("middle", first["victor"]["C1"])
+        later = O.assignments(pos, ["C1"], heard={("helene", "C1"), ("victor", "C1"), ("nina", "C1")})
+        self.assertEqual(set(later), {"helene", "nina"})
+
+    def test_in_a_full_debate_the_middle_member_speaks_in_the_first_round_only(self):
+        ids = [f"C{i:04d}" for i in range(1, 7)]
+        table = flat({"helene": 7, "victor": 5, "nina": 1}, ids, rounds=4)     # nobody ever moves
+        st, h = self.run_with(table)
+        victor_rounds = sorted({r for who, r, _ in h.calls if who == "victor" and r > 0})
+        self.assertEqual(victor_rounds, [1])
+        self.assertEqual(st["stop_reason"], "deadlock")
 
     def test_top5_is_the_average_with_jules_then_remi_breaking_ties(self):
         pos = {"helene": {"A": {"score": 6, "verdict": "advance"}, "B": {"score": 6, "verdict": "advance"},

@@ -48,7 +48,8 @@ same, only the system prompt changes (`hiring/committee/personas/*.md`, plain te
 How a run goes:
 1. **Round 0**: Hélène, Victor and Nina each score the 10 alone (these are the "positions before").
 2. **Debate (max 3 rounds)**: only on contested candidates (scores 3+ apart, "advance" next to "reject", or
-   close to the top-5 cut-off), and only with the members in conflict; Victor is always called when
+   close to the top-5 cut-off), mostly with the members in conflict (highest and lowest score; a member in
+   between is heard once, the first round the candidate is contested); Victor is always called when
    Hélène gave 3 or less to someone another member gave 6+. Stops early at consensus or when nobody moves.
 3. Every answer is checked by code: every quote must be found word for word in the CV / practical answers,
    scores and verdicts must agree, members must stay in their lane. A bad answer gets **one** re-prompt.

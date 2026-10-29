@@ -82,7 +82,8 @@ def confidence(state: dict, packet) -> tuple[str, list[str]]:
     if lows:
         return "Low", lows + mediums
     if mediums:
-        return "Medium", mediums + highs
+        # what speaks for the lead is still worth stating, but never as a reason for the doubt
+        return "Medium", mediums + [f"in its favour: {h}" for h in highs]
     return "High", highs + ["no open disagreement in the top 5"]
 
 
@@ -102,11 +103,13 @@ def _verified_args(state, cid, sources):
 def build_prompt(packet, state, meta, conf, errors=None) -> str:
     top = state["ranking"][:5]
     ids = [r["id"] for r in top]
+    # unresolved candidates can rank 6th or 7th: Gaston needs their positions to summarise the disagreement
+    open_ids = ids + [u["id"] for u in state["unresolved"] if u["id"] not in ids]
     positions = {cid: {DISPLAY[m]: {"score_before": state["before"].get(m, {}).get(cid, {}).get("score"),
                                     "score_after": p[cid]["score"], "verdict": p[cid]["verdict"],
                                     "arguments": p[cid]["arguments"], "concerns": p[cid]["concerns"],
                                     "question": p[cid].get("question", "")}
-                       for m, p in state["positions"].items() if cid in p} for cid in ids}
+                       for m, p in state["positions"].items() if cid in p} for cid in open_ids}
     parts = [
         tag("assignment", f"{meta.get('title', '')} ({meta.get('role_id', '')}), "
                           f"{meta.get('applications', '?')} applications"),

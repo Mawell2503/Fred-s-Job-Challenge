@@ -19,6 +19,7 @@ For each of the five candidates in <ranking>, write:
 
 Then:
 - disagreements: for each candidate in <unresolved>, a short neutral summary of who thinks what and why.
+  <positions> holds every member's arguments for these candidates too, including any outside the top five.
 - recommendation: two or three sentences: who to interview first and why, stating the confidence
   level given in <confidence> and its reasons. Do not raise or lower it.
 - interview_questions: for each of the five candidates, 2 or 3 questions aimed at the open points

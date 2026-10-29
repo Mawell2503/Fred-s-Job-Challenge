@@ -5,11 +5,12 @@
 1. Choose who sits: Hélène and Victor always; Nina only if there is something practical to judge
    (role requirements or the candidates' practical answers).
 2. Round 0 - positions BEFORE: Hélène, then Victor, then Nina, each ALONE, on all candidates.
-3. Rounds 1..3 - debate, only on CONTESTED candidates and only with the members in conflict:
+3. Rounds 1..3 - debate, only on CONTESTED candidates, mostly with the members in conflict:
      contested = scores 3+ apart, or "advance" next to "reject", or close to the top-5 cut-off
                  (ranks 4-7) with scores 2+ apart
      launched  = for each contested candidate, the highest and the lowest scorer; and Victor
-                 whenever Hélène gave 3 or less to someone another member gave 6 or more (his rescue)
+                 whenever Hélène gave 3 or less to someone another member gave 6 or more (his rescue);
+                 a member scoring in between is called once, the first round the candidate is contested
 4. Stop when nothing is contested (consensus), when a round changes no score by 1 point or more
    (deadlock), or after round 3.
 5. Every answer is validated (validate.py). Nonsense -> ONE re-prompt with the exact errors; if it
@@ -83,17 +84,25 @@ def contested(positions: dict, ids) -> list[str]:
     return out
 
 
-def assignments(positions: dict, cids) -> dict:
-    """member -> [candidate ids] to debate this round, with the reason for each launch."""
+def assignments(positions: dict, cids, heard=None) -> dict:
+    """member -> [candidate ids] to debate this round, with the reason for each launch.
+
+    `heard` = the (member, cid) pairs already called in an earlier debate round. A member whose score
+    sits between the highest and the lowest is called once, the first round the candidate is contested,
+    so the middle view is argued at least once; after that, only the two ends are called."""
+    heard = heard if heard is not None else set()
     plan: dict[str, dict[str, str]] = {}
     for cid in cids:
         sc = {m: positions[m][cid]["score"] for m in positions if cid in positions[m]}
         hi, lo = max(sc.values()), min(sc.values())
+        first_time = not any(c == cid for _, c in heard)
         for m, s in sc.items():
             if s == hi:
                 plan.setdefault(m, {})[cid] = f"highest score on {cid} ({s:g})"
             elif s == lo:
                 plan.setdefault(m, {})[cid] = f"lowest score on {cid} ({s:g})"
+            elif first_time:
+                plan.setdefault(m, {})[cid] = f"in the middle on {cid} ({s:g}): heard once"
         h = sc.get("helene")
         if "victor" in sc and h is not None and h <= 3 and any(s >= 6 for m, s in sc.items() if m != "helene"):
             plan.setdefault("victor", {})[cid] = f"rescue: Hélène gave {cid} {h:g}"
@@ -184,6 +193,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
 
     # ---- 2. round 0: positions before
     positions: dict[str, dict] = {}
+    heard: set = set()                         # (member, cid) already called in a debate round
     top5s = {}
     r0 = {"round": 0, "launched": [], "changes": []}
     for m in sitting:
@@ -212,7 +222,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
             state["stop_reason"] = "consensus"
             trace.say("No candidate is contested any more: the committee agrees. Debate closed.", r, "orchestrator", "stop")
             break
-        plan = assignments(positions, hot)
+        plan = assignments(positions, hot, heard)
         trace.say(f"Round {r}: {len(hot)} contested candidate(s): {', '.join(hot)}.", r, "orchestrator", "decision")
         rr = {"round": r, "contested": hot, "launched": [], "changes": []}
         changed = False
@@ -224,6 +234,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
                 continue
             reasons = {c: plan[m][c] for c in cids}
             rr["launched"].append({"member": m, "candidates": cids, "reason": reasons})
+            heard.update((m, c) for c in cids)
             trace.log("decision", what="launch", round=r, member=m, reasons=reasons)
             trace.say(f"{_name(m)} is asked to defend or revise: " + "; ".join(reasons.values()) + ".", r, m, "launch")
             tick(f"Round {r} · {_name(m)}")

@@ -27,6 +27,25 @@ class GastonReport(unittest.TestCase):
         st = O.run(pk)
         return pk, st, write_report(pk, st, META)
 
+    def test_an_unresolved_candidate_outside_the_top_5_reaches_gaston_with_arguments(self):
+        import json
+        from hiring.committee.gaston import build_prompt
+        from hiring.fake_llm import json_section
+        pk = make_packet(10, varied=True)
+        st = O.run(pk)
+        sixth = st["ranking"][5]
+        if sixth["id"] not in {u["id"] for u in st["unresolved"]}:   # make sure a 6th-ranked one is still open
+            st["unresolved"].append({"id": sixth["id"], "scores": sixth["scores"], "verdicts": sixth["verdicts"],
+                                     "spread": sixth["spread"]})
+        prompt = build_prompt(pk, st, META, ("Medium", []))
+        positions = json_section(prompt, "positions")
+        self.assertIn(sixth["id"], positions)
+        self.assertTrue(all(p["arguments"] for p in positions[sixth["id"]].values()))
+        self.assertIn("Write the report for the five candidates", prompt)      # still only five written up
+        rep = write_report(pk, st, META)
+        d = next(x for x in rep["disagreements"] if x["id"] == sixth["id"])
+        self.assertTrue(d["summary"])
+
     def test_every_required_section_is_there_and_every_strength_is_proven(self):
         pk, st, rep = self.full_run()
         md = to_markdown(rep)
@@ -96,6 +115,12 @@ class Confidence(unittest.TestCase):
         self.assertEqual(confidence(self.state(margin=0.2), pk)[0], "Medium")
         self.assertEqual(confidence(self.state(spread=4), pk)[0], "Medium")
         self.assertEqual(confidence(self.state(unresolved_lead=True), pk)[0], "Low")
+
+    def test_a_medium_level_never_lists_a_strength_as_a_reason_for_doubt(self):
+        level, reasons = confidence(self.state(margin=0.2), make_packet(2))
+        self.assertEqual(level, "Medium")
+        good = [r for r in reasons if "says 'advance'" in r]
+        self.assertTrue(good and all(r.startswith("in its favour:") for r in good), reasons)
 
 
 if __name__ == "__main__":

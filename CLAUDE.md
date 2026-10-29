@@ -125,7 +125,9 @@ Runs against Oscar's output in `--runs` dir. All three subcommands go through `h
   of the must-have gate.
 - **Jules** (`jules.py`) — for the Remi top 20, has Claude read each full CV criterion-by-criterion
   with word-for-word quotes; `citation_checker.py` verifies every quote actually appears in the
-  source text before it's trusted; outputs top 5 with detailed scores and what's missing.
+  source text before it's trusted; keeps the top 10 with detailed scores and what's missing. An answer
+  that skips criteria gets one re-prompt naming them; a 0 on a CV where Remi found must-haves is read
+  twice; anything still wrong goes to `warnings` (never a silent low score).
 - **LLM backend abstraction** (`llm.py`) — single `complete_json(system, prompt, schema)` entry point
   used by Clara/Remi/Jules, selected via `LLM_BACKEND` env var:
   - `claude_cli` (default) — shells out to the local `claude` CLI, uses the operator's Claude
@@ -153,7 +155,7 @@ prompt (`personas/<name>.md` + shared `RULES`). Everything else is plain code.
 - `validate.py` — every member answer: ids, score range, verdict band, each quote verified against its
   source (`cv`/`practical`/`linkedin`), members kept in their lane, round-0 `top5`.
 - `orchestrator.py` — round 0 alone (Hélène → Victor → Nina; Nina skipped if nothing practical), then up
-  to 3 debate rounds on `contested()` candidates with `assignments()` (highest/lowest scorer + Victor's
+  to 3 debate rounds on `contested()` candidates with `assignments()` (highest/lowest scorer, the middle one once, + Victor's
   rescue), one re-prompt on validation errors, stop on consensus / deadlock / max rounds, `rank()` =
   average score (ties: Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`.
 - `gaston.py` — `confidence()` and every fact by code; one AI call for the wording; strengths' quotes
