@@ -14,6 +14,7 @@ CV quotes side by side. Names are re-attached from Oscar's personal-details file
 """
 from __future__ import annotations
 
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -71,16 +72,48 @@ def _prompt(job: dict, cv_text: str) -> str:
                         tag("criteria", crit), tag("cv", cv_text)])
 
 
+_ID = re.compile(r"\s*([MN]\d+)\b", re.I)
+
+
+def _answers(raw: dict) -> dict:
+    """criterion id -> answer. Tolerates ids like "m1" or "M1 (MUST-HAVE)"."""
+    out = {}
+    for a in raw.get("criteria") or []:
+        m = _ID.match(str(a.get("id", ""))) if isinstance(a, dict) else None
+        if m and m.group(1).upper() not in out:
+            out[m.group(1).upper()] = a
+    return out
+
+
 def assess(job: dict, cand: dict, must_weight: float = 1.0) -> dict:
-    """One LLM read of one CV, with every quote verified. Never raises."""
+    """One LLM read of one CV, with every quote verified. Never raises.
+
+    An answer that skips criteria gets ONE re-prompt naming them; whatever is still missing
+    counts as "not mentioned" and is reported in `incomplete` (never silently)."""
     cv = cand["full_text"]
     crits = all_criteria(job)
+    prompt = _prompt(job, cv)
     try:
-        raw = complete_json(SYSTEM, _prompt(job, cv), SCHEMA)
+        raw = complete_json(SYSTEM, prompt, SCHEMA)
         error = None
     except Exception as e:                     # one failed call must not stop the other 19
         raw, error = {"criteria": [], "overall": ""}, f"{type(e).__name__}: {e}"
-    answers = {a.get("id"): a for a in raw.get("criteria", []) if isinstance(a, dict)}
+    answers = _answers(raw)
+    missing = [c["id"] for c in crits if c["id"] not in answers]
+    reprompted = False
+    if missing and not error:
+        reprompted = True
+        try:
+            again = complete_json(SYSTEM, prompt + "\n\n" + tag(
+                "validation_errors", f"Your previous answer did not cover: {', '.join(missing)}.") +
+                "\nAnswer again for EVERY criterion id listed in <criteria>, using exactly those ids.", SCHEMA)
+            fill = _answers(again)
+            answers.update({k: v for k, v in fill.items() if k in missing})
+            if not str(raw.get("overall", "")).strip():
+                raw["overall"] = again.get("overall", "")
+        except Exception:
+            pass                               # keep the first answer; what is missing is reported below
+        missing = [c["id"] for c in crits if c["id"] not in answers]
 
     rows, points, max_points = [], 0.0, 0.0
     for c in crits:
@@ -112,13 +145,21 @@ def assess(job: dict, cand: dict, must_weight: float = 1.0) -> dict:
         "citations": {"checked": sum(len(r["cv_quotes"]) + len(r["rejected_quotes"]) for r in rows),
                       "rejected": sum(len(r["rejected_quotes"]) for r in rows)},
         "error": error,
+        "incomplete": missing if not error else [],
+        "reprompted": reprompted,
     }
+
+
+def _suspicious(r: dict, gate: list) -> bool:
+    """Nothing met, though Remi's plain-code check already found must-haves on this CV."""
+    return not r["error"] and r["score"] == 0 and any(g.get("status") == "PASS" for g in gate or [])
 
 
 def run(job: dict, remi_out: dict, load, personal=None, top: int = 10, progress=None) -> dict:
     """`load(cid)` returns Oscar's candidate dict; `personal(cid)` returns the PII record."""
     shortlist = remi_out.get("shortlist", [])
     remi_score = {s["candidate_id"]: s.get("score", 0) for s in shortlist}
+    remi_gate = {s["candidate_id"]: s.get("gate", []) for s in shortlist}
     must_weight = float(job.get("jules_must_weight", 1))
     workers = max(1, int(env_number("JULES_WORKERS", 3)))
     cands = [c for c in (load(s["candidate_id"]) for s in shortlist) if c]
@@ -127,6 +168,12 @@ def run(job: dict, remi_out: dict, load, personal=None, top: int = 10, progress=
 
     def one(cand):
         r = assess(job, cand, must_weight)
+        if _suspicious(r, remi_gate.get(cand["candidate_id"])):
+            # a zero next to must-haves Remi already found is more likely a bad answer than a bad CV:
+            # read it once more and keep the better result
+            second = assess(job, cand, must_weight)
+            r = max((r, second), key=lambda x: x["score"])
+            r["reread"] = True
         with lock:
             done[0] += 1
             if progress:
@@ -147,7 +194,11 @@ def run(job: dict, remi_out: dict, load, personal=None, top: int = 10, progress=
             r["personal"] = {"name": p.get("name"), "emails": p.get("emails", []),
                              "phones": p.get("phones", []), "urls": p.get("urls", {})}
 
-    errors = [f"{r['candidate_id']}: {r['error']}" for r in results if r["error"]]
+    warnings = [f"{r['candidate_id']}: {r['error']}" for r in results if r["error"]]
+    warnings += [f"{r['candidate_id']}: Jules's answer skipped {', '.join(r['incomplete'])} even after a re-prompt; "
+                 f"counted as not mentioned." for r in results if r["incomplete"]]
+    warnings += [f"{r['candidate_id']}: Jules found none of the criteria, though Remi had found must-haves on this CV "
+                 f"(read twice). Check this CV by hand." for r in results if _suspicious(r, remi_gate.get(r["candidate_id"]))]
     return {
         "agent": "JULES",
         "job_title": job.get("title"),
@@ -155,12 +206,18 @@ def run(job: dict, remi_out: dict, load, personal=None, top: int = 10, progress=
         "scoring": f"1 point per criterion met (must-haves x{must_weight:g}); only quotes found "
                    f"word for word in the CV count.",
         "counts": {"read": len(results), "finalists": len(finalists),
+                   "failed": sum(1 for r in results if r["error"]),
+                   "reprompted": sum(1 for r in results if r["reprompted"]),
+                   "reread": sum(1 for r in results if r.get("reread")),
                    "quotes_checked": sum(r["citations"]["checked"] for r in results),
                    "quotes_rejected": sum(r["citations"]["rejected"] for r in results)},
         "finalists": finalists,
+        # every CV Jules read but did not keep, with its verdicts, so a surprising score can be checked
         "others": [{"candidate_id": r["candidate_id"], "rank": r["rank"], "score": r["score"],
-                    "max_score": r["max_score"]} for r in results[top:]],
-        "warnings": errors,
+                    "max_score": r["max_score"], "overall": r["overall"], "error": r["error"],
+                    "criteria": [{"id": c["id"], "verdict": c["verdict"], "cv_quotes": c["cv_quotes"]}
+                                 for c in r["criteria"]]} for r in results[top:]],
+        "warnings": warnings,
     }
 
 

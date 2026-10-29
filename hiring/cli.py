@@ -158,7 +158,7 @@ def main(argv=None) -> int:
             _write(a.out, out)
             print(f"Jules: {out['counts']['read']} read, {out['counts']['finalists']} finalists, "
                   f"{out['counts']['quotes_rejected']} quote(s) rejected by the citation checker.")
-            if out["counts"]["read"] and len(out["warnings"]) == out["counts"]["read"]:
+            if out["counts"]["read"] and out["counts"]["failed"] == out["counts"]["read"]:
                 print("Every LLM call failed:\n  " + "\n  ".join(out["warnings"][:3]), file=sys.stderr)
                 return 3
     except LLMError as e:
