@@ -54,6 +54,8 @@ export const findApplicant = candidateId => applicants.find(a => a.candidateId =
  * Record one application: run Oscar on the CV and store everything.
  * `cvPath` / `linkedinPath` must already be inside UPLOAD_DIR.
  * Returns { duplicate: true } or { applicant, result } (result.status: ok | warning | failed).
+ * A CV Oscar cannot read at all (status failed) is NOT recorded: the applicant is told so and can send
+ * another file (or the same one again) at once. `applicant` is then null; the caller deletes the uploads.
  */
 export async function submitApplication({ role, cvPath, linkedinPath = null, name, linkedinUrl = '', instagramUrl = '', practical }) {
     const sha = fileHash(cvPath);
@@ -62,6 +64,10 @@ export async function submitApplication({ role, cvPath, linkedinPath = null, nam
         if (applicants.some(a => a.roleId === role.id && a.cvSha256 === sha)) return { duplicate: true };
         const number = applicants.reduce((m, a) => Math.max(m, a.number), 0) + 1;
         const r = await runCvReader(cvPath, number, role.rules);
+        if (r.status === 'failed') {
+            fs.rmSync(r.runDir, { recursive: true, force: true });     // the number is free for the next applicant
+            return { applicant: null, result: r };
+        }
         const applicant = {
             number, candidateId: r.candidateId, roleId: role.id, name, instagramUrl, linkedinUrl,
             appliedAt: new Date().toISOString(),

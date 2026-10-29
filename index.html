@@ -824,8 +824,17 @@
         const applyForm = document.getElementById('apply');
         const submitBtn = document.getElementById('apply-submit');
 
+        // "linkedin.com/in/name" is what most people type: add the https:// the field needs
+        const liUrl = document.getElementById('f-linkedin');
+        function fixUrl() {
+            const v = liUrl.value.trim();
+            if (v && !/^[a-z][a-z0-9+.-]*:/i.test(v) && /^[\w-]+(\.[\w-]+)+(\/|$)/.test(v)) liUrl.value = `https://${v}`;
+        }
+        liUrl.addEventListener('blur', fixUrl);
+
         applyForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            fixUrl();
             if (!applyForm.reportValidity()) return;
             if (!cvFile) return say('Add your CV before submitting.', 'error');
             const practical = readPractical();

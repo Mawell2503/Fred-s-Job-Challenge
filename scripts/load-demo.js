@@ -41,6 +41,10 @@ for (const p of people) {
         console.log(`  - ${p.name}: already submitted for this role, skipped`);
         continue;
     }
+    if (!out.applicant) {
+        console.log(`  - ${p.name}: the CV could not be read, not recorded`);
+        continue;
+    }
     console.log(`  ${out.applicant.candidateId}  ${p.name.padEnd(18)} CV ${out.result.status.padEnd(7)} ${p.why}`);
 }
 console.log(`\nNext: npm run pipeline -- ${role.id}   (or open the admin page and press "Run full pipeline")`);

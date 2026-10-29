@@ -36,9 +36,11 @@ const upload = multer({
     },
 });
 
-const cleanUrl = v => {
-    const s = String(v ?? '').trim();
+export const cleanUrl = v => {
+    let s = String(v ?? '').trim();
     if (!s) return '';
+    // "linkedin.com/in/name" or "www.linkedin.com/..." without http(s):// is what most people type
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(s) && /^[\w-]+(\.[\w-]+)+(\/|$)/.test(s)) s = `https://${s}`;
     try { return ['http:', 'https:'].includes(new URL(s).protocol) ? s : null; } catch { return null; }
 };
 
@@ -84,6 +86,7 @@ export function applyRoutes({ requireAuth }) {
                     return res.status(409).json({ error: 'We already have this CV for this position. No need to send it again.' });
                 }
                 if (out.result.status === 'failed') {
+                    discard();                                  // nothing was recorded: keep no files
                     return res.status(422).json({ error: 'We could not read that file. Please upload a text-based PDF, a DOCX or a TXT.' });
                 }
                 res.status(201).json({ received: true });
