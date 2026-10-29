@@ -118,12 +118,17 @@ def classify_heading(text: str, exact_only: bool = False) -> str | None:
     return None
 
 
-_MONTH = (r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
-          r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?")
+# English and French month names (CVs come in both), with or without the abbreviation dot
+_MONTH = (r"(?:jan(?:uary|vier|v)?|feb(?:ruary)?|f[eé]v(?:rier|r)?|mar(?:ch|s)?|apr(?:il)?|avr(?:il)?|"
+          r"may|mai|jun(?:e)?|juin|jul(?:y)?|juil(?:let)?|aug(?:ust)?|ao[uû]t?|sep(?:t(?:ember|embre)?)?|"
+          r"oct(?:ober|obre)?|nov(?:ember|embre)?|d[eé]c(?:ember|embre)?)\.?")
 _YEAR = r"(?:19|20)\d{2}"
 _DATE = rf"(?:{_MONTH}\s+{_YEAR}|\d{{1,2}}[/.]{_YEAR}|{_YEAR})"
+# the end of a job that is still going on: "Present", "aujourd'hui", "à ce jour" ...
+PRESENT_WORDS = (r"(?:present|current|now|ongoing|today|date|aujourd['’]hui|pr[eé]sent|actuel(?:lement)?|"
+                 r"en\s+cours|[aà]\s+ce\s+jour)")
 DATE_RANGE = re.compile(
-    rf"\b{_DATE}\s*(?:-|–|—|to|until)\s*(?:{_DATE}|present|current|now|ongoing|today|date)\b",
+    rf"\b{_DATE}\s*(?:-|–|—|to|until|[aà]|au|jusqu['’]?[aà])\s*(?:{_DATE}|{PRESENT_WORDS})(?![\w'])",
     re.I)
 _ANY_DATE = re.compile(rf"\b{_DATE}\b", re.I)
 
@@ -208,6 +213,17 @@ def _body_size(lines: list[Line]):
     return statistics.median(sizes) if sizes else None
 
 
+def _is_skill_name(text: str) -> bool:
+    """True when the whole line is a known skill or tool ("SQL", "AWS", "C#"): a list item, never a
+    heading, even when it is written in capitals like the CV's real headings."""
+    try:
+        from .vocab import get_vocab
+        words = get_vocab().canonicalize(text).split()
+    except Exception:
+        return False
+    return bool(words) and all(w.startswith("k_") for w in words)
+
+
 def _next_nonempty(lines: list[Line], i: int):
     for j in range(i + 1, len(lines)):
         if lines[j].text.strip():
@@ -284,7 +300,7 @@ def segment(lines: list[Line]) -> tuple[list[Block], dict]:
         if (not t or i in headings or i in marker_idx or _is_bullet(t) or len(t) > 45
                 or len(t.split()) > 6 or re.search(r"\d", t) or t.endswith((".", ",", ";"))):
             continue
-        if first_known is None or i < first_known:
+        if first_known is None or i < first_known or _is_skill_name(t):
             continue
         nxt = _next_nonempty(L, i)
         if nxt is None or _is_dateish(L[nxt].text) or nxt in headings:

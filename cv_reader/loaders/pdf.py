@@ -16,6 +16,9 @@ GUTTER_MIN_PT = 8.0          # >minimum width of a column gap
 # >each column must be at least this share of the page width
 SIDE_MIN_EXTENT = 0.18
 SIDE_MIN_LINES = 5           # >... and contain at least this many lines
+# >a narrower side still counts (a sidebar) when it is at least this wide and mostly words, not dates
+SIDE_NARROW_MIN_EXTENT = 0.08
+SIDE_NARROW_MIN_WORDS = 0.6
 # >shorter column must have >= 20% of the longer one's lines
 SIDE_MIN_RATIO = 0.20
 
@@ -86,13 +89,23 @@ def _valid_gutter(words: list[dict], gx0: float, gx1: float, pw: float) -> bool:
             right.extend(r)
     if n_left < SIDE_MIN_LINES or n_right < SIDE_MIN_LINES:
         return False
-    lext = max(w["x1"] for w in left) - min(w["x0"] for w in left)
-    rext = max(w["x1"] for w in right) - min(w["x0"] for w in right)
-    if lext < SIDE_MIN_EXTENT * pw or rext < SIDE_MIN_EXTENT * pw:
-        return False   # e.g. a column that is only right-aligned dates
+    for side in (left, right):
+        ext = max(w["x1"] for w in side) - min(w["x0"] for w in side)
+        if ext >= SIDE_MIN_EXTENT * pw:
+            continue
+        # A narrow side is either a column of right-aligned dates (not a real column: keep the
+        # lines whole) or a sidebar of short items ("Python", "SQL", "French (native)"): a real
+        # column. Tell them apart by how much of it is words.
+        if ext < SIDE_NARROW_MIN_EXTENT * pw or _word_share(side) < SIDE_NARROW_MIN_WORDS:
+            return False
     if min(n_left, n_right) < SIDE_MIN_RATIO * max(n_left, n_right):
         return False
     return True
+
+
+def _word_share(words: list[dict]) -> float:
+    """Share of tokens that are words (3+ letters), as opposed to dates, numbers and dashes."""
+    return sum(1 for w in words if len(re.findall(r"[^\W\d_]", w["text"])) >= 3) / max(len(words), 1)
 
 
 def _find_gutter(words: list[dict], pw: float):
@@ -133,6 +146,18 @@ def _find_gutter(words: list[dict], pw: float):
     for a, b in runs:
         if (b - a + 1) < GUTTER_MIN_PT:
             continue
+        # The run tolerates a few lines reaching into it (a long email in a sidebar). Keep only its
+        # emptiest stretch as the gutter, so those lines are not mistaken for lines spanning both columns.
+        low = min(cov[a:b + 1])
+        core = [i for i in range(a, b + 1) if cov[i] == low]
+        best, start = (core[0], core[0]), core[0]
+        for i, j in zip(core, core[1:] + [None]):
+            if j != i + 1:
+                if i - start > best[1] - best[0]:
+                    best = (start, i)
+                start = j
+        if best[1] - best[0] + 1 >= GUTTER_MIN_PT:
+            a, b = best
         gx0, gx1 = xmin + a, xmin + b + 1
         mid = (gx0 + gx1) / 2
         if not (xmin + 0.12 * width < mid < xmax - 0.12 * width):

@@ -10,18 +10,26 @@ Remi needs to check criteria without an LLM:
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 
 from .models import Block
-from .segment import DATE_RANGE
+from .segment import DATE_RANGE, PRESENT_WORDS
 from .vocab import get_vocab
 
-_MONTHS = {m: i for i, m in enumerate(
-    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
-_PRESENT = re.compile(r"present|current|now|ongoing|today|date", re.I)
+# English and French month names, checked by their start (accents removed): "févr." -> fev -> 2
+_MONTH_STARTS = [("juil", 7), ("juin", 6), ("jan", 1), ("feb", 2), ("fev", 2), ("mar", 3), ("apr", 4), ("avr", 4),
+                 ("may", 5), ("mai", 5), ("jun", 6), ("jul", 7), ("aug", 8), ("aou", 8), ("sep", 9), ("oct", 10),
+                 ("nov", 11), ("dec", 12)]
+_PRESENT = re.compile(PRESENT_WORDS, re.I)
 _ONE_DATE = re.compile(
-    r"(?P<mon>[a-z]{3,9})\.?\s+(?P<y1>(?:19|20)\d{2})|(?P<mm>\d{1,2})[/.](?P<y2>(?:19|20)\d{2})|(?P<y3>(?:19|20)\d{2})",
+    r"(?P<mon>[^\W\d_]{3,9})\.?\s+(?P<y1>(?:19|20)\d{2})|(?P<mm>\d{1,2})[/.](?P<y2>(?:19|20)\d{2})|(?P<y3>(?:19|20)\d{2})",
     re.I)
+
+
+def _month(word: str) -> int | None:
+    w = "".join(c for c in unicodedata.normalize("NFKD", word.lower()) if not unicodedata.combining(c))
+    return next((n for start, n in _MONTH_STARTS if w.startswith(start)), None)
 _AVAIL = re.compile(r"availab|notice period|start date|can start|immediate(ly)?\b|disponib|preavis", re.I)
 _SPLIT_ITEMS = re.compile(r"\s*(?:[,;|•·]|\s/\s|\s-\s|^-\s)\s*")
 
@@ -34,7 +42,7 @@ def _to_month_index(token: str, today: date) -> int | None:
     if not m:
         return None
     if m.group("y1"):
-        mon = _MONTHS.get(m.group("mon")[:3].lower())
+        mon = _month(m.group("mon"))
         return int(m.group("y1")) * 12 + ((mon or 1) - 1)
     if m.group("y2"):
         mm = int(m.group("mm"))
@@ -50,7 +58,7 @@ def parse_range(text: str, today: date | None = None):
     if not m:
         return None
     raw = m.group(0)
-    parts = re.split(r"\s*(?:-|–|—|\bto\b|\buntil\b)\s*", raw, maxsplit=1, flags=re.I)
+    parts = re.split(r"\s*(?:-|–|—|\bto\b|\buntil\b|\bjusqu['’]?\s*[aà]\b|\bau\b|\s[aà]\s)\s*", raw, maxsplit=1, flags=re.I)
     if len(parts) != 2:
         return None
     a = _to_month_index(parts[0], today)
