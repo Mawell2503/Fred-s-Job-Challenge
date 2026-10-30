@@ -218,6 +218,63 @@
         .orow { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid #F5DDB4; }
         .foot { margin: 0; font-size: 12.5px; color: var(--muted); }
 
+        /* ---------- member reports (after Gaston's report): the members bar opens them ---------- */
+        button.member { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+        button.member:hover { border-color: var(--ink); background: var(--soft); }
+        .member.rp-all .avatar { background: var(--ink); }
+        dialog.rep { width: min(1080px, calc(100vw - 32px)); }
+        .rp-pick { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+        .rp-pick select { min-height: 40px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); padding: 0 10px; font: inherit; color: var(--ink); max-width: 100%; }
+        .rp-tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 14px 26px; border-bottom: 1px solid var(--line); background: var(--card); }
+        .rp-tab { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 10px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--card); font: 700 13.5px 'DM Sans', system-ui, sans-serif; color: var(--ink); cursor: pointer; }
+        .rp-tab:hover { background: var(--soft); }
+        .rp-tab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #FFF; }
+        .rp-tab .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--faint)); }
+        .rp-tab[aria-selected="true"] .dot { box-shadow: 0 0 0 2px #FFF; }
+        .rp-tab small { font: 500 11.5px var(--mono); opacity: .8; }
+        .rp-tab.off { color: var(--faint); font-weight: 500; }
+        .rp-body { padding: 20px 26px 26px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+        .rp-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .rp-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; min-width: 0; display: flex; flex-direction: column; }
+        .rp-card.top { border-top: 4px solid var(--c); }
+        .rp-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .rp-row .grow { flex: 1; }
+        .rp-mname { font-weight: 800; font-size: 17px; }
+        .rp-lens { font-size: 13px; color: var(--muted); margin: 2px 0 10px; }
+        .rp-score { display: inline-flex; align-items: baseline; gap: 2px; font-weight: 800; font-size: 28px; line-height: 1; }
+        .rp-score small { font: 500 12px var(--mono); color: var(--faint); }
+        .rp-verdict { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
+        .rp-verdict.advance { background: var(--ok-bg); color: var(--ok); }
+        .rp-verdict.maybe { background: var(--risk-bg); color: var(--risk); }
+        .rp-verdict.reject { background: var(--block-bg); color: var(--block); }
+        .rp-move { font: 500 12.5px var(--mono); }
+        .rp-move.up { color: var(--ok); } .rp-move.down { color: var(--block); } .rp-move.hold { color: var(--faint); }
+        .rp-label { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 6px; }
+        .rp-args { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        .rp-args p { margin: 0; font-weight: 500; font-size: 14px; }
+        .rp-args blockquote { margin: 4px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--c, var(--line-strong)); color: var(--muted); font-size: 13.5px; }
+        .rp-src { margin-left: 6px; font: 500 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+        .rp-list { margin: 0; padding-left: 18px; font-size: 14px; }
+        .rp-list li + li { margin-top: 4px; }
+        .rp-none { margin: 0; color: var(--faint); font-size: 13.5px; }
+        .rp-q { margin: 0; font-style: italic; font-size: 14px; }
+        .rp-more { margin-top: auto; padding-top: 14px; }
+        .rp-link { border: 0; background: none; padding: 0; font: 700 13.5px 'DM Sans', system-ui, sans-serif; color: var(--c, var(--blue-ink)); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .rp-tl { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; display: flex; flex-direction: column; gap: 14px; }
+        .rp-tl::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: var(--line-strong); }
+        .rp-tl > li { position: relative; }
+        .rp-tl > li::before { content: ""; position: absolute; left: -21px; top: 22px; width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 3px solid var(--c); }
+        .rp-rn { font: 500 11.5px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        .rp-why { font-size: 13px; color: var(--muted); }
+        .rp-reply { margin: 12px 0 0; padding: 12px 14px; background: var(--soft); border-radius: 12px; font-size: 14px; }
+        .rp-info { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 13.5px; }
+        .rp-warn { margin: 10px 0 0; font-size: 13px; color: var(--risk); }
+        .rp-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+        .rp-table th, .rp-table td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        .rp-table th { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .05em; text-transform: uppercase; }
+        @media (max-width: 900px) { .rp-cols { grid-template-columns: minmax(0, 1fr); } }
+        @media (max-width: 700px) { .rp-tabs, .rp-body { padding-left: 16px; padding-right: 16px; } }
+
         /* ---------- applicant dialog ---------- */
         dialog.app { width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 0; border-radius: 22px; background: var(--bg); color: var(--ink); box-shadow: 0 30px 80px rgba(0, 0, 0, .25); }
         dialog.app::backdrop { background: rgba(42, 36, 32, .5); backdrop-filter: blur(3px); }
@@ -463,6 +520,26 @@
             <button type="button" class="btn btn-dark" id="app-close">Back to the committee</button>
         </div>
     </dialog>
+    <!-- each member's report on one finalist, opened from the members bar once Gaston's report exists -->
+    <dialog class="app rep" id="rep" aria-labelledby="rep-name">
+        <div class="dhead">
+            <div style="min-width:0">
+                <div class="kicker">Member reports</div>
+                <h2 id="rep-name"></h2>
+                <div class="rp-pick">
+                    <label class="small" for="rep-cand">Finalist</label>
+                    <select id="rep-cand"></select>
+                    <span class="mono small" id="rep-sub"></span>
+                </div>
+            </div>
+            <button type="button" class="xbtn" id="rep-x" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+        </div>
+        <div class="rp-tabs" id="rep-tabs" role="tablist" aria-label="Committee members"></div>
+        <div class="rp-body" id="rep-body" role="tabpanel"></div>
+    </dialog>
+
 
     <script>
         const $ = id => document.getElementById(id);
@@ -614,6 +691,9 @@
             const box = $('members'); box.replaceChildren();
             const skipped = S.results?.committee?.skipped || live?.skipped || S.results?.live?.skipped || {};
             const speaking = live?.speaking || d.speaking;
+            const ready = reportReady();                 // after Gaston's report: the bar opens the member reports
+            if (ready) box.append(h('button', { type: 'button', class: 'member rp-all', 'aria-haspopup': 'dialog', onclick: () => openReports('all') },
+                h('span', { class: 'avatar' }, '∑'), h('span', null, h('b', null, 'All'), h('small', null, 'Compare reports'))));
             for (const m of [...MEMBERS, 'gaston']) {
                 let state, cls = 'member';
                 if (m in skipped) { state = 'Not launched'; cls += ' off'; }
@@ -622,6 +702,11 @@
                 else if (!d.sitting.includes(m) && d.round === 0) state = 'Waiting';
                 else state = d.phase === 'done' ? 'Done' : 'Listening';
                 if (speaking === m) cls += ' active';
+                if (ready && !(m in skipped)) {
+                    box.append(h('button', { type: 'button', class: cls, 'aria-haspopup': 'dialog', title: `Open ${NAME[m]}'s report`, onclick: () => openReports(m) },
+                        avatar(m), h('span', null, h('b', null, NAME[m]), h('small', null, m === 'gaston' ? 'Open his notes' : 'Open report'))));
+                    continue;
+                }
                 box.append(h('span', { class: cls }, avatar(m), h('span', null, h('b', null, NAME[m]), h('small', null, state))));
             }
         }
@@ -862,7 +947,8 @@
                 h('div', { class: 'chips' }, ...Object.entries(t.scores).map(([m, s]) => h('span', { class: 'chip', style: 'padding:2px 8px' },
                     h('b', { style: `color:${COLOR[BY_DISPLAY[m]] || 'inherit'}` }, m[0]), ' ', fmt(s)))),
                 h('p', null, named(t.comment)),
-                h('a', { href: `report.html?role=${encodeURIComponent(S.roleId)}#${encodeURIComponent(t.id)}` }, 'Strengths, gaps & interview questions →'))));
+                h('a', { href: `report.html?role=${encodeURIComponent(S.roleId)}#${encodeURIComponent(t.id)}` }, 'Strengths, gaps & interview questions →'),
+                h('button', { type: 'button', class: 'rp-link', style: 'text-align:left', onclick: () => openReports('all', t.id) }, 'What each member said →'))));
 
             const moves = [];
             for (const a of rep.appendix || []) for (const r of a.rows || []) if (r.after !== r.before || r.because)
@@ -940,6 +1026,205 @@
         $('app-x').addEventListener('click', () => $('app').close());
         $('app-close').addEventListener('click', () => $('app').close());
         $('app').addEventListener('click', e => { if (e.target === $('app')) $('app').close(); });
+
+        /* ------------------------------------------------------------------ member reports (after Gaston's report) */
+        // Clicking the members bar opens what one member said about one finalist, round by round, from
+        // committee.history (only validated content: every quote was checked against its source). All = side by side.
+        const H = (tag, props, ...kids) => h(tag, props, ...kids.flat(Infinity));
+        const RP = { cid: null, tab: 'all' };
+        const RP_TABS = ['all', ...MEMBERS, 'gaston'];
+        const SRC = { cv: 'CV', practical: 'Practical answers', linkedin: 'LinkedIn' };
+        const LENS = {
+            helene: 'The engineer. Technical proof and concrete achievements.',
+            victor: 'The veteran. Career path, reliability, teamwork.',
+            nina: 'Operations. Availability, budget, location, language.',
+            gaston: 'The clerk. Did not vote: wrote the report from the debate.',
+        };
+        const reportReady = () => !!S.results?.committee?.report;
+        const rpOrder = () => (S.results?.committee?.ranking || []).map(r => r.id);
+        const rpRank = cid => rpOrder().indexOf(cid) + 1;
+
+        function rpTimeline(m, cid) {
+            const C = S.results.committee;
+            const hist = C.history?.[m]?.[cid];
+            if (hist?.length) return { entries: hist, legacy: false };
+            // runs from before `history` existed: scores and replies only, the final arguments on the last entry
+            const entries = [];
+            const b = C.before?.[m]?.[cid];
+            if (b) entries.push({ round: 0, score: b.score, verdict: b.verdict, missing: true });
+            for (const r of C.rounds || []) for (const ch of r.changes || []) if (ch.member === m && ch.id === cid) {
+                const l = (r.launched || []).find(x => x.member === m);
+                entries.push({ round: r.round, reason: l?.reason?.[cid] || '', score: ch.to, verdict: ch.verdict_to, reply: ch.because, missing: true });
+            }
+            const fin = C.positions?.[m]?.[cid];
+            if (fin && entries.length) Object.assign(entries.at(-1), { arguments: fin.arguments, concerns: fin.concerns, question: fin.question, missing: false });
+            return { entries, legacy: true };
+        }
+        function rpMovement(m, cid) {
+            const C = S.results.committee;
+            const b = C.before?.[m]?.[cid]?.score, a = C.after?.[m]?.[cid]?.score;
+            return b == null || a == null ? null : { from: b, to: a, d: Math.round((a - b) * 10) / 10 };
+        }
+        function rpMove(mv, long) {
+            if (!mv) return null;
+            if (!mv.d) return H('span', { class: 'rp-move hold' }, long ? `held ${fmt(mv.to)} through the debate` : '= held');
+            const up = mv.d > 0;
+            return H('span', { class: `rp-move ${up ? 'up' : 'down'}` }, long ? `${fmt(mv.from)} → ${fmt(mv.to)} during the debate` : `${up ? '▲' : '▼'} ${fmt(mv.from)} → ${fmt(mv.to)}`);
+        }
+        const rpVerdict = v => v ? H('span', { class: `rp-verdict ${v}` }, v) : null;
+        const rpScore = s => H('span', { class: 'rp-score' }, fmt(s), H('small', null, '/10'));
+        const rpLabel = t => H('div', { class: 'rp-label' }, t);
+        function rpArgs(args, m) {
+            if (!args?.length) return H('p', { class: 'rp-none' }, 'No argument with a verified quote.');
+            return H('ul', { class: 'rp-args', style: `--c:${COLOR[m]}` }, args.map(a => H('li', null,
+                H('p', null, named(a.point)),
+                H('blockquote', null, `“${a.quote}”`, H('span', { class: 'rp-src' }, `${SRC[a.source] || a.source} · verified`)))));
+        }
+        const rpList = (items, empty) => items?.length ? H('ul', { class: 'rp-list' }, items.map(x => H('li', null, named(x)))) : H('p', { class: 'rp-none' }, empty);
+        function rpGaston(cid) {
+            const r = S.results.committee.report;
+            return {
+                top: (r.top5 || []).find(t => t.id === cid), cand: (r.candidates || []).find(t => t.id === cid),
+                dis: (r.disagreements || []).find(t => t.id === cid), qs: (r.interview_questions || []).find(t => t.id === cid),
+                app: (r.appendix || []).find(t => t.id === cid),
+            };
+        }
+
+        function rpAll(cid) {
+            const C = S.results.committee, sat = C.members || [];
+            const cols = MEMBERS.map(m => {
+                const head = [H('div', { class: 'rp-row' }, H('span', { class: 'rp-mname' }, NAME[m]), H('span', { class: 'grow' }), rpVerdict(C.positions?.[m]?.[cid]?.verdict)),
+                    H('div', { class: 'rp-lens' }, LENS[m])];
+                if (!sat.includes(m)) return H('article', { class: 'rp-card top', style: `--c:${COLOR[m]}` }, head,
+                    H('p', { class: 'rp-none' }, C.skipped?.[m] ? `Not launched: ${C.skipped[m]}` : 'Gave no valid position in this committee.'));
+                const p = C.positions?.[m]?.[cid];
+                if (!p) return H('article', { class: 'rp-card top', style: `--c:${COLOR[m]}` }, head, H('p', { class: 'rp-none' }, 'No valid position on this candidate.'));
+                return H('article', { class: 'rp-card top', style: `--c:${COLOR[m]}` }, head,
+                    H('div', { class: 'rp-row' }, rpScore(p.score), rpMove(rpMovement(m, cid))),
+                    rpLabel('Final arguments'), rpArgs(p.arguments, m),
+                    rpLabel('Concerns'), rpList(p.concerns, 'None raised.'),
+                    H('div', { class: 'rp-more' }, H('button', { type: 'button', class: 'rp-link', onclick: () => rpGo(cid, m) }, `Read ${NAME[m]}'s full report →`)));
+            });
+            const g = rpGaston(cid);
+            const gCard = H('article', { class: 'rp-card top', style: `--c:${COLOR.gaston}` },
+                H('div', { class: 'rp-row' }, H('span', { class: 'rp-mname' }, 'Gaston'), H('span', { class: 'grow' }),
+                    H('span', { class: 'pill' + (g.top ? ' table' : '') }, g.top ? `Top 5 · #${g.top.rank}` : `#${rpRank(cid)} · outside the top 5`)),
+                H('div', { class: 'rp-lens' }, LENS.gaston),
+                g.top ? H('p', { style: 'margin:0;font-size:16px' }, named(g.top.comment || '')) : H('p', { class: 'rp-none' }, 'Gaston writes up the top 5 only.'),
+                g.dis ? [rpLabel('Unresolved disagreement'), H('p', { style: 'margin:0;font-size:14px' }, named(g.dis.summary))] : null,
+                H('div', { class: 'rp-more' }, H('button', { type: 'button', class: 'rp-link', onclick: () => rpGo(cid, 'gaston') }, "Read Gaston's notes →")));
+            return [H('div', { class: 'rp-cols' }, cols), gCard];
+        }
+
+        function rpMember(cid, m) {
+            const C = S.results.committee;
+            const head = H('div', { class: 'rp-card top', style: `--c:${COLOR[m]}` },
+                H('div', { class: 'rp-row' }, H('div', null, H('div', { class: 'rp-mname', style: 'font-size:20px' }, `${NAME[m]} on ${nameOf(cid)}`),
+                    H('div', { class: 'rp-lens', style: 'margin:2px 0 0' }, LENS[m]))));
+            if (!(C.members || []).includes(m)) return [head, H('p', { class: 'rp-info' },
+                C.skipped?.[m] ? `${NAME[m]} was not launched for this role. ${C.skipped[m]}` : `${NAME[m]} gave no valid position in this committee.`)];
+            const p = C.positions?.[m]?.[cid];
+            if (p) head.firstChild.append(H('span', { class: 'grow' }), rpMove(rpMovement(m, cid), true), rpScore(p.score), rpVerdict(p.verdict));
+            const { entries, legacy } = rpTimeline(m, cid);
+            if (!entries.length) return [head, H('p', { class: 'rp-info' }, `${NAME[m]} gave no valid position on this candidate.`)];
+            const bad = new Set((C.unreliable || []).filter(u => u.member === m).map(u => u.round));
+            let prev = null, said = null, saidIn = 0;
+            const items = entries.map(e => {
+                const d = prev == null ? null : Math.round((e.score - prev.score) * 10) / 10;
+                prev = e;
+                const key = e.missing ? null : JSON.stringify([e.arguments, e.concerns, e.question]);
+                const same = key != null && key === said;     // unchanged since the round before: say so, don't repeat it
+                if (!same) { said = key; saidIn = e.round; }
+                return H('li', { style: `--c:${COLOR[m]}` }, H('article', { class: 'rp-card' },
+                    H('div', { class: 'rp-row' },
+                        H('span', { class: 'rp-rn' }, e.round === 0 ? 'Round 0 · on their own' : `Debate round ${e.round}`),
+                        e.round ? H('span', { class: 'rp-why' }, `Called in: ${named(e.reason || 'contested candidate')}`) : null,
+                        H('span', { class: 'grow' }),
+                        d == null ? null : H('span', { class: `rp-move ${d > 0 ? 'up' : d < 0 ? 'down' : 'hold'}` }, d ? `${d > 0 ? '+' : ''}${fmt(d)}` : '= held'),
+                        rpScore(e.score), rpVerdict(e.verdict)),
+                    e.reply ? H('p', { class: 'rp-reply' }, named(e.reply)) : null,
+                    e.missing ? H('p', { class: 'rp-none', style: 'margin-top:10px' }, 'Arguments for this round were not saved in this older run. Run the pipeline again to keep every round.')
+                        : same ? H('p', { class: 'rp-none', style: 'margin-top:10px' }, `Same arguments, concerns and interview question as in round ${saidIn}.`)
+                        : [rpLabel(e.kept_previous_arguments ? 'Arguments (kept from before: this round’s quotes did not check out)' : 'Arguments'), rpArgs(e.arguments, m),
+                            rpLabel('Concerns'), rpList(e.concerns, 'None raised.'),
+                            e.question ? [rpLabel('Would ask in the interview'), H('p', { class: 'rp-q' }, named(e.question))] : null],
+                    bad.has(e.round) ? H('p', { class: 'rp-warn' }, `${NAME[m]} answered badly twice in this round; the invalid parts were dropped.`) : null));
+            });
+            const out = [head];
+            if (legacy) out.push(H('p', { class: 'rp-info' }, 'This committee ran before every round was saved: earlier arguments are missing, scores and replies are complete.'));
+            out.push(H('ol', { class: 'rp-tl' }, items));
+            if (entries.length === 1 && (C.rounds || []).length > 1) out.push(H('p', { class: 'rp-info' },
+                `${nameOf(cid)} was not contested in the debate, so ${NAME[m]} was not asked again after round 0.`));
+            return out;
+        }
+
+        function rpGastonView(cid) {
+            const g = rpGaston(cid);
+            const head = H('div', { class: 'rp-card top', style: `--c:${COLOR.gaston}` },
+                H('div', { class: 'rp-mname', style: 'font-size:20px' }, `Gaston on ${nameOf(cid)}`), H('div', { class: 'rp-lens', style: 'margin:2px 0 0' }, LENS.gaston));
+            const body = H('div', { class: 'rp-card' });
+            if (g.top) {
+                body.append(H('p', { style: 'margin:0;font-size:16px' }, named(g.top.comment || '')));
+                if (g.cand) body.append(rpLabel('Strengths'), rpArgs(g.cand.strengths, 'gaston'),
+                    rpLabel('Areas for improvement'), rpList(g.cand.improvements, 'None noted.'),
+                    rpLabel("What's missing"), rpList(g.cand.missing, 'Nothing noted.'));
+                if (g.qs?.questions?.length) body.append(rpLabel('Questions to ask in the interview'), rpList(g.qs.questions, ''));
+            } else body.append(H('p', { class: 'rp-none' }, `Gaston writes up the top 5 only. ${nameOf(cid)} finished #${rpRank(cid)}.`));
+            if (g.dis) body.append(rpLabel('Unresolved disagreement'), H('p', { style: 'margin:0;font-size:14px' }, named(g.dis.summary)));
+            const out = [head, body];
+            if (g.app?.rows?.length) out.push(H('div', { class: 'rp-card' }, H('div', { class: 'rp-label', style: 'margin-top:0' }, 'Positions before and after the debate'),
+                H('table', { class: 'rp-table' }, H('thead', null, H('tr', null, ['Member', 'Before', 'After', 'Why'].map(t => H('th', null, t)))),
+                    H('tbody', null, g.app.rows.map(x => H('tr', null, H('td', null, x.member), H('td', null, `${fmt(x.before)} (${x.verdict_before})`),
+                        H('td', null, `${fmt(x.after)} (${x.verdict_after}) `, x.after === x.before ? null
+                            : H('span', { class: `rp-move ${x.after > x.before ? 'up' : 'down'}` }, `${x.after > x.before ? '+' : ''}${fmt(x.after - x.before)}`)),
+                        H('td', null, named(x.because || '–'))))))));
+            return out;
+        }
+
+        function rpRender() {
+            const C = S.results.committee, cid = RP.cid, r = C.ranking.find(x => x.id === cid) || {}, g = rpGaston(cid);
+            $('rep-name').textContent = nameOf(cid);
+            $('rep-sub').textContent = `${cid} · #${rpRank(cid)} of ${rpOrder().length} · ${fmt(r.score)}/10 · spread ${fmt(r.spread)}`;
+            $('rep-cand').value = cid;
+            $('rep-tabs').replaceChildren(...RP_TABS.map(t => {
+                const off = MEMBERS.includes(t) && !(C.members || []).includes(t);
+                const s = MEMBERS.includes(t) ? (off ? 'not launched' : fmt(r.scores?.[t])) : t === 'gaston' ? (g.top ? 'top 5' : '–') : '';
+                return H('button', { type: 'button', role: 'tab', id: `rp-tab-${t}`, class: 'rp-tab' + (off ? ' off' : ''),
+                    'aria-selected': String(RP.tab === t), tabindex: RP.tab === t ? '0' : '-1', style: t === 'all' ? null : `--c:${COLOR[t]}`,
+                    onclick: () => rpGo(cid, t) }, t === 'all' ? null : H('span', { class: 'dot', 'aria-hidden': 'true' }), t === 'all' ? 'All' : NAME[t], s ? H('small', null, s) : null);
+            }));
+            $('rep-body').setAttribute('aria-labelledby', `rp-tab-${RP.tab}`);
+            $('rep-body').replaceChildren(...[RP.tab === 'all' ? rpAll(cid) : RP.tab === 'gaston' ? rpGastonView(cid) : rpMember(cid, RP.tab)].flat(Infinity));
+            $('rep-body').scrollTop = 0;
+        }
+        function rpUrl(open) {
+            const q = new URLSearchParams(location.search);
+            if (open) { q.set('cid', RP.cid); if (RP.tab === 'all') q.delete('member'); else q.set('member', RP.tab); }
+            else q.delete('member');
+            history.replaceState(null, '', `?${q}`);
+        }
+        function rpGo(cid, tab) {
+            RP.cid = cid; RP.tab = RP_TABS.includes(tab) ? tab : 'all';
+            rpRender(); rpUrl(true);
+        }
+        function openReports(tab, cid) {
+            if (!reportReady()) return;
+            const order = rpOrder();
+            $('rep-cand').replaceChildren(...order.map((c, i) => H('option', { value: c }, `#${i + 1} ${nameOf(c)} (${c})`)));
+            const want = cid || (S.mode === 'live' || S.mode === 'replay' ? S.focus : null);
+            rpGo(order.includes(want) ? want : order[0], tab || 'all');
+            if (!$('rep').open) $('rep').showModal();
+        }
+        $('rep-cand').addEventListener('change', e => rpGo(e.target.value, RP.tab));
+        $('rep-tabs').addEventListener('keydown', e => {
+            const i = RP_TABS.indexOf(RP.tab);
+            const j = e.key === 'ArrowRight' ? (i + 1) % RP_TABS.length : e.key === 'ArrowLeft' ? (i - 1 + RP_TABS.length) % RP_TABS.length : -1;
+            if (j < 0) return;
+            e.preventDefault(); rpGo(RP.cid, RP_TABS[j]); $(`rp-tab-${RP_TABS[j]}`)?.focus();
+        });
+        $('rep-x').addEventListener('click', () => $('rep').close());
+        $('rep').addEventListener('click', e => { if (e.target === $('rep')) $('rep').close(); });
+        $('rep').addEventListener('close', () => rpUrl(false));
 
         /* ------------------------------------------------------------------ controls */
         function setFilter(f) {
@@ -1023,6 +1308,8 @@
                 S.roleId = id;
                 $('back').href = `adminlobby.html?role=${encodeURIComponent(id)}`;
                 await load(true);
+                const want = new URLSearchParams(location.search);
+                if (want.has('member') && reportReady()) openReports(want.get('member'), want.get('cid'));
                 if (S.mode === 'live' || S.mode === 'none') {
                     pollTimer = setInterval(() => load(false).catch(err => notice(err.message)), 2500);
                 }
