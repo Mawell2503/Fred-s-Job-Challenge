@@ -72,6 +72,19 @@ class OrchestratorRules(unittest.TestCase):
         self.assertEqual([c[:2] for c in h.calls if c[1] == 1], [("helene", 1), ("victor", 1), ("nina", 1)])
         self.assertIn("C0001", [u["id"] for u in st["unresolved"]])
 
+    def test_history_keeps_round_0_arguments_after_a_debate_round(self):
+        ids = [f"C{i:04d}" for i in range(1, 7)]
+        t = flat({"helene": 7, "victor": 7, "nina": 7}, ids, rounds=2)
+        t["helene"][0]["C0001"], t["victor"][0]["C0001"] = 2, 9
+        t["helene"][1]["C0001"], t["victor"][1]["C0001"] = 4, 9
+        st, h = self.run_with(t)
+        rec = st["history"]["helene"]["C0001"]
+        self.assertEqual([(e["round"], e["score"]) for e in rec[:2]], [(0, 2), (1, 4)])
+        self.assertTrue(rec[0]["arguments"] and rec[0]["reason"].startswith("round 0"))
+        self.assertIn("lowest score", rec[1]["reason"])
+        # a candidate nobody debated has only its round-0 entry, for every member who sat
+        self.assertEqual([len(st["history"][m]["C0002"]) for m in st["members"]], [1, 1, 1])
+
     def test_debate_never_goes_beyond_three_rounds(self):
         ids = [f"C{i:04d}" for i in range(1, 7)]
         t = flat({"helene": 7, "victor": 7, "nina": 7}, ids, rounds=4)

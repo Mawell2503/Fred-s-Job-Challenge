@@ -184,6 +184,8 @@ prompt (`personas/<name>.md` + shared `RULES`). Everything else is plain code.
   rescue), one re-prompt on validation errors, stop on consensus / deadlock / max rounds, `rank()` =
   average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`; feed lines carry `cid`/`cids`,
   `score`, `verdict`, `from`/`to`, `arg`, `concern` so the committee page can redraw the debate from the feed alone.
+  `history` (member → cid → one entry per round: score, verdict, verified arguments, concerns, question, reply,
+  why they were called) is saved in `committee.json` for the member reports; `positions` only holds the final round.
 - `live.py` — `live.json` while the committee sits (`--live`): phase, who is speaking, current positions,
   ranking, and each finalist's facts (name, application label, Nina's checks, Victor's timeline, what is missing).
   Names are for the admin page only.
@@ -205,7 +207,8 @@ poll and show a live progress indicator while an agent runs in the background.
   page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
   `committee.html` (opened by "3 · Committee": the live debate drawn from `feed.json` + `live.json` with
   B#1 on the table / B#2 scores / B#3 evidence / B#4 fit & red flags, the chat and the race; then the results
-  and a replay), `report.html` (Gaston's report).
+  and a replay; once Gaston's report exists the members bar at the top right opens each member's report on a
+  finalist, round by round, in a dialog: All (default) · Hélène · Victor · Nina · Gaston), `report.html` (Gaston's report).
   The criteria, CV-section and practical-requirement editors live once in `pages/admin-forms.js`
   (`window.AdminForms`) and are used by both the lobby cards and `roles.html`: change them there.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the
