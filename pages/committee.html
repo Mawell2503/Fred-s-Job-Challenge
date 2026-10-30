@@ -9,12 +9,16 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap">
     <!-- The committee's own page, opened from the lobby's "3 · Committee" button (?role=R001).
-         What it shows is still to be designed: for now a placeholder + Gaston's report once it exists. -->
+         Once Gaston's report exists: pick one of the 10 finalists, then read what each member said about
+         them, round by round (All = side by side, the default). Deep links: ?role=R001&cand=C0030&member=helene
+         Everything comes from committee.json (GET .../results); nothing here is computed by an AI. -->
     <style>
         :root {
             --bg: #FBF8F4; --card: #FFFFFF; --ink: #2A2420; --muted: #6F655D; --faint: #776B62;
             --line: #EDE5DC; --line-strong: #E3D9CF; --soft: #F4EFE9;
             --accent: #FFB443; --accent-strong: #E8961E; --error: #B42318;
+            --up: #1F7A3A; --down: #B42318; --hold: #776B62;
+            --helene: #2F5D8A; --victor: #3E7A4A; --nina: #8A4F7D; --gaston: #8A5A1E;
             --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
         * { box-sizing: border-box; }
@@ -25,6 +29,7 @@
             display: flex; flex-direction: column;
         }
         a { color: inherit; }
+        button { font: inherit; color: inherit; }
         :focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -41,18 +46,125 @@
         .role { font-size: 14px; color: var(--muted); }
         .grow { flex: 1; }
         .who { font-size: 13px; color: var(--muted); }
-        main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px; }
+        main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 22px; }
         .kicker { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
         h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; }
+        .head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+        .head .actions { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+        .notice { margin: 0; color: var(--error); }
+        .info { margin: 0; padding: 12px 16px; border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 14px; }
         .placeholder {
             flex: 1; min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 10px; padding: 48px 24px; border: 1px dashed var(--line-strong); border-radius: 20px;
             background: var(--card); color: var(--muted); text-align: center;
         }
         .placeholder b { color: var(--ink); font-size: 18px; }
-        .actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
-        .notice { margin: 0; color: var(--error); }
-        @media (max-width: 700px) { .topbar { padding: 12px 16px; } main { padding: 20px 16px; } h1 { font-size: 28px; } .sep { display: none; } }
+
+        /* ---- layout: finalists on the left, the candidate on the right ---- */
+        .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
+        .finalists { position: sticky; top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px; }
+        .finalists h2 { margin: 6px 10px 8px; font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        .finalists ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+        .fin {
+            width: 100%; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px;
+            padding: 9px 10px; border: 0; border-radius: 12px; background: none; text-align: left; cursor: pointer;
+        }
+        .fin:hover { background: var(--soft); }
+        .fin[aria-current="true"] { background: #FFF1DB; box-shadow: inset 3px 0 0 var(--accent-strong); }
+        .fin .rk { font: 500 12px var(--mono); color: var(--faint); }
+        .fin .nm { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fin .id { display: block; font: 400 11px var(--mono); color: var(--faint); }
+        .fin .sc { font: 500 13px var(--mono); }
+        .fin .t5 { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 99px; background: var(--accent); font: 700 10px/16px 'DM Sans', system-ui, sans-serif; vertical-align: 1px; }
+        .cut { margin: 6px 10px; border-top: 1px dashed var(--line-strong); font: 500 10px var(--mono); color: var(--faint); padding-top: 4px; letter-spacing: .05em; text-transform: uppercase; }
+
+        .cand { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; }
+        .chead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+        .chead h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
+        .chead .cid { font: 500 13px var(--mono); color: var(--faint); }
+        .facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .fact { padding: 5px 11px; border-radius: 99px; background: var(--soft); font-size: 13px; color: var(--muted); }
+        .fact b { color: var(--ink); }
+
+        /* ---- the member bar ---- */
+        .bar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px;
+            border: 1px solid var(--line-strong); border-radius: 99px; background: var(--card); cursor: pointer; font-weight: 700;
+        }
+        .chip:hover { background: var(--soft); }
+        .chip[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+        .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--faint)); }
+        .chip[aria-selected="true"] .dot { box-shadow: 0 0 0 2px #fff; }
+        .chip .s { font: 500 12px var(--mono); opacity: .8; }
+        .chip.off { color: var(--faint); font-weight: 500; }
+
+        /* ---- shared bits ---- */
+        .score { display: inline-flex; align-items: baseline; gap: 2px; font: 800 30px/1 'DM Sans', system-ui, sans-serif; }
+        .score small { font: 500 13px var(--mono); color: var(--faint); }
+        .verdict { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
+        .verdict.advance { background: #E3F1E6; color: var(--up); }
+        .verdict.maybe { background: #FBEFD9; color: #8A5A00; }
+        .verdict.reject { background: #FBE4E1; color: var(--down); }
+        .move { font: 500 13px var(--mono); }
+        .move.up { color: var(--up); } .move.down { color: var(--down); } .move.hold { color: var(--hold); }
+        .label { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; margin: 16px 0 6px; }
+        .args { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        .arg p { margin: 0; font-weight: 500; }
+        .arg blockquote { margin: 4px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--c, var(--line-strong)); color: var(--muted); font-size: 14px; }
+        .src { display: inline-block; margin-left: 6px; font: 500 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; }
+        .plain { margin: 0; padding-left: 18px; }
+        .plain li + li { margin-top: 4px; }
+        .q { margin: 0; font-style: italic; }
+        .none { color: var(--faint); font-size: 14px; margin: 0; }
+
+        /* ---- All: three columns side by side, Gaston below ---- */
+        .cols { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 14px; }
+        .col { border-top: 4px solid var(--c); display: flex; flex-direction: column; }
+        .col .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .col .mname { font-weight: 800; font-size: 17px; }
+        .col .lens { font-size: 13px; color: var(--muted); margin: 2px 0 12px; }
+        .col .line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .col .more { margin-top: auto; padding-top: 16px; }
+        .linkbtn { border: 0; background: none; padding: 0; color: var(--c, var(--ink)); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+        /* ---- one member: a timeline, round by round ---- */
+        .mhead { border-top: 4px solid var(--c); display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }
+        .mhead .mname { font-size: 22px; font-weight: 800; }
+        .mhead .lens { color: var(--muted); font-size: 14px; max-width: 520px; }
+        .mhead .finals { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+        .tl { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; display: flex; flex-direction: column; gap: 16px; }
+        .tl::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: var(--line-strong); }
+        .tl > li { position: relative; }
+        .tl > li::before { content: ""; position: absolute; left: -21px; top: 22px; width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 3px solid var(--c); }
+        .rhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+        .rhead .rn { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        .rhead .why { font-size: 13px; color: var(--muted); }
+        .rhead .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .reply { margin: 12px 0 0; padding: 12px 14px; background: var(--soft); border-radius: 12px; }
+        .warn { margin: 10px 0 0; font-size: 13px; color: #8A5A00; }
+
+        /* ---- Gaston ---- */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        th { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .05em; text-transform: uppercase; }
+        .comment { font-size: 17px; margin: 0; }
+
+        @media (max-width: 1000px) {
+            .layout { grid-template-columns: minmax(0, 1fr); }
+            .finalists { min-width: 0; }
+            .finalists { position: static; }
+            .finalists ol { flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+            .fin { min-width: 230px; flex: none; width: 230px; }
+            .cut { display: none; }
+            .cols { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 700px) {
+            .topbar { padding: 12px 16px; } main { padding: 20px 16px 40px; } h1 { font-size: 28px; } .sep { display: none; }
+            .card { padding: 16px; } .mhead .finals { margin-left: 0; } .rhead .right { margin-left: 0; }
+            .head .actions { margin-left: 0; }
+        }
     </style>
 </head>
 
@@ -71,28 +183,53 @@
     </header>
 
     <main>
-        <div>
-            <div class="kicker">Hélène · Victor · Nina · Gaston</div>
-            <h1>3 · Committee</h1>
+        <div class="head">
+            <div>
+                <div class="kicker">Hélène · Victor · Nina · Gaston</div>
+                <h1>3 · Committee</h1>
+            </div>
+            <div class="actions" id="actions" hidden>
+                <a class="btn btn-primary" id="report" href="#">Open Gaston's report</a>
+                <a class="btn" id="report-md" href="#">Download Markdown</a>
+            </div>
         </div>
         <p class="notice" id="notice" role="alert" hidden></p>
-        <section class="placeholder" aria-labelledby="ph-title">
+        <p class="info" id="info" role="status" hidden></p>
+
+        <section class="placeholder" id="placeholder" aria-labelledby="ph-title">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
                 <circle cx="17" cy="9" r="2.5" /><path d="M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8" />
             </svg>
-            <b id="ph-title">The committee page</b>
-            <span id="ph-text">This page is still being designed.</span>
-            <div class="actions" id="actions" hidden>
-                <a class="btn btn-primary" id="report" href="#">Open Gaston's report</a>
-                <a class="btn" id="report-md" href="#">Download Markdown</a>
-            </div>
+            <b id="ph-title">Loading the committee…</b>
+            <span id="ph-text"></span>
         </section>
+
+        <div class="layout" id="layout" hidden>
+            <nav class="finalists" aria-label="Finalists">
+                <h2>The 10 finalists · final rank</h2>
+                <ol id="fin-list"></ol>
+            </nav>
+            <section class="cand" id="cand" aria-live="polite"></section>
+        </div>
     </main>
 
     <script>
+        // Build DOM nodes without innerHTML: names, CV quotes and AI output are always plain text.
         const $ = id => document.getElementById(id);
+        function h(tag, attrs = {}, ...kids) {
+            const el = document.createElement(tag);
+            for (const [k, v] of Object.entries(attrs || {})) {
+                if (v == null || v === false) continue;
+                if (k === 'text') el.textContent = v;
+                else if (k === 'style') el.style.cssText = v;
+                else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+                else el.setAttribute(k, v === true ? '' : v);
+            }
+            for (const kid of kids.flat(Infinity)) if (kid != null && kid !== '') el.append(kid instanceof Node ? kid : String(kid));
+            return el;
+        }
         async function api(url) {
             const res = await fetch(url);
             if (res.status === 401) { location.href = '/#admin'; throw new Error('Logged out.'); }
@@ -101,27 +238,274 @@
             return data;
         }
 
+        const MEMBERS = ['helene', 'victor', 'nina'];
+        const NAME = { helene: 'Hélène', victor: 'Victor', nina: 'Nina', gaston: 'Gaston' };
+        const LENS = {
+            helene: 'The engineer. Technical proof and concrete achievements.',
+            victor: 'The veteran. Career path, reliability, teamwork.',
+            nina: 'Operations. Availability, budget, location, language.',
+            gaston: 'The clerk. Did not vote: wrote the report from the debate.',
+        };
+        const SRC = { cv: 'CV', practical: 'Practical answers', linkedin: 'LinkedIn' };
+        const fmt = n => (n == null ? '–' : Number(n).toLocaleString('en', { maximumFractionDigits: 2 }));
+
+        let C = null, RES = null, ROLE = '', names = {}, order = [], state = { cand: null, member: 'all' };
+
+        // ---------- what a member said about a candidate, round by round ----------
+        // New runs carry committee.history (every round, verified arguments). Older runs only kept the final
+        // position + the score changes: we rebuild what we can and say what is missing.
+        function timeline(m, cid) {
+            const hist = C.history?.[m]?.[cid];
+            if (hist?.length) return { entries: hist, legacy: false };
+            const entries = [];
+            const b = C.before?.[m]?.[cid];
+            if (b) entries.push({ round: 0, reason: 'round 0: everyone gives a position', score: b.score, verdict: b.verdict, missing: true });
+            for (const r of C.rounds || []) {
+                for (const ch of r.changes || []) if (ch.member === m && ch.id === cid) {
+                    const l = (r.launched || []).find(x => x.member === m);
+                    entries.push({ round: r.round, reason: l?.reason?.[cid] || '', score: ch.to, verdict: ch.verdict_to, reply: ch.because, missing: true });
+                }
+            }
+            const fin = C.positions?.[m]?.[cid];
+            if (fin && entries.length) Object.assign(entries.at(-1), { arguments: fin.arguments, concerns: fin.concerns, question: fin.question, missing: false });
+            return { entries, legacy: true };
+        }
+        function finalOf(m, cid) { return C.positions?.[m]?.[cid] || null; }
+        function movement(m, cid) {
+            const b = C.before?.[m]?.[cid]?.score, a = C.after?.[m]?.[cid]?.score;
+            return b == null || a == null ? null : { from: b, to: a, d: Math.round((a - b) * 10) / 10 };
+        }
+        function moveEl(mv, long) {
+            if (!mv) return '';
+            if (!mv.d) return h('span', { class: 'move hold', text: long ? `held ${fmt(mv.to)} through the debate` : '= held' });
+            const up = mv.d > 0;
+            return h('span', { class: `move ${up ? 'up' : 'down'}`, text: long ? `${fmt(mv.from)} → ${fmt(mv.to)} during the debate` : `${up ? '▲' : '▼'} ${fmt(mv.from)} → ${fmt(mv.to)}` });
+        }
+        const verdictEl = v => v ? h('span', { class: `verdict ${v}`, text: v }) : '';
+        const scoreEl = s => h('span', { class: 'score' }, fmt(s), h('small', { text: '/10' }));
+
+        function argsEl(args, m) {
+            if (!args?.length) return h('p', { class: 'none', text: 'No argument with a verified quote.' });
+            return h('ul', { class: 'args', style: `--c: var(--${m})` }, args.map(a => h('li', { class: 'arg' },
+                h('p', { text: a.point }),
+                h('blockquote', {}, `“${a.quote}”`, h('span', { class: 'src', text: `${SRC[a.source] || a.source} · verified` })))));
+        }
+        function listEl(items, empty) {
+            return items?.length ? h('ul', { class: 'plain' }, items.map(x => h('li', { text: x }))) : h('p', { class: 'none', text: empty });
+        }
+
+        // ---------- views ----------
+        function viewAll(cid) {
+            const sat = C.members || [];
+            const cols = MEMBERS.map(m => {
+                if (!sat.includes(m)) {
+                    return h('article', { class: 'card col', style: `--c: var(--${m})` },
+                        h('div', { class: 'mname', text: NAME[m] }), h('div', { class: 'lens', text: LENS[m] }),
+                        h('p', { class: 'none', text: C.skipped?.[m] ? `Not called: ${C.skipped[m]}` : 'Gave no valid position on this candidate.' }));
+                }
+                const p = finalOf(m, cid);
+                if (!p) return h('article', { class: 'card col', style: `--c: var(--${m})` },
+                    h('div', { class: 'mname', text: NAME[m] }), h('p', { class: 'none', text: 'No valid position on this candidate.' }));
+                return h('article', { class: 'card col', style: `--c: var(--${m})` },
+                    h('div', { class: 'top' }, h('div', { class: 'mname', text: NAME[m] }), verdictEl(p.verdict)),
+                    h('div', { class: 'lens', text: LENS[m] }),
+                    h('div', { class: 'line' }, scoreEl(p.score), moveEl(movement(m, cid))),
+                    h('div', { class: 'label', text: 'Final arguments' }), argsEl(p.arguments, m),
+                    h('div', { class: 'label', text: 'Concerns' }), listEl(p.concerns, 'None raised.'),
+                    h('div', { class: 'more' }, h('button', { class: 'linkbtn', type: 'button', onclick: () => go(cid, m),
+                        text: `Read ${NAME[m]}'s full report →` })));
+            });
+            const g = gastonOn(cid);
+            const gCard = h('article', { class: 'card col', style: '--c: var(--gaston)' },
+                h('div', { class: 'top' }, h('div', { class: 'mname', text: 'Gaston' }),
+                    h('span', { class: 'fact', text: g.top ? `Top 5 · #${g.top.rank}` : `#${rankOf(cid)} · outside the top 5` })),
+                h('div', { class: 'lens', text: LENS.gaston }),
+                g.top ? h('p', { class: 'comment', text: g.top.comment || '' }) : h('p', { class: 'none', text: 'Gaston writes up the top 5 only.' }),
+                g.dis ? [h('div', { class: 'label', text: 'Unresolved disagreement' }), h('p', { style: 'margin:0', text: g.dis.summary })] : '',
+                h('div', { class: 'more' }, h('button', { class: 'linkbtn', type: 'button', onclick: () => go(cid, 'gaston'), text: "Read Gaston's notes →" })));
+            return [h('div', { class: 'cols', style: '--n: 3' }, cols), gCard];
+        }
+
+        function viewMember(cid, m) {
+            const sat = (C.members || []).includes(m);
+            const head = h('div', { class: 'card mhead', style: `--c: var(--${m})` },
+                h('div', {}, h('div', { class: 'mname', text: `${NAME[m]} on ${names[cid] || cid}` }), h('div', { class: 'lens', text: LENS[m] })));
+            if (!sat) return [head, h('div', { class: 'card' }, h('p', { class: 'none',
+                text: C.skipped?.[m] ? `${NAME[m]} was not called for this role. ${C.skipped[m]}` : `${NAME[m]} gave no valid position in this committee.` }))];
+            const p = finalOf(m, cid);
+            if (p) head.append(h('div', { class: 'finals' }, moveEl(movement(m, cid), true), scoreEl(p.score), verdictEl(p.verdict)));
+            const { entries, legacy } = timeline(m, cid);
+            if (!entries.length) return [head, h('div', { class: 'card' }, h('p', { class: 'none', text: `${NAME[m]} gave no valid position on this candidate.` }))];
+            const bad = new Set((C.unreliable || []).filter(u => u.member === m).map(u => u.round));
+            let prev = null, said = null, saidIn = 0;
+            const items = entries.map(e => {
+                const d = prev == null ? null : Math.round((e.score - prev.score) * 10) / 10;
+                prev = e;
+                // the same arguments, concerns and question as the round before: say so instead of repeating them
+                const key = e.missing ? null : JSON.stringify([e.arguments, e.concerns, e.question]);
+                const same = key != null && key === said;
+                if (!same) { said = key; saidIn = e.round; }
+                const tag = e.round === 0 ? 'Round 0 · on their own' : `Debate round ${e.round}`;
+                return h('li', { style: `--c: var(--${m})` }, h('article', { class: 'card' },
+                    h('div', { class: 'rhead' }, h('span', { class: 'rn', text: tag }),
+                        e.round ? h('span', { class: 'why', text: `Called in: ${e.reason || 'contested candidate'}` }) : '',
+                        h('span', { class: 'right' },
+                            d == null ? '' : h('span', { class: `move ${d > 0 ? 'up' : d < 0 ? 'down' : 'hold'}`, text: d ? `${d > 0 ? '+' : ''}${fmt(d)}` : '= held' }),
+                            scoreEl(e.score), verdictEl(e.verdict))),
+                    e.reply ? h('p', { class: 'reply', text: e.reply }) : '',
+                    e.missing ? h('p', { class: 'none', style: 'margin-top:10px', text: 'Arguments for this round were not saved in this older run (re-run the pipeline to keep every round).' })
+                    : same ? h('p', { class: 'none', style: 'margin-top:10px', text: `Same arguments, concerns and interview question as in ${saidIn ? `round ${saidIn}` : 'round 0'}.` }) : [
+                        h('div', { class: 'label', text: e.kept_previous_arguments ? 'Arguments (kept from before: this round’s quotes did not check out)' : 'Arguments' }),
+                        argsEl(e.arguments, m),
+                        h('div', { class: 'label', text: 'Concerns' }), listEl(e.concerns, 'None raised.'),
+                        e.question ? [h('div', { class: 'label', text: 'Would ask in the interview' }), h('p', { class: 'q', text: e.question })] : '',
+                    ],
+                    bad.has(e.round) ? h('p', { class: 'warn', text: `${NAME[m]} answered badly twice in this round; the invalid parts were dropped.` }) : ''));
+            });
+            const out = [head, h('ol', { class: 'tl' }, items)];
+            const rounds = (C.rounds || []).length - 1;
+            if (entries.length === 1 && rounds > 0) out.push(h('p', { class: 'info', text: `${names[cid] || cid} was not contested in the debate, so ${NAME[m]} was not asked again after round 0.` }));
+            if (legacy) out.unshift(h('p', { class: 'info', text: 'This committee ran before every round was saved: earlier arguments are missing, scores and replies are complete.' }));
+            return out;
+        }
+
+        function gastonOn(cid) {
+            const r = C.report || {};
+            return {
+                top: (r.top5 || []).find(t => t.id === cid),
+                cand: (r.candidates || []).find(t => t.id === cid),
+                dis: (r.disagreements || []).find(t => t.id === cid),
+                qs: (r.interview_questions || []).find(t => t.id === cid),
+                app: (r.appendix || []).find(t => t.id === cid),
+            };
+        }
+        function viewGaston(cid) {
+            const g = gastonOn(cid);
+            const head = h('div', { class: 'card mhead', style: '--c: var(--gaston)' },
+                h('div', {}, h('div', { class: 'mname', text: `Gaston on ${names[cid] || cid}` }), h('div', { class: 'lens', text: LENS.gaston })));
+            const body = h('div', { class: 'card' });
+            if (g.top) {
+                body.append(h('p', { class: 'comment', text: g.top.comment || '' }));
+                if (g.cand) body.append(
+                    h('div', { class: 'label', text: 'Strengths' }), argsEl(g.cand.strengths, 'gaston'),
+                    h('div', { class: 'label', text: 'Areas for improvement' }), listEl(g.cand.improvements, 'None noted.'),
+                    h('div', { class: 'label', text: "What's missing" }), listEl(g.cand.missing, 'Nothing noted.'));
+                if (g.qs?.questions?.length) body.append(h('div', { class: 'label', text: 'Questions to ask in the interview' }), listEl(g.qs.questions, ''));
+            } else {
+                body.append(h('p', { class: 'none', text: `Gaston writes up the top 5 only. ${names[cid] || cid} finished #${rankOf(cid)}.` }));
+            }
+            if (g.dis) body.append(h('div', { class: 'label', text: 'Unresolved disagreement' }), h('p', { style: 'margin:0', text: g.dis.summary }));
+            const out = [head, body];
+            if (g.app?.rows?.length) out.push(h('div', { class: 'card' },
+                h('div', { class: 'label', style: 'margin-top:0', text: 'Positions before and after the debate' }),
+                h('table', {}, h('thead', {}, h('tr', {}, ['Member', 'Before', 'After', 'Why'].map(t => h('th', { text: t })))),
+                    h('tbody', {}, g.app.rows.map(x => h('tr', {},
+                        h('td', { text: x.member }), h('td', { text: `${fmt(x.before)} (${x.verdict_before})` }),
+                        h('td', {}, `${fmt(x.after)} (${x.verdict_after}) `, x.after === x.before ? '' :
+                            h('span', { class: `move ${x.after > x.before ? 'up' : 'down'}`, text: `${x.after > x.before ? '+' : ''}${fmt(x.after - x.before)}` })),
+                        h('td', { text: x.because || '–' })))))));
+            return out;
+        }
+
+        // ---------- page ----------
+        const rankOf = cid => order.indexOf(cid) + 1;
+
+        function renderList() {
+            const top = new Set(C.top5 || []);
+            const items = [];
+            order.forEach((cid, i) => {
+                const r = C.ranking.find(x => x.id === cid);
+                if (i === 5) items.push(h('li', { class: 'cut', 'aria-hidden': 'true', text: 'top 5 cut-off' }));
+                items.push(h('li', {}, h('button', { class: 'fin', type: 'button', 'aria-current': state.cand === cid ? 'true' : 'false',
+                    onclick: () => go(cid, state.member) },
+                    h('span', { class: 'rk', text: `#${i + 1}` }),
+                    h('span', { style: 'min-width:0' }, h('span', { class: 'nm', text: names[cid] || cid }),
+                        h('span', { class: 'id' }, cid, top.has(cid) ? h('span', { class: 't5', text: 'Top 5' }) : '')),
+                    h('span', { class: 'sc', text: fmt(r?.score) }))));
+            });
+            $('fin-list').replaceChildren(...items);
+        }
+
+        function renderCand() {
+            const cid = state.cand, r = C.ranking.find(x => x.id === cid) || {};
+            const g = gastonOn(cid);
+            const sat = C.members || [];
+            const tabs = ['all', ...MEMBERS, 'gaston'];
+            const chips = tabs.map(t => {
+                const off = MEMBERS.includes(t) && !sat.includes(t);
+                const s = MEMBERS.includes(t) ? (off ? 'not called' : fmt(r.scores?.[t])) : t === 'gaston' ? (g.top ? '✎' : '–') : '';
+                return h('button', { class: `chip${off ? ' off' : ''}`, type: 'button', role: 'tab', id: `tab-${t}`,
+                    'aria-selected': state.member === t ? 'true' : 'false', 'aria-controls': 'panel', tabindex: state.member === t ? '0' : '-1',
+                    style: t === 'all' ? '' : `--c: var(--${t})`, onclick: () => go(cid, t) },
+                    t === 'all' ? '' : h('span', { class: 'dot', 'aria-hidden': 'true' }),
+                    t === 'all' ? 'All' : NAME[t], s ? h('span', { class: 's', text: s }) : '');
+            });
+            const bar = h('div', { class: 'bar', role: 'tablist', 'aria-label': 'Committee members', onkeydown: e => {
+                const i = tabs.indexOf(state.member);
+                const j = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length : -1;
+                if (j < 0) return;
+                e.preventDefault(); go(cid, tabs[j]); $(`tab-${tabs[j]}`)?.focus();
+            } }, chips);
+            const app = RES.application?.[cid] || g.cand?.application;
+            const head = h('div', { class: 'card' },
+                h('div', { class: 'chead' }, h('h2', { text: names[cid] || cid }), h('span', { class: 'cid', text: cid })),
+                h('div', { class: 'facts' },
+                    h('span', { class: 'fact' }, 'Final rank ', h('b', { text: `#${rankOf(cid)}` }), ` of ${order.length}`),
+                    h('span', { class: 'fact' }, 'Committee score ', h('b', { text: `${fmt(r.score)}/10` })),
+                    h('span', { class: 'fact' }, 'Spread ', h('b', { text: fmt(r.spread) }), r.spread > 2 ? ' · split' : ' · agreement'),
+                    r.jules != null ? h('span', { class: 'fact' }, 'Jules ', h('b', { text: fmt(r.jules) })) : '',
+                    app ? h('span', { class: 'fact', text: app }) : ''));
+            const panel = h('div', { id: 'panel', role: 'tabpanel', 'aria-labelledby': `tab-${state.member}`, style: 'display:flex;flex-direction:column;gap:14px' },
+                state.member === 'all' ? viewAll(cid) : state.member === 'gaston' ? viewGaston(cid) : viewMember(cid, state.member));
+            $('cand').replaceChildren(head, bar, panel);
+        }
+
+        function go(cid, member, push = true) {
+            state = { cand: cid, member: ['all', 'gaston', ...MEMBERS].includes(member) ? member : 'all' };
+            const q = new URLSearchParams({ role: ROLE, cand: cid });
+            if (state.member !== 'all') q.set('member', state.member);
+            if (push) history.replaceState(null, '', `?${q}`);
+            renderList(); renderCand();
+        }
+
         (async () => {
             try {
                 const me = await api('/api/admin/me');
                 $('who').textContent = me.user;
-                let id = new URLSearchParams(location.search).get('role');
+                const params = new URLSearchParams(location.search);
+                let id = params.get('role');
                 if (!id) { try { id = localStorage.getItem('lobby.role'); } catch { /* storage off */ } }
-                if (!id) { $('ph-text').textContent = 'Choose a role in the lobby first.'; return; }
+                if (!id) { $('ph-title').textContent = 'No role chosen'; $('ph-text').textContent = 'Choose a role in the lobby first.'; return; }
+                ROLE = id;
                 $('back').href = `adminlobby.html?role=${encodeURIComponent(id)}`;
-                const res = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
-                $('role').textContent = `${res.role.title} · ${res.role.id}`;
-                document.title = `Committee · ${res.role.title}`;
-                const report = res.committee?.report;
-                $('ph-text').textContent = report
-                    ? 'This page is still being designed. Until then, Gaston\'s report is here.'
-                    : 'This page is still being designed. The committee has not met for this role yet.';
-                $('actions').hidden = !report;
+                RES = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
+                $('role').textContent = `${RES.role.title} · ${RES.role.id}`;
+                document.title = `Committee · ${RES.role.title}`;
+                C = RES.committee;
                 $('report').href = `report.html?role=${encodeURIComponent(id)}`;
                 $('report-md').href = `/api/admin/roles/${encodeURIComponent(id)}/report.md`;
+                // member reports open once Gaston has written the report (the debate is over by then)
+                if (!C?.report) {
+                    $('ph-title').textContent = 'The committee has not finished';
+                    $('ph-text').textContent = 'Each member’s report on each finalist opens here once Gaston has written the final report.';
+                    return;
+                }
+                $('actions').hidden = false;
+                $('placeholder').hidden = true;
+                $('layout').hidden = false;
+                order = (C.ranking || []).map(r => r.id);
+                for (const f of RES.jules?.finalists || []) names[f.candidate_id] = RES.names?.[f.candidate_id] || f.personal?.name || '';
+                for (const cid of order) names[cid] ||= RES.names?.[cid] || '';
+                const want = params.get('cand');
+                if (want && !order.includes(want)) {
+                    $('info').hidden = false;
+                    $('info').textContent = `${want} was not one of the ${order.length} finalists the committee debated, so the members have no report on them. Showing the committee’s #1 instead.`;
+                }
+                go(order.includes(want) ? want : order[0], params.get('member') || 'all', false);
             } catch (err) {
                 $('notice').hidden = false;
                 $('notice').textContent = err.message;
+                $('placeholder').hidden = true;
             }
         })();
     </script>

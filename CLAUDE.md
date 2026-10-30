@@ -181,7 +181,7 @@ prompt (`personas/<name>.md` + shared `RULES`). Everything else is plain code.
 - `orchestrator.py` — round 0 alone (Hélène → Victor → Nina; Nina skipped if nothing practical), then up
   to 3 debate rounds on `contested()` candidates with `assignments()` (highest/lowest scorer, the middle one once, + Victor's
   rescue), one re-prompt on validation errors, stop on consensus / deadlock / max rounds, `rank()` =
-  average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`.
+  average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`. `history` (member → cid → one entry per round: score, verdict, verified arguments, concerns, question, reply, why they were called) is saved in `committee.json` for the committee page; `positions` only holds the final round.
 - `gaston.py` — `confidence()` and every fact by code; one AI call for the wording; strengths' quotes
   verified; one re-prompt; `fill()` completes from the members' verified arguments; works with the AI down.
 - `report.py` — `to_markdown()`; `pages/report.html` renders the same report JSON (print → PDF).
@@ -198,7 +198,7 @@ poll and show a live progress indicator while an agent runs in the background.
 - **Admin pages**: `adminlobby.html` (top 10 / top 5 board + live timeline; the timeline's "Applications in",
   "Job & criteria" and "Practical requirements" steps are buttons that open `<dialog>` cards over a blurred
   page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
-  `committee.html` (opened by "3 · Committee"; placeholder for now), `report.html` (Gaston's report).
+  `committee.html` (opened by "3 · Committee"; once Gaston's report exists: the 10 finalists, then per candidate All · Hélène · Victor · Nina · Gaston, All by default, each member's position round by round from `committee.history`; deep links `?role=&cand=&member=`), `report.html` (Gaston's report).
   The criteria, CV-section and practical-requirement editors live once in `pages/admin-forms.js`
   (`window.AdminForms`) and are used by both the lobby cards and `roles.html`: change them there.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the

@@ -76,7 +76,7 @@ def _committee(a) -> int:
     state["feed"] = trace.feed
     out = {"agent": "COMMITTEE", "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
            **{k: state[k] for k in ("top5", "ranking", "stop_reason", "calls", "reprompts", "members", "skipped",
-                                    "unresolved", "rounds", "before", "after", "positions", "unreliable",
+                                    "unresolved", "rounds", "before", "after", "positions", "history", "unreliable",
                                     "warnings", "feed", "seconds")},
            "report": report}
     _write(a.out, out)

@@ -198,6 +198,15 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
     # ---- 2. round 0: positions before
     positions: dict[str, dict] = {}
     heard: set = set()                         # (member, cid) already called in a debate round
+    history: dict[str, dict[str, list]] = {}   # member -> cid -> what they said, round by round
+
+    def remember(m, cid, round_no, pos, reason, kept_arguments=False):
+        """One entry of the member's record on a candidate: only validated content (verified quotes)."""
+        history.setdefault(m, {}).setdefault(cid, []).append({
+            "round": round_no, "reason": reason, "score": pos["score"], "verdict": pos["verdict"],
+            "arguments": copy.deepcopy(pos["arguments"]), "concerns": list(pos.get("concerns") or []),
+            "question": pos.get("question", ""), "reply": pos.get("reply", ""),
+            **({"kept_previous_arguments": True} if kept_arguments else {})})
     top5s = {}
     r0 = {"round": 0, "launched": [], "changes": []}
     for m in sitting:
@@ -208,6 +217,8 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         if clean is None or not clean["positions"]:
             continue
         positions[m] = clean["positions"]
+        for cid, p in clean["positions"].items():
+            remember(m, cid, 0, p, "round 0: everyone gives a position")
         top5s[m] = clean["top5"]
         best = max(clean["positions"].items(), key=lambda kv: kv[1]["score"])
         trace.say(f"{_name(m)} scored {len(clean['positions'])} candidates; favourite {best[0]} "
@@ -258,8 +269,10 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
                 continue
             for cid, newp in clean["positions"].items():
                 old = positions[m][cid]
-                if not newp["arguments"]:            # dropped as invalid: keep the old reasoning
+                kept = not newp["arguments"]
+                if kept:                             # dropped as invalid: keep the old reasoning
                     newp["arguments"] = old["arguments"]
+                remember(m, cid, r, newp, reasons.get(cid, ""), kept)
                 delta = newp["score"] - old["score"]
                 if abs(delta) >= CHANGE_THRESHOLD:
                     changed = True
@@ -291,6 +304,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         "after": {m: {c: {"score": p["score"], "verdict": p["verdict"]} for c, p in pos.items()}
                   for m, pos in positions.items()},
         "positions": positions,
+        "history": history,
         "round0_top5": top5s,
         "ranking": ranking,
         "top5": top5,
