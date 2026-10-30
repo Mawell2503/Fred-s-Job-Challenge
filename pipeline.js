@@ -25,7 +25,7 @@ export const TIMEOUTS = { clara: 5 * MINUTES, remi: 30 * MINUTES, jules: 60 * MI
 export const STEPS = ['oscar', 'remi', 'jules', 'committee'];
 export const STEP_LABEL = { oscar: 'Oscar (CVs)', remi: 'Remi (top 20)', jules: 'Jules (top 10)', committee: 'Committee + Gaston' };
 // everything a pipeline run produces; deleted at the start of a run so nothing stale is ever shown
-export const OUTPUTS = ['ids.txt', 'remi.json', 'jules.json', 'committee_in.json', 'committee.json', 'report.md', 'trace.jsonl', 'feed.json'];
+export const OUTPUTS = ['ids.txt', 'remi.json', 'jules.json', 'committee_in.json', 'committee.json', 'report.md', 'trace.jsonl', 'feed.json', 'live.json'];
 
 export const readJson = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 const lastLine = text => String(text).trim().split('\n').filter(Boolean).pop() || '';
@@ -166,7 +166,8 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
     fs.writeFileSync(file('committee_in.json'), JSON.stringify(cin, null, 2), { mode: 0o600 });
     await step('committee', () => runHiring(['committee', '--job', job, '--runs', runs, '--jules', file('jules.json'),
         '--input', file('committee_in.json'), '--out', file('committee.json'), '--report', file('report.md'),
-        '--trace', file('trace.jsonl'), '--feed', file('feed.json'), '--progress', progressFile], 'committee'));
+        '--trace', file('trace.jsonl'), '--feed', file('feed.json'), '--live', file('live.json'),
+        '--progress', progressFile], 'committee'));
 
     const c = readJson(file('committee.json'));
     return `Done: ${apps.length} application(s) → ${remi.counts.shortlisted} shortlisted → ${finalists.length} finalists → ` +

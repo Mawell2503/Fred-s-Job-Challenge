@@ -115,6 +115,13 @@
             box-shadow: 0 4px 14px rgba(42, 36, 32, .06);
         }
         .cv.kept { border: 1.5px solid var(--ink); box-shadow: 0 12px 30px rgba(42, 36, 32, .1); }
+        /* a card that opens the committee's evaluation of that candidate */
+        a.cv, a.out { color: inherit; text-decoration: none; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+        a.cv:hover, a.cv:focus-visible, a.out:hover, a.out:focus-visible {
+            border-color: var(--blue); box-shadow: 0 0 0 4px rgba(47, 111, 235, .15), 0 12px 30px rgba(42, 36, 32, .1);
+            transform: translateY(-2px); outline: none;
+        }
+        .cv .open { font-size: 12px; font-weight: 700; color: var(--blue-ink); }
         .cv .rank { display: flex; align-items: center; justify-content: space-between; }
         .cv .rank b { font-size: 22px; line-height: 1; font-weight: 800; }
         .cv .rank span, .cv .cid { font: 500 11px var(--mono); color: var(--faint); }
@@ -930,14 +937,23 @@
         }
         const appBadge = l => { const b = appLabel(l); return b ? h('span', { class: `app-badge ${b.cls}`, text: b.text }) : ''; };
 
+        // Once the committee has met (or is meeting), a card opens its evaluation of that candidate.
+        const committeeHref = id => `committee.html?role=${encodeURIComponent(roleId)}&cid=${encodeURIComponent(id)}`;
+        function committeeSat() {
+            return Boolean(results?.committee?.report || results?.role?.agents?.committee?.state === 'running' || results?.feed?.length);
+        }
         function cvCard({ rank, id, name, headline, scoreLabel, score, kept }) {
-            return h('article', { class: `cv${kept ? ' kept' : ''}`, 'aria-label': `#${rank} ${name}` },
+            const link = committeeSat();
+            return h(link ? 'a' : 'article', { class: `cv${kept ? ' kept' : ''}`,
+                'aria-label': `#${rank} ${name}${link ? ': open the committee evaluation' : ''}`,
+                href: link ? committeeHref(id) : null, title: link ? 'Open the committee evaluation' : null },
                 h('div', { class: 'rank' }, h('b', { text: `#${rank}` }), h('span', { text: id })),
                 h('div', { class: 'name', text: name }),
                 appBadge(results.application?.[id]),
                 headline ? h('div', { class: 'headline', text: headline }) : '',
                 h('div', { class: 'bars', 'aria-hidden': 'true' }, h('i', { style: 'width:92%' }), h('i', { style: 'width:74%' }), h('i', { style: 'width:84%' })),
-                h('div', { class: 'foot' }, h('span', { text: scoreLabel }), h('b', { text: score })));
+                h('div', { class: 'foot' }, h('span', { text: scoreLabel }), h('b', { text: score })),
+                link ? h('span', { class: 'open', text: 'Committee evaluation →' }) : '');
         }
 
         function renderBoard() {
@@ -983,7 +999,8 @@
                         scoreLabel: 'Committee', score: `${num(t.score)} / 10`, kept: true }))),
                     outs.length ? h('section', { class: 'outs', 'aria-labelledby': 'outs-title', style: 'margin-top:22px' },
                         h('div', { class: 'outs-head' }, h('h2', { id: 'outs-title', text: `Didn't make the top ${top.length}` })),
-                        h('div', { class: 'grid' }, ...outs.map(r => h('article', { class: 'out' },
+                        h('div', { class: 'grid' }, ...outs.map(r => h('a', { class: 'out', href: committeeHref(r.id),
+                            'aria-label': `${names[r.id] || r.id}: open the committee evaluation` },
                             h('div', { class: 'row' }, h('span', { class: 'nm', text: names[r.id] || r.id }),
                                 h('span', { class: 'sc', text: `${num(r.score)} / 10` })),
                             reasonFor(r.id) ? h('div', { class: 'why', text: reasonFor(r.id) }) : '')))) : '');

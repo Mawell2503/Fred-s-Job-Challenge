@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 
 from ..llm import LLMError
 from . import members as M
+from .live import Live
 from .validate import validate_position
 
 CONTESTED_SPREAD = 3
@@ -52,9 +53,12 @@ class Trace:
                 f.write(json.dumps({"t": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                                     "kind": kind, **data}, ensure_ascii=False) + "\n")
 
-    def say(self, text: str, round_no=None, member=None, kind="info"):
-        self.feed.append({"round": round_no, "member": member, "kind": kind, "text": text})
-        self.log("feed", round=round_no, member=member, text=text)
+    def say(self, text: str, round_no=None, member=None, kind="info", **extra):
+        """One feed line. `extra` carries what the committee page needs to redraw the debate from the feed
+        alone (live or replayed): cid / cids, score, verdict, from, to, arg, concern, top5, stop, about."""
+        extra = {k: v for k, v in extra.items() if v is not None}
+        self.feed.append({"round": round_no, "member": member, "kind": kind, "text": text, **extra})
+        self.log("feed", round=round_no, member=member, text=text, **extra)
         if self.feed_path:
             from pathlib import Path
             p = Path(self.feed_path)
@@ -65,6 +69,19 @@ class Trace:
 
 def _name(m):
     return M.DISPLAY[m]
+
+
+def _scores(positions):
+    return {m: {c: p["score"] for c, p in pos.items()} for m, pos in positions.items()}
+
+
+def _arg(p):
+    """The first verified argument of a position (what the page shows as evidence)."""
+    return p["arguments"][0] if p.get("arguments") else None
+
+
+def _concern(p):
+    return p["concerns"][0] if p.get("concerns") else None
 
 
 def contested(positions: dict, ids) -> list[str]:
@@ -138,8 +155,9 @@ def _debate_view(positions, me, cids):
     return view
 
 
-def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) -> dict:
+def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3, live: Live | None = None) -> dict:
     trace = trace or Trace()
+    live = live or Live()
     ids = list(packet.ids)
     started = time.time()
     state = {"members": [], "skipped": {}, "rounds": [], "calls": 0, "reprompts": 0,
@@ -156,6 +174,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         trace.say("Nina is not launched: nothing practical to judge (no role requirements, no candidate answers).",
                   0, "orchestrator", "decision")
     trace.log("decision", what="members", sitting=sitting, skipped=state["skipped"])
+    live.update(phase="round0", round=0, max_rounds=max_rounds, members=sitting, skipped=state["skipped"])
     planned = len(sitting) * (1 + max_rounds)
     done = 0
 
@@ -167,6 +186,14 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
 
     def call(m, cids, round_no, debate=None, previous=None):
         """One validated answer from member m, with at most one re-prompt. Returns clean or None."""
+        live.update(speaking=m, on=cids, round=round_no)
+        try:
+            return _attempts(m, cids, round_no, debate, previous)
+        finally:
+            live.update(speaking=None, on=[], calls=state["calls"], reprompts=state["reprompts"],
+                        unreliable=[{"member": u["member"], "round": u["round"]} for u in state["unreliable"]])
+
+    def _attempts(m, cids, round_no, debate, previous):
         errors = None
         for attempt in (1, 2):
             try:
@@ -187,11 +214,11 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
                 state["reprompts"] += 1
                 errors = errs
                 trace.say(f"Orchestrator re-prompts {_name(m)}: {len(errs)} problem(s), e.g. {errs[0][:140]}",
-                          round_no, "orchestrator", "reprompt")
+                          round_no, "orchestrator", "reprompt", about=m)
             else:
                 state["unreliable"].append({"member": m, "round": round_no, "errors": errs})
                 trace.say(f"{_name(m)} answered badly twice; invalid parts dropped ({len(errs)} problem(s)).",
-                          round_no, "orchestrator", "warning")
+                          round_no, "orchestrator", "warning", about=m)
                 return clean
         return None
 
@@ -210,7 +237,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
     top5s = {}
     r0 = {"round": 0, "launched": [], "changes": []}
     for m in sitting:
-        trace.say(f"{_name(m)} reads the {len(ids)} candidates on their own.", 0, m, "launch")
+        trace.say(f"{_name(m)} reads the {len(ids)} candidates on their own.", 0, m, "launch", cids=ids)
         tick(f"Round 0 · {_name(m)}")
         clean = call(m, ids, 0)
         r0["launched"].append({"member": m, "candidates": ids, "reason": "round 0: everyone gives a position"})
@@ -220,9 +247,17 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         for cid, p in clean["positions"].items():
             remember(m, cid, 0, p, "round 0: everyone gives a position")
         top5s[m] = clean["top5"]
+        for cid in ids:                         # one line per candidate: the page follows them one by one
+            p = clean["positions"].get(cid)
+            if not p:
+                continue
+            a = _arg(p)
+            trace.say(f"{_name(m)} on {cid}: {p['score']:g}/10 ({p['verdict']})." + (f" {a['point'][:220]}" if a else ""),
+                      0, m, "score", cid=cid, score=p["score"], verdict=p["verdict"], arg=a, concern=_concern(p))
         best = max(clean["positions"].items(), key=lambda kv: kv[1]["score"])
         trace.say(f"{_name(m)} scored {len(clean['positions'])} candidates; favourite {best[0]} "
-                  f"({best[1]['score']:g}/10).", 0, m, "position")
+                  f"({best[1]['score']:g}/10).", 0, m, "position", cid=best[0], top5=clean["top5"])
+        live.update(positions=positions, ranking=rank(positions, ids, packet.scores, packet.tie_break_direct))
     if not positions:
         raise LLMError("No committee member could give a position (every call failed).")
     # a candidate nobody could score (every answer about it invalid twice) has no average: it cannot be
@@ -238,6 +273,7 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
     state["members"] = list(positions)
     before = copy.deepcopy(positions)
     state["rounds"].append(r0)
+    live.update(round_start=_scores(positions))
 
     # ---- 3. debate rounds
     state["stop_reason"] = "max_rounds"
@@ -245,10 +281,14 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         hot = contested(positions, ids)
         if not hot:
             state["stop_reason"] = "consensus"
-            trace.say("No candidate is contested any more: the committee agrees. Debate closed.", r, "orchestrator", "stop")
+            trace.say("No candidate is contested any more: the committee agrees. Debate closed.", r, "orchestrator", "stop",
+                      stop="consensus")
             break
         plan = assignments(positions, hot, heard)
-        trace.say(f"Round {r}: {len(hot)} contested candidate(s): {', '.join(hot)}.", r, "orchestrator", "decision")
+        trace.say(f"Round {r}: {len(hot)} contested candidate(s): {', '.join(hot)}.", r, "orchestrator", "decision",
+                  cids=hot)
+        live.update(phase="debate", round=r, contested=hot, round_start=_scores(positions),
+                    launched={m: {c: plan[m][c] for c in ids if c in plan[m]} for m in plan if m in positions})
         rr = {"round": r, "contested": hot, "launched": [], "changes": []}
         changed = False
         for m in M.MEMBERS:
@@ -261,7 +301,8 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
             rr["launched"].append({"member": m, "candidates": cids, "reason": reasons})
             heard.update((m, c) for c in cids)
             trace.log("decision", what="launch", round=r, member=m, reasons=reasons)
-            trace.say(f"{_name(m)} is asked to defend or revise: " + "; ".join(reasons.values()) + ".", r, m, "launch")
+            trace.say(f"{_name(m)} is asked to defend or revise: " + "; ".join(reasons.values()) + ".", r, m, "launch",
+                      cids=cids)
             tick(f"Round {r} · {_name(m)}")
             clean = call(m, cids, r, debate=_debate_view(positions, m, cids),
                          previous={c: positions[m][c] for c in cids})
@@ -281,16 +322,20 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
                                       "verdict_from": old["verdict"], "verdict_to": newp["verdict"], "because": why})
                 verb = "holds" if abs(delta) < CHANGE_THRESHOLD else ("moves up" if delta > 0 else "moves down")
                 trace.say(f"{_name(m)} on {cid}: {old['score']:g} → {newp['score']:g} ({verb}). {why[:220]}",
-                          r, m, "change" if verb != "holds" else "hold")
+                          r, m, "change" if verb != "holds" else "hold", cid=cid, score=newp["score"],
+                          verdict=newp["verdict"], arg=_arg(newp), concern=_concern(newp),
+                          **{"from": old["score"], "to": newp["score"]})
                 positions[m][cid] = newp
+            live.update(positions=positions, ranking=rank(positions, ids, packet.scores, packet.tie_break_direct))
         state["rounds"].append(rr)
         if not changed:
             state["stop_reason"] = "deadlock"
             trace.say("Nobody moved by a full point this round: the remaining disagreements stay open.",
-                      r, "orchestrator", "stop")
+                      r, "orchestrator", "stop", stop="deadlock")
             break
     else:
-        trace.say(f"Round limit reached ({max_rounds}). The debate is closed.", max_rounds, "orchestrator", "stop")
+        trace.say(f"Round limit reached ({max_rounds}). The debate is closed.", max_rounds, "orchestrator", "stop",
+                  stop="max_rounds")
 
     # ---- 4. final ranking + what is still open
     ranking = rank(positions, ids, packet.scores, packet.tie_break_direct)
@@ -313,7 +358,11 @@ def run(packet, trace: Trace | None = None, progress=None, max_rounds: int = 3) 
         "seconds": round(time.time() - started, 1),
     })
     trace.say("Final top 5 (average of the members' scores): " +
-              ", ".join(f"{r['id']} {r['score']:g}" for r in ranking[:5]) + ".", None, "orchestrator", "result")
+              ", ".join(f"{r['id']} {r['score']:g}" for r in ranking[:5]) + ".", None, "orchestrator", "result",
+              cids=top5)
+    live.update(phase="report", speaking="gaston", on=top5, positions=positions, ranking=ranking, top5=top5,
+                stop_reason=state["stop_reason"], unresolved=state["unresolved"], calls=state["calls"],
+                reprompts=state["reprompts"])
     state["feed"] = trace.feed
     trace.log("result", top5=top5, stop_reason=state["stop_reason"], calls=state["calls"], reprompts=state["reprompts"])
     return state

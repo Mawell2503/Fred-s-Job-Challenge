@@ -8,7 +8,7 @@
                          [--top 10] [--progress progress.json]
   python -m hiring committee --job job.json --runs data/runs --jules jules.json --input committee_in.json
                          --out committee.json [--report report.md] [--trace trace.jsonl] [--feed feed.json]
-                         [--progress progress.json]
+                         [--live live.json] [--progress progress.json]
         committee_in.json = {"role": {"id", "title"}, "logistics": {...}, "practical": {cid: {...}},
                              "linkedin": {cid: true}, "names": {cid: name}, "funnel": {"applications", "readable", "scope", ...},
                              "application": {cid: {"kind": "this" | "open" | "other", "roles": [titles]}},
@@ -51,6 +51,7 @@ def _committee(a) -> int:
     from datetime import datetime, timezone
 
     from .committee import orchestrator
+    from .committee.live import Live
     from .committee.gaston import write_report
     from .committee.packet import build
     from .committee.report import to_markdown
@@ -59,20 +60,24 @@ def _committee(a) -> int:
     cin = _read(a.input)
     packet = build(job, _read(a.jules), lambda cid: load_candidate(a.runs, cid), cin)
     trace = orchestrator.Trace(a.trace, a.feed)
+    live = Live(a.live, packet)                  # what the committee page shows while it runs
 
     def progress(done, total, label):
         if a.progress:
             _write(a.progress, {"stage": "committee", "done": done, "total": total + 1, "label": label})
 
-    state = orchestrator.run(packet, trace=trace, progress=progress, max_rounds=a.rounds)
+    state = orchestrator.run(packet, trace=trace, progress=progress, max_rounds=a.rounds, live=live)
     if a.progress:
         _write(a.progress, {"stage": "committee", "done": 1, "total": 1, "label": "Gaston writes the report"})
-    trace.say("Gaston writes the report.", None, "gaston", "launch")
+    trace.say("Gaston writes the report.", None, "gaston", "launch", cids=state["top5"])
     funnel = cin.get("funnel") or {}
     role = cin.get("role") or {}
     meta = {"title": role.get("title") or job.get("title"), "role_id": role.get("id", ""), **funnel}
     report = write_report(packet, state, meta, trace=trace)
-    trace.say(f"Report ready. Recommendation confidence: {report['recommendation']['confidence']}.", None, "gaston", "result")
+    trace.say(f"Report ready. Recommendation confidence: {report['recommendation']['confidence']}.", None, "gaston", "result",
+              confidence=report["recommendation"]["confidence"])
+    live.update(phase="done", speaking=None, on=[], confidence=report["recommendation"]["confidence"],
+                calls=state["calls"], reprompts=state["reprompts"])
     state["feed"] = trace.feed
     out = {"agent": "COMMITTEE", "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
            **{k: state[k] for k in ("top5", "ranking", "stop_reason", "calls", "reprompts", "members", "skipped",
@@ -125,6 +130,7 @@ def main(argv=None) -> int:
     k.add_argument("--report")
     k.add_argument("--trace")
     k.add_argument("--feed")
+    k.add_argument("--live")
     k.add_argument("--progress")
     k.add_argument("--rounds", type=int, default=3)
 

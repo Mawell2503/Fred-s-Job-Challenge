@@ -9,16 +9,22 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap">
     <!-- The committee's own page, opened from the lobby's "3 · Committee" button (?role=R001).
-         Once Gaston's report exists: pick one of the 10 finalists, then read what each member said about
-         them, round by round (All = side by side, the default). Deep links: ?role=R001&cand=C0030&member=helene
-         Everything comes from committee.json (GET .../results); nothing here is computed by an AI. -->
+           live      while the committee sits: B#1 the applicant on the table, B#2 where the room stands,
+                     B#3 the evidence, B#4 fit & red flags, the chat (feed.json), the race (all 10)
+           finished  Gaston's recommendation, the funnel, the top 5, who changed their mind, what is unresolved
+           replay    the finished debate played back from the feed, at 1x / 3x / 10x
+         Everything on screen is drawn from the feed (each line carries cid / score / from / to / arg) plus
+         live.json (each finalist's facts: name, Nina's checks, Victor's timeline, what is missing). -->
     <style>
         :root {
             --bg: #FBF8F4; --card: #FFFFFF; --ink: #2A2420; --muted: #6F655D; --faint: #776B62;
             --line: #EDE5DC; --line-strong: #E3D9CF; --soft: #F4EFE9;
-            --accent: #FFB443; --accent-strong: #E8961E; --error: #B42318;
-            --up: #1F7A3A; --down: #B42318; --hold: #776B62;
-            --helene: #2F5D8A; --victor: #3E7A4A; --nina: #8A4F7D; --gaston: #8A5A1E;
+            --accent: #FFB443; --accent-strong: #E8961E; --accent-ink: #8A5200; --accent-soft: #FFF1DC;
+            --dark: #2A2420; --dark-2: #3F3A37; --dark-line: #4A413B; --on-dark: #F4EFE9; --on-dark-muted: #B9AEA4;
+            --blue: #2F6FEB; --blue-ink: #1D4FBF; --blue-soft: #E8F0FE;
+            --ok-bg: #E3F1EA; --ok: #1F6B4F; --risk-bg: #FFF1DC; --risk: #8A5200; --block-bg: #FDE8E6; --block: #B42318;
+            --helene: #B45309; --victor: #1D4FBF; --nina: #0F766E; --gaston: #3F3A37; --orchestrator: #6F655D;
+            --error: #B42318;
             --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
         }
         * { box-sizing: border-box; }
@@ -29,7 +35,6 @@
             display: flex; flex-direction: column;
         }
         a { color: inherit; }
-        button { font: inherit; color: inherit; }
         :focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -40,131 +45,207 @@
         .btn:hover { background: var(--soft); }
         .btn-primary { background: var(--accent); border-color: var(--accent); }
         .btn-primary:hover { background: #FFA826; }
+        .btn-dark { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+        .btn-dark:hover { background: #3F3733; }
+        .btn-sm { min-height: 36px; padding: 0 14px; font-size: 13px; }
         .topbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 28px; border-bottom: 1px solid var(--line); }
         .brand { font-weight: 800; font-size: 20px; }
         .sep { color: #C9BDB2; }
         .role { font-size: 14px; color: var(--muted); }
         .grow { flex: 1; }
         .who { font-size: 13px; color: var(--muted); }
-        main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 28px 32px 48px; display: flex; flex-direction: column; gap: 22px; }
+        main { flex: 1; width: 100%; max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; display: flex; flex-direction: column; gap: 20px; }
         .kicker { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
         h1 { margin: 4px 0 0; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; }
-        .head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-        .head .actions { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+        h2 { margin: 0; font-size: 18px; font-weight: 800; }
+        .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
         .notice { margin: 0; color: var(--error); }
-        .info { margin: 0; padding: 12px 16px; border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 14px; }
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; min-width: 0; }
+        .label { font: 500 11.5px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
+        .mono { font-family: var(--mono); }
+        .small { font-size: 12.5px; color: var(--muted); }
+        .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 10px; border-radius: 8px; background: var(--soft); }
+        .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--soft); color: var(--muted); white-space: nowrap; }
+        .pill.contested { background: var(--accent-soft); color: var(--accent-ink); }
+        .pill.table { background: var(--ink); color: #FFF; }
+        .pill.rescue { background: var(--blue-soft); color: var(--blue-ink); }
+        .pill.ok { background: var(--ok-bg); color: var(--ok); }
+        .pill.split { background: var(--accent-soft); color: var(--accent-ink); }
+        .avatar { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; color: #FFF; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12.5px; }
         .placeholder {
-            flex: 1; min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 10px; padding: 48px 24px; border: 1px dashed var(--line-strong); border-radius: 20px;
             background: var(--card); color: var(--muted); text-align: center;
         }
         .placeholder b { color: var(--ink); font-size: 18px; }
 
-        /* ---- layout: finalists on the left, the candidate on the right ---- */
-        .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
-        .finalists { position: sticky; top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px; }
-        .finalists h2 { margin: 6px 10px 8px; font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
-        .finalists ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-        .fin {
-            width: 100%; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 8px;
-            padding: 9px 10px; border: 0; border-radius: 12px; background: none; text-align: left; cursor: pointer;
+        /* ---------- members ---------- */
+        .members { display: flex; gap: 8px; flex-wrap: wrap; }
+        .member { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); }
+        .member.active { border-color: var(--accent-strong); box-shadow: 0 0 0 3px rgba(232, 150, 30, .15); }
+        .member.off { opacity: .55; }
+        .member .avatar { width: 28px; height: 28px; font-size: 13px; }
+        .member span { display: flex; flex-direction: column; line-height: 1.15; }
+        .member b { font-size: 13px; }
+        .member small { font-size: 11.5px; color: var(--muted); }
+
+        /* ---------- stepper ---------- */
+        .stepper { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+        .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; font-size: 13px; }
+        .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-strong); }
+        .status.live i { animation: pulse 1.4s ease-in-out infinite; }
+        .status.done { background: var(--ok-bg); color: var(--ok); }
+        .status.done i { background: var(--ok); }
+        @keyframes pulse { 50% { opacity: .25; } }
+        .steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex: 1 1 480px; flex-wrap: wrap; }
+        .steps li { flex: 1 1 100px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--faint); }
+        .steps li::before { content: ''; height: 6px; border-radius: 3px; background: var(--line); }
+        .steps li.done { color: var(--ink); }
+        .steps li.done::before { background: var(--dark-2); }
+        .steps li.now { color: var(--ink); font-weight: 800; }
+        .steps li.now::before { background: var(--accent); }
+        .steps li.skip { text-decoration: line-through; }
+        .stats { font: 400 12px var(--mono); color: var(--muted); }
+        .replaybar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; width: 100%; border-top: 1px solid var(--line); padding-top: 12px; }
+        .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 99px; overflow: hidden; }
+        .seg button { min-height: 36px; padding: 0 12px; border: 0; background: var(--card); font: 700 13px 'DM Sans', sans-serif; cursor: pointer; color: var(--ink); }
+        .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+        /* ---------- blocks + chat ---------- */
+        .stage { display: flex; gap: 20px; flex-wrap: wrap; align-items: stretch; }
+        .blocks { flex: 999 1 640px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 16px; align-content: start; }
+        .block { display: flex; flex-direction: column; gap: 12px; }
+        .bhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .bigname { font-size: 26px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+        .links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; }
+        .links a, .links button {
+            flex: 1 1 120px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+            border-radius: 12px; border: 0; background: var(--blue-soft); color: var(--blue-ink); font: 700 14px 'DM Sans', sans-serif; text-decoration: none; cursor: pointer;
         }
-        .fin:hover { background: var(--soft); }
-        .fin[aria-current="true"] { background: #FFF1DB; box-shadow: inset 3px 0 0 var(--accent-strong); }
-        .fin .rk { font: 500 12px var(--mono); color: var(--faint); }
-        .fin .nm { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .fin .id { display: block; font: 400 11px var(--mono); color: var(--faint); }
-        .fin .sc { font: 500 13px var(--mono); }
-        .fin .t5 { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 99px; background: var(--accent); font: 700 10px/16px 'DM Sans', system-ui, sans-serif; vertical-align: 1px; }
-        .cut { margin: 6px 10px; border-top: 1px dashed var(--line-strong); font: 500 10px var(--mono); color: var(--faint); padding-top: 4px; letter-spacing: .05em; text-transform: uppercase; }
+        .links a:hover, .links button:hover { background: #D7E5FD; }
+        .next { border-top: 1px solid var(--line); padding-top: 10px; font-size: 12.5px; color: var(--muted); }
+        .srow { display: grid; grid-template-columns: 70px minmax(0, 1fr) 76px; gap: 10px; align-items: center; }
+        .srow > b { font-size: 14px; }
+        .track { position: relative; height: 10px; border-radius: 5px; background: var(--soft); }
+        .track .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; transition: width .5s ease; }
+        .track .mark { position: absolute; top: -4px; width: 2px; height: 18px; background: var(--ink); }
+        .sval { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+        .sval b { font-size: 15px; }
+        .sval small { font-size: 11.5px; font-weight: 700; }
+        .v-advance { color: var(--ok); } .v-maybe { color: var(--accent-ink); } .v-reject { color: var(--block); }
+        .tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: auto; }
+        .tiles div { background: var(--soft); border-radius: 12px; padding: 10px 12px; }
+        .tiles div.hot { background: var(--accent-soft); }
+        .tiles small { display: block; font-size: 11.5px; color: var(--muted); }
+        .tiles b { font-size: 19px; }
+        .ev { display: flex; flex-direction: column; gap: 6px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+        .ev:last-of-type { border-bottom: 0; }
+        .ev .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .ev .point { font-size: 13.5px; font-weight: 600; }
+        .ev blockquote { margin: 0; padding: 8px 10px; background: var(--soft); border-radius: 8px; font-size: 12.5px; color: #4A413B; overflow-wrap: anywhere; }
+        .checked { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--ok); }
+        .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+        .checks li { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13px; }
+        .st { font-size: 11.5px; font-weight: 800; text-align: center; padding: 3px 0; border-radius: 6px; text-transform: lowercase; }
+        .st-ok { background: var(--ok-bg); color: var(--ok); } .st-risk { background: var(--risk-bg); color: var(--risk); }
+        .st-blocker { background: var(--block-bg); color: var(--block); } .st-unknown { background: var(--soft); color: var(--muted); }
+        .sub { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+        .sub.rule { border-top: 1px solid var(--line); padding-top: 10px; }
+        .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .empty { font-size: 13px; color: var(--faint); font-style: italic; }
 
-        .cand { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-        .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; }
-        .chead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
-        .chead h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; }
-        .chead .cid { font: 500 13px var(--mono); color: var(--faint); }
-        .facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .fact { padding: 5px 11px; border-radius: 99px; background: var(--soft); font-size: 13px; color: var(--muted); }
-        .fact b { color: var(--ink); }
+        .chat { flex: 1 1 400px; min-width: 0; background: var(--dark); color: var(--on-dark); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 14px; height: 860px; max-height: 86vh; }
+        .chat h2 span { color: var(--on-dark-muted); font-weight: 500; }
+        .chat .about { font-size: 12.5px; color: var(--on-dark-muted); }
+        .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+        .filters button { min-height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid #5C5551; background: transparent; color: var(--on-dark); font: 600 12.5px 'DM Sans', sans-serif; cursor: pointer; }
+        .filters button[aria-pressed="true"] { background: var(--on-dark); color: var(--dark); border-color: var(--on-dark); font-weight: 700; }
+        .feed { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+        .feed li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; animation: in .35s ease; }
+        @keyframes in { from { opacity: 0; transform: translateY(6px); } }
+        .feed .meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+        .feed .meta b { font-size: 13.5px; }
+        .feed .meta .tag { font: 400 11px var(--mono); color: var(--on-dark-muted); }
+        .feed .move { font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 99px; background: var(--on-dark-muted); color: var(--dark); }
+        .feed .move.up { background: #9FD9BE; } .feed .move.down { background: var(--accent); }
+        .feed .txt { font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+        .feed li.sys .txt { color: var(--on-dark-muted); }
+        .feed li.focus .txt { color: #FFFFFF; }
+        .typing { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--on-dark-muted); border-top: 1px solid var(--dark-line); padding-top: 12px; min-height: 44px; }
+        .typing .avatar { width: 26px; height: 26px; font-size: 12px; }
+        .dots i { display: inline-block; width: 5px; height: 5px; margin-left: 3px; border-radius: 50%; background: var(--on-dark-muted); animation: pulse 1.2s infinite; }
+        .dots i:nth-child(2) { animation-delay: .2s; } .dots i:nth-child(3) { animation-delay: .4s; }
 
-        /* ---- the member bar ---- */
-        .bar { display: flex; gap: 8px; flex-wrap: wrap; }
-        .chip {
-            display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px 0 12px;
-            border: 1px solid var(--line-strong); border-radius: 99px; background: var(--card); cursor: pointer; font-weight: 700;
-        }
-        .chip:hover { background: var(--soft); }
-        .chip[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
-        .chip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--faint)); }
-        .chip[aria-selected="true"] .dot { box-shadow: 0 0 0 2px #fff; }
-        .chip .s { font: 500 12px var(--mono); opacity: .8; }
-        .chip.off { color: var(--faint); font-weight: 500; }
+        /* ---------- the race ---------- */
+        .race-scroll { overflow-x: auto; }
+        .race { min-width: 760px; display: flex; flex-direction: column; }
+        .rrow { display: grid; grid-template-columns: 34px 200px minmax(0, 1fr) 54px 170px; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 10px; border-bottom: 1px solid var(--soft); }
+        .rrow.on { background: #FFF8EC; }
+        .rrow.cut { border-bottom: 2px solid var(--ink); }
+        .rrow .nm { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+        .rrow .nm b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lane { position: relative; height: 22px; }
+        .lane::before { content: ''; position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: var(--line); }
+        .lane .avg { position: absolute; left: 0; top: 8px; height: 6px; border-radius: 3px; background: var(--accent); transition: width .5s ease; }
+        .lane .dot { position: absolute; top: 0; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; color: #FFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 2px solid #FFF; transition: left .5s ease; }
+        .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 
-        /* ---- shared bits ---- */
-        .score { display: inline-flex; align-items: baseline; gap: 2px; font: 800 30px/1 'DM Sans', system-ui, sans-serif; }
-        .score small { font: 500 13px var(--mono); color: var(--faint); }
-        .verdict { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; text-transform: capitalize; }
-        .verdict.advance { background: #E3F1E6; color: var(--up); }
-        .verdict.maybe { background: #FBEFD9; color: #8A5A00; }
-        .verdict.reject { background: #FBE4E1; color: var(--down); }
-        .move { font: 500 13px var(--mono); }
-        .move.up { color: var(--up); } .move.down { color: var(--down); } .move.hold { color: var(--hold); }
-        .label { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; margin: 16px 0 6px; }
-        .args { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-        .arg p { margin: 0; font-weight: 500; }
-        .arg blockquote { margin: 4px 0 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--c, var(--line-strong)); color: var(--muted); font-size: 14px; }
-        .src { display: inline-block; margin-left: 6px; font: 500 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; }
-        .plain { margin: 0; padding-left: 18px; }
-        .plain li + li { margin-top: 4px; }
-        .q { margin: 0; font-style: italic; }
-        .none { color: var(--faint); font-size: 14px; margin: 0; }
+        /* ---------- finished ---------- */
+        .row2 { display: flex; gap: 20px; flex-wrap: wrap; }
+        .verdict { flex: 999 1 560px; align-self: flex-start; min-width: 0; background: var(--dark); color: var(--on-dark); border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+        .verdict .rec { margin: 0; font-size: 22px; line-height: 1.35; font-weight: 700; letter-spacing: -.01em; }
+        .verdict ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: #D9D0C7; }
+        .verdict .btn { border-color: #5C5551; background: transparent; color: var(--on-dark); }
+        .verdict .btn:hover { background: #3F3733; }
+        .verdict .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--ink); }
+        .conf { margin-left: auto; padding: 5px 12px; border-radius: 99px; font-weight: 800; font-size: 13px; }
+        .conf-High { background: var(--ok-bg); color: var(--ok); } .conf-Medium { background: var(--accent-soft); color: var(--accent-ink); } .conf-Low { background: var(--block-bg); color: var(--block); }
+        .funnel { flex: 1 1 340px; display: flex; flex-direction: column; gap: 10px; }
+        .frow { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 10px; align-items: center; }
+        .frow span { display: block; height: 10px; border-radius: 5px; margin-top: 4px; }
+        .frow b { font-size: 16px; text-align: right; }
+        .top5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+        .t5 { display: flex; flex-direction: column; gap: 10px; }
+        .t5.first { border-color: var(--accent); }
+        .t5 .score { display: flex; align-items: baseline; gap: 6px; }
+        .t5 .score b { font-size: 30px; letter-spacing: -.02em; }
+        .t5 p { margin: 0; font-size: 13px; color: #4A413B; }
+        .t5 a { margin-top: auto; font-size: 13px; font-weight: 700; color: var(--blue-ink); }
+        .moves { flex: 1 1 520px; display: flex; flex-direction: column; gap: 10px; }
+        .mrow { display: grid; grid-template-columns: 80px minmax(110px, 160px) 110px minmax(0, 1fr); gap: 12px; align-items: center; font-size: 13.5px; padding-bottom: 10px; border-bottom: 1px solid var(--soft); }
+        .mrow .why { color: var(--muted); font-size: 13px; }
+        .open { flex: 1 1 380px; align-self: flex-start; background: #FFF8EC; border-color: #F5DDB4; display: flex; flex-direction: column; gap: 12px; }
+        .orow { display: flex; flex-direction: column; gap: 4px; padding-bottom: 10px; border-bottom: 1px solid #F5DDB4; }
+        .foot { margin: 0; font-size: 12.5px; color: var(--muted); }
 
-        /* ---- All: three columns side by side, Gaston below ---- */
-        .cols { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 14px; }
-        .col { border-top: 4px solid var(--c); display: flex; flex-direction: column; }
-        .col .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .col .mname { font-weight: 800; font-size: 17px; }
-        .col .lens { font-size: 13px; color: var(--muted); margin: 2px 0 12px; }
-        .col .line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .col .more { margin-top: auto; padding-top: 16px; }
-        .linkbtn { border: 0; background: none; padding: 0; color: var(--c, var(--ink)); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        /* ---------- applicant dialog ---------- */
+        dialog.app { width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 0; border-radius: 22px; background: var(--bg); color: var(--ink); box-shadow: 0 30px 80px rgba(0, 0, 0, .25); }
+        dialog.app::backdrop { background: rgba(42, 36, 32, .5); backdrop-filter: blur(3px); }
+        .dhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 22px 26px; border-bottom: 1px solid var(--line); background: var(--card); }
+        .dhead h2 { font-size: 26px; }
+        .xbtn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); }
+        .dbody { padding: 22px 26px; display: flex; gap: 26px; flex-wrap: wrap; }
+        .dtiles { display: flex; gap: 14px; flex-wrap: wrap; align-content: flex-start; }
+        .tile { width: 150px; height: 186px; border-radius: 8px; background: #E3E1DF; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px; color: var(--ink); text-decoration: none; text-align: center; border: 1px solid transparent; }
+        .tile:hover { background: var(--blue-soft); border-color: var(--blue); }
+        .tile b { font-weight: 600; font-size: 15px; }
+        .tile small { font: 400 11px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+        .tile.off { opacity: .55; pointer-events: none; }
+        .answers { flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+        .answers ul { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+        .answers li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--soft); font-size: 13.5px; }
+        .answers li:last-child { border-bottom: 0; }
+        .answers li span:first-child { color: var(--muted); }
+        .answers ul.checks li { grid-template-columns: 74px minmax(0, 1fr); padding: 0; border: 0; }
+        .answers ul.checks li span:first-child { color: inherit; }
+        .dfoot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 26px; border-top: 1px solid var(--line); background: var(--card); flex-wrap: wrap; }
 
-        /* ---- one member: a timeline, round by round ---- */
-        .mhead { border-top: 4px solid var(--c); display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }
-        .mhead .mname { font-size: 22px; font-weight: 800; }
-        .mhead .lens { color: var(--muted); font-size: 14px; max-width: 520px; }
-        .mhead .finals { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-        .tl { list-style: none; margin: 0; padding: 0 0 0 22px; position: relative; display: flex; flex-direction: column; gap: 16px; }
-        .tl::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: var(--line-strong); }
-        .tl > li { position: relative; }
-        .tl > li::before { content: ""; position: absolute; left: -21px; top: 22px; width: 12px; height: 12px; border-radius: 50%; background: var(--card); border: 3px solid var(--c); }
-        .rhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-        .rhead .rn { font: 500 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; }
-        .rhead .why { font-size: 13px; color: var(--muted); }
-        .rhead .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-        .reply { margin: 12px 0 0; padding: 12px 14px; background: var(--soft); border-radius: 12px; }
-        .warn { margin: 10px 0 0; font-size: 13px; color: #8A5A00; }
-
-        /* ---- Gaston ---- */
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-        th { font: 500 11px var(--mono); color: var(--faint); letter-spacing: .05em; text-transform: uppercase; }
-        .comment { font-size: 17px; margin: 0; }
-
-        @media (max-width: 1000px) {
-            .layout { grid-template-columns: minmax(0, 1fr); }
-            .finalists { min-width: 0; }
-            .finalists { position: static; }
-            .finalists ol { flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
-            .fin { min-width: 230px; flex: none; width: 230px; }
-            .cut { display: none; }
-            .cols { grid-template-columns: 1fr; }
-        }
         @media (max-width: 700px) {
-            .topbar { padding: 12px 16px; } main { padding: 20px 16px 40px; } h1 { font-size: 28px; } .sep { display: none; }
-            .card { padding: 16px; } .mhead .finals { margin-left: 0; } .rhead .right { margin-left: 0; }
-            .head .actions { margin-left: 0; }
+            .topbar { padding: 12px 16px; } main { padding: 20px 16px; } h1 { font-size: 28px; } .sep { display: none; }
+            .chat { height: 620px; } .mrow { grid-template-columns: 1fr 1fr; } .dbody, .dhead, .dfoot { padding-left: 16px; padding-right: 16px; }
+            .answers li { grid-template-columns: 1fr; gap: 2px; }
         }
+        @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
     </style>
 </head>
 
@@ -188,48 +269,226 @@
                 <div class="kicker">Hélène · Victor · Nina · Gaston</div>
                 <h1>3 · Committee</h1>
             </div>
-            <div class="actions" id="actions" hidden>
-                <a class="btn btn-primary" id="report" href="#">Open Gaston's report</a>
-                <a class="btn" id="report-md" href="#">Download Markdown</a>
-            </div>
+            <div class="members" id="members" aria-label="Committee members"></div>
         </div>
         <p class="notice" id="notice" role="alert" hidden></p>
-        <p class="info" id="info" role="status" hidden></p>
 
-        <section class="placeholder" id="placeholder" aria-labelledby="ph-title">
+        <!-- nothing to show yet -->
+        <section class="placeholder" id="waiting" hidden>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.6"
                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
                 <circle cx="17" cy="9" r="2.5" /><path d="M15.5 14.2c2.9-.4 5.5 1.9 5.5 4.8" />
             </svg>
-            <b id="ph-title">Loading the committee…</b>
-            <span id="ph-text"></span>
+            <b id="wait-title">The committee has not met yet</b>
+            <span id="wait-text"></span>
         </section>
 
-        <div class="layout" id="layout" hidden>
-            <nav class="finalists" aria-label="Finalists">
-                <h2>The 10 finalists · final rank</h2>
-                <ol id="fin-list"></ol>
-            </nav>
-            <section class="cand" id="cand" aria-live="polite"></section>
+        <!-- ================= LIVE / REPLAY ================= -->
+        <div id="liveView" hidden style="display:flex;flex-direction:column;gap:20px">
+            <section class="card stepper" aria-label="Committee progress">
+                <span class="status live" id="status"><i></i><span id="status-text"></span></span>
+                <ol class="steps" id="steps"></ol>
+                <span class="stats" id="stats"></span>
+                <a class="btn btn-sm btn-primary" id="see-results" href="#" hidden>See the results</a>
+                <div class="replaybar" id="replaybar" hidden>
+                    <button type="button" class="btn btn-sm" id="rp-play">Pause</button>
+                    <div class="seg" role="group" aria-label="Replay speed">
+                        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+                        <button type="button" data-speed="3" aria-pressed="false">3×</button>
+                        <button type="button" data-speed="10" aria-pressed="false">10×</button>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="rp-end">Jump to the end</button>
+                    <span class="grow"></span>
+                    <button type="button" class="btn btn-sm btn-dark" id="rp-close">Back to the results</button>
+                </div>
+            </section>
+
+            <div class="stage">
+                <div class="blocks">
+                    <section class="card block" aria-labelledby="b1-l">
+                        <div class="bhead"><span class="label" id="b1-l">B#1 · On the table</span><span id="b1-tag"></span></div>
+                        <div>
+                            <div class="bigname" id="b1-name">–</div>
+                            <div class="mono small" id="b1-id"></div>
+                        </div>
+                        <div class="chips" id="b1-chips"></div>
+                        <p class="small" id="b1-why" style="margin:0"></p>
+                        <div class="links">
+                            <a id="b1-cv" href="#" target="_blank" rel="noopener">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>
+                                Open CV
+                            </a>
+                            <button type="button" id="b1-app">
+                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" /></svg>
+                                Application
+                            </button>
+                        </div>
+                        <div class="next" id="b1-next"></div>
+                    </section>
+
+                    <section class="card block" aria-labelledby="b2-l">
+                        <div class="bhead"><span class="label" id="b2-l">B#2 · Where the room stands</span><span class="small">0 ··· 10</span></div>
+                        <div id="b2-rows" style="display:flex;flex-direction:column;gap:14px"></div>
+                        <div class="small" id="b2-mark" hidden style="display:flex;align-items:center;gap:6px"><span style="width:2px;height:12px;background:var(--ink)"></span><span id="b2-mark-t"></span></div>
+                        <div class="tiles">
+                            <div><small>Committee</small><b id="b2-avg">–</b></div>
+                            <div><small>Spread</small><b id="b2-spread">–</b></div>
+                            <div id="b2-rank-box"><small>Rank now</small><b id="b2-rank">–</b></div>
+                        </div>
+                        <p class="small" id="b2-cut" style="margin:0;font-weight:600"></p>
+                    </section>
+
+                    <section class="card block" aria-labelledby="b3-l">
+                        <span class="label" id="b3-l">B#3 · The evidence</span>
+                        <div id="b3-list" style="display:flex;flex-direction:column;gap:12px"></div>
+                        <div class="small" id="b3-concern"></div>
+                    </section>
+
+                    <section class="card block" aria-labelledby="b4-l">
+                        <div class="bhead"><span class="label" id="b4-l">B#4 · Fit &amp; red flags</span><span id="b4-count" style="font-size:12px;font-weight:700"></span></div>
+                        <div class="sub">Practical checks · Nina</div>
+                        <ul class="checks" id="b4-checks"></ul>
+                        <div class="sub rule">Career · Victor</div>
+                        <div class="chips" id="b4-career"></div>
+                        <div class="sub rule" id="b4-miss-l">What's missing</div>
+                        <div class="chips" id="b4-missing"></div>
+                    </section>
+                </div>
+
+                <section class="chat" aria-labelledby="chat-l">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">
+                        <h2 id="chat-l"></h2>
+                        <span class="about" id="chat-about"></span>
+                    </div>
+                    <div class="filters" role="group" aria-label="Show">
+                        <button type="button" data-filter="all" aria-pressed="true">Everything</button>
+                        <button type="button" data-filter="cid" aria-pressed="false">This applicant</button>
+                        <button type="button" data-filter="moves" aria-pressed="false">Score changes</button>
+                    </div>
+                    <ol class="feed" id="feed" aria-live="polite"></ol>
+                    <div class="typing" id="typing"></div>
+                </section>
+            </div>
+
+            <section class="card" aria-labelledby="race-l" style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px">
+                    <h2 id="race-l">The race <span style="color:var(--muted);font-weight:500">· Jules's top 10, committee average</span></h2>
+                    <span class="legend"><span><b style="color:var(--helene)">H</b> Hélène</span><span><b style="color:var(--victor)">V</b> Victor</span><span><b style="color:var(--nina)">N</b> Nina</span><span><span style="display:inline-block;width:18px;height:6px;border-radius:3px;background:var(--accent);vertical-align:middle"></span> average</span></span>
+                </div>
+                <div class="race-scroll"><div class="race" id="race"></div></div>
+                <p class="small" style="margin:0">The dark line under #5 is the top-5 cut. Click a name to put that candidate in the blocks above.</p>
+            </section>
+        </div>
+
+        <!-- ================= FINISHED ================= -->
+        <div id="doneView" hidden style="display:flex;flex-direction:column;gap:20px">
+            <div class="row2">
+                <section class="verdict" aria-labelledby="v-l">
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                        <span class="avatar" style="background:#5C5551;width:36px;height:36px">G</span>
+                        <h2 id="v-l" style="font-size:15px;font-weight:700;color:var(--on-dark-muted)">Gaston's recommendation</h2>
+                        <span class="conf" id="v-conf"></span>
+                    </div>
+                    <p class="rec" id="v-text"></p>
+                    <ul id="v-reasons"></ul>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+                        <a class="btn btn-primary" id="v-report" href="#">Open the full report</a>
+                        <a class="btn" id="v-md" href="#">Download Markdown</a>
+                        <button type="button" class="btn" id="v-replay">Replay the debate</button>
+                    </div>
+                </section>
+                <section class="card funnel" aria-labelledby="f-l">
+                    <h2 id="f-l" style="font-size:16px">From applications to 5</h2>
+                    <div id="f-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+                    <p class="stats" id="f-stats" style="margin:4px 0 0"></p>
+                </section>
+            </div>
+
+            <section aria-labelledby="t-l" style="display:flex;flex-direction:column;gap:12px">
+                <h2 id="t-l" style="font-size:20px">Top 5</h2>
+                <div class="top5" id="top5"></div>
+            </section>
+
+            <div class="row2">
+                <section class="card moves" aria-labelledby="m-l">
+                    <h2 id="m-l" style="font-size:16px">Who changed their mind</h2>
+                    <div id="m-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+                </section>
+                <section class="card open" aria-labelledby="o-l">
+                    <h2 id="o-l" style="font-size:16px">Still unresolved</h2>
+                    <div id="o-rows" style="display:flex;flex-direction:column;gap:10px"></div>
+                </section>
+            </div>
+            <p class="foot" id="foot"></p>
         </div>
     </main>
 
+    <!-- B#1 → this applicant's application only -->
+    <dialog class="app" id="app" aria-labelledby="app-name">
+        <div class="dhead">
+            <div>
+                <div class="kicker" id="app-kicker">Application</div>
+                <h2 id="app-name"></h2>
+                <div class="mono small" id="app-sub"></div>
+            </div>
+            <button type="button" class="xbtn" id="app-x" aria-label="Close">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+        </div>
+        <div class="dbody">
+            <div class="dtiles">
+                <a class="tile" id="app-cv" href="#" target="_blank" rel="noopener">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg>
+                    <b>CV</b><small id="app-cvname"></small>
+                </a>
+                <a class="tile" id="app-li" href="#" target="_blank" rel="noopener">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7" /></svg>
+                    <b>LinkedIn PDF</b><small id="app-lit"></small>
+                </a>
+                <a class="tile" id="app-full" href="#" target="_blank" rel="noopener">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 10h16M4 14h10M4 18h7" /></svg>
+                    <b>What the committee reads</b><small>CV text, personal details removed</small>
+                </a>
+            </div>
+            <div class="answers">
+                <h3 style="margin:0;font-size:16px;font-weight:800">Practical details, as answered</h3>
+                <ul id="app-answers"></ul>
+                <h3 style="margin:6px 0 0;font-size:16px;font-weight:800">Against the role's requirements</h3>
+                <ul class="checks" id="app-checks" style="background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px"></ul>
+            </div>
+        </div>
+        <div class="dfoot">
+            <span class="small">Only this applicant is shown. Every application is in the lobby's “Applications in”.</span>
+            <button type="button" class="btn btn-dark" id="app-close">Back to the committee</button>
+        </div>
+    </dialog>
+
     <script>
-        // Build DOM nodes without innerHTML: names, CV quotes and AI output are always plain text.
         const $ = id => document.getElementById(id);
-        function h(tag, attrs = {}, ...kids) {
+        const MEMBERS = ['helene', 'victor', 'nina'];
+        const NAME = { helene: 'Hélène', victor: 'Victor', nina: 'Nina', gaston: 'Gaston', orchestrator: 'Orchestrator' };
+        const COLOR = { helene: 'var(--helene)', victor: 'var(--victor)', nina: 'var(--nina)', gaston: 'var(--gaston)', orchestrator: 'var(--orchestrator)' };
+        const INITIAL = { helene: 'H', victor: 'V', nina: 'N', gaston: 'G', orchestrator: 'O' };
+        const BY_DISPLAY = { 'Hélène': 'helene', Victor: 'victor', Nina: 'nina', Gaston: 'gaston' };
+        const ORDER = { blocker: 0, risk: 1, unknown: 2, ok: 3 };
+
+        /* tiny DOM helper: never innerHTML with data */
+        function h(tag, props, ...kids) {
             const el = document.createElement(tag);
-            for (const [k, v] of Object.entries(attrs || {})) {
-                if (v == null || v === false) continue;
-                if (k === 'text') el.textContent = v;
+            for (const [k, v] of Object.entries(props || {})) {
+                if (v === null || v === undefined || v === false) continue;
+                if (k === 'class') el.className = v;
                 else if (k === 'style') el.style.cssText = v;
                 else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
                 else el.setAttribute(k, v === true ? '' : v);
             }
-            for (const kid of kids.flat(Infinity)) if (kid != null && kid !== '') el.append(kid instanceof Node ? kid : String(kid));
+            for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) el.append(c instanceof Node ? c : String(c));
             return el;
         }
+        const fmt = n => (n === null || n === undefined || Number.isNaN(n)) ? '–' : (Math.round(n * 10) / 10).toString();
+        const avatar = m => h('span', { class: 'avatar', style: `background:${COLOR[m] || COLOR.orchestrator}` }, INITIAL[m] || '?');
+
         async function api(url) {
             const res = await fetch(url);
             if (res.status === 401) { location.href = '/#admin'; throw new Error('Logged out.'); }
@@ -238,274 +497,537 @@
             return data;
         }
 
-        const MEMBERS = ['helene', 'victor', 'nina'];
-        const NAME = { helene: 'Hélène', victor: 'Victor', nina: 'Nina', gaston: 'Gaston' };
-        const LENS = {
-            helene: 'The engineer. Technical proof and concrete achievements.',
-            victor: 'The veteran. Career path, reliability, teamwork.',
-            nina: 'Operations. Availability, budget, location, language.',
-            gaston: 'The clerk. Did not vote: wrote the report from the debate.',
+        /* ------------------------------------------------------------------ state */
+        const S = {
+            roleId: null, results: null, apps: {},       // apps: candidateId -> {name, cvName, ...}
+            feed: [], shown: 0,                           // feed lines revealed so far
+            mode: 'none',                                 // 'live' | 'replay' | 'done' | 'none'
+            speed: 1, paused: false, timer: null,
+            focus: null, pinned: false,                   // the candidate in the blocks (pinned = picked by a click)
+            filter: 'all', stick: true,
         };
-        const SRC = { cv: 'CV', practical: 'Practical answers', linkedin: 'LinkedIn' };
-        const fmt = n => (n == null ? '–' : Number(n).toLocaleString('en', { maximumFractionDigits: 2 }));
 
-        let C = null, RES = null, ROLE = '', names = {}, order = [], state = { cand: null, member: 'all' };
+        const cands = () => S.results?.live?.candidates || {};
+        function nameOf(cid) {
+            return S.results?.names?.[cid] || cands()[cid]?.name || S.apps[cid]?.name ||
+                (S.results?.jules?.finalists || []).find(f => f.candidate_id === cid)?.personal?.name || cid;
+        }
+        const named = text => String(text || '').replace(/\bC\d{4}\b/g, cid => nameOf(cid));
+        function finalistIds() {
+            const live = S.results?.live;
+            if (live?.candidates) return Object.keys(live.candidates).sort((a, b) => live.candidates[a].jules_rank - live.candidates[b].jules_rank);
+            const fromFeed = S.feed.find(f => f.kind === 'launch' && f.round === 0 && f.cids)?.cids;
+            return fromFeed || (S.results?.jules?.finalists || []).map(f => f.candidate_id);
+        }
+        const julesRank = cid => cands()[cid]?.jules_rank ?? (finalistIds().indexOf(cid) + 1 || 99);
 
-        // ---------- what a member said about a candidate, round by round ----------
-        // New runs carry committee.history (every round, verified arguments). Older runs only kept the final
-        // position + the score changes: we rebuild what we can and say what is missing.
-        function timeline(m, cid) {
-            const hist = C.history?.[m]?.[cid];
-            if (hist?.length) return { entries: hist, legacy: false };
-            const entries = [];
-            const b = C.before?.[m]?.[cid];
-            if (b) entries.push({ round: 0, reason: 'round 0: everyone gives a position', score: b.score, verdict: b.verdict, missing: true });
-            for (const r of C.rounds || []) {
-                for (const ch of r.changes || []) if (ch.member === m && ch.id === cid) {
-                    const l = (r.launched || []).find(x => x.member === m);
-                    entries.push({ round: r.round, reason: l?.reason?.[cid] || '', score: ch.to, verdict: ch.verdict_to, reply: ch.because, missing: true });
+        /* Everything the blocks show, rebuilt from the first `n` feed lines (works live and in replay). */
+        function derive(n) {
+            const d = { pos: {}, start: null, round: 0, phase: 'round0', contested: [], rescue: new Set(), sitting: [],
+                speaking: null, speakingCids: [], answered: 0, cid: null, stop: null, reprompts: 0, gaston: 'wait', lastCids: [] };
+            for (const f of S.feed.slice(0, n)) {
+                if (typeof f.round === 'number') d.round = f.round;
+                if (f.kind === 'launch' && MEMBERS.includes(f.member) && f.round === 0 && !d.sitting.includes(f.member)) d.sitting.push(f.member);
+                if (f.kind === 'launch') {
+                    d.speaking = f.member; d.speakingCids = f.cids || []; d.answered = 0;
+                    if (f.member === 'gaston') { d.phase = 'gaston'; d.gaston = 'writing'; }
+                    if (f.round > 0 && f.cids?.length) d.cid = f.cids[0];
+                    if (/rescue/.test(f.text) && f.member === 'victor') (f.cids || []).forEach(c => d.rescue.add(c));
                 }
+                if ((f.kind === 'score' || f.kind === 'change' || f.kind === 'hold') && f.cid) {
+                    (d.pos[f.member] ||= {})[f.cid] = { score: f.score, verdict: f.verdict, arg: f.arg, concern: f.concern, from: f.from };
+                    d.cid = f.cid;
+                    if (f.kind !== 'score' && d.speaking === f.member && ++d.answered >= d.speakingCids.length) d.speaking = null;
+                }
+                if (f.kind === 'position' && d.speaking === f.member) d.speaking = null;
+                if (f.kind === 'error' && d.speaking === f.member) d.speaking = null;
+                if (f.kind === 'decision' && f.member === 'orchestrator' && f.round > 0) {
+                    d.phase = 'debate'; d.contested = f.cids || []; d.speaking = null;
+                    d.start = Object.fromEntries(Object.entries(d.pos).map(([m, p]) => [m, Object.fromEntries(Object.entries(p).map(([c, v]) => [c, v.score]))]));
+                }
+                if (f.kind === 'stop') { d.stop = f.stop || 'stop'; d.speaking = null; d.contested = []; }
+                if (f.kind === 'reprompt') d.reprompts++;
+                if (f.kind === 'result' && f.member === 'orchestrator') { d.speaking = null; d.lastCids = f.cids || []; }
+                if (f.kind === 'result' && f.member === 'gaston') { d.gaston = 'done'; d.phase = 'done'; d.speaking = null; }
             }
-            const fin = C.positions?.[m]?.[cid];
-            if (fin && entries.length) Object.assign(entries.at(-1), { arguments: fin.arguments, concerns: fin.concerns, question: fin.question, missing: false });
-            return { entries, legacy: true };
-        }
-        function finalOf(m, cid) { return C.positions?.[m]?.[cid] || null; }
-        function movement(m, cid) {
-            const b = C.before?.[m]?.[cid]?.score, a = C.after?.[m]?.[cid]?.score;
-            return b == null || a == null ? null : { from: b, to: a, d: Math.round((a - b) * 10) / 10 };
-        }
-        function moveEl(mv, long) {
-            if (!mv) return '';
-            if (!mv.d) return h('span', { class: 'move hold', text: long ? `held ${fmt(mv.to)} through the debate` : '= held' });
-            const up = mv.d > 0;
-            return h('span', { class: `move ${up ? 'up' : 'down'}`, text: long ? `${fmt(mv.from)} → ${fmt(mv.to)} during the debate` : `${up ? '▲' : '▼'} ${fmt(mv.from)} → ${fmt(mv.to)}` });
-        }
-        const verdictEl = v => v ? h('span', { class: `verdict ${v}`, text: v }) : '';
-        const scoreEl = s => h('span', { class: 'score' }, fmt(s), h('small', { text: '/10' }));
-
-        function argsEl(args, m) {
-            if (!args?.length) return h('p', { class: 'none', text: 'No argument with a verified quote.' });
-            return h('ul', { class: 'args', style: `--c: var(--${m})` }, args.map(a => h('li', { class: 'arg' },
-                h('p', { text: a.point }),
-                h('blockquote', {}, `“${a.quote}”`, h('span', { class: 'src', text: `${SRC[a.source] || a.source} · verified` })))));
-        }
-        function listEl(items, empty) {
-            return items?.length ? h('ul', { class: 'plain' }, items.map(x => h('li', { text: x }))) : h('p', { class: 'none', text: empty });
+            if (!d.sitting.length) d.sitting = (S.results?.live?.members || S.results?.committee?.members || MEMBERS).filter(m => MEMBERS.includes(m));
+            return d;
         }
 
-        // ---------- views ----------
-        function viewAll(cid) {
-            const sat = C.members || [];
-            const cols = MEMBERS.map(m => {
-                if (!sat.includes(m)) {
-                    return h('article', { class: 'card col', style: `--c: var(--${m})` },
-                        h('div', { class: 'mname', text: NAME[m] }), h('div', { class: 'lens', text: LENS[m] }),
-                        h('p', { class: 'none', text: C.skipped?.[m] ? `Not called: ${C.skipped[m]}` : 'Gave no valid position on this candidate.' }));
+        function ranking(d) {
+            return finalistIds().map(cid => {
+                const sc = MEMBERS.filter(m => d.pos[m]?.[cid]).map(m => d.pos[m][cid].score);
+                return { cid, scores: sc, avg: sc.length ? sc.reduce((a, b) => a + b, 0) / sc.length : null,
+                    spread: sc.length > 1 ? Math.max(...sc) - Math.min(...sc) : 0 };
+            }).sort((a, b) => ((b.avg ?? -1) - (a.avg ?? -1)) || (julesRank(a.cid) - julesRank(b.cid)));
+        }
+
+        /* ------------------------------------------------------------------ live / replay rendering */
+        function renderLive() {
+            const d = derive(S.shown);
+            const all = S.shown >= S.feed.length;
+            const live = S.results?.live, committee = S.results?.committee;
+            const running = S.mode === 'live' && !committee;
+            if (!S.pinned || !finalistIds().includes(S.focus)) S.focus = d.cid || finalistIds()[0] || null;
+            const rk = ranking(d);
+            const maxR = live?.max_rounds || 3;
+
+            // header: members
+            renderMembers(d, running && all ? live : null);
+
+            // status + stepper
+            const status = $('status');
+            const finishedHere = d.phase === 'done';
+            status.className = 'status' + (finishedHere ? ' done' : S.paused ? '' : ' live');
+            const label = d.phase === 'gaston' ? 'Gaston is writing the report' : finishedHere ? 'Finished'
+                : d.round === 0 ? 'Round 0 · positions' : `Round ${d.round} of ${maxR}`;
+            $('status-text').textContent = S.mode === 'replay' && S.evaluation && all && S.paused
+                ? `Evaluation of ${nameOf(S.focus)}`
+                : (S.mode === 'replay' ? 'Replay · ' : finishedHere ? '' : 'Live · ') + label;
+            const steps = $('steps'); steps.replaceChildren();
+            const items = [['Round 0 · positions', 0]];
+            for (let r = 1; r <= maxR; r++) items.push([`Round ${r} · debate`, r]);
+            for (const [text, r] of items) {
+                let cls;
+                if (d.stop) cls = r < d.round ? 'done' : r > d.round ? 'skip' : d.stop === 'consensus' ? 'skip' : 'done';
+                else cls = r < d.round ? 'done' : r === d.round ? 'now' : '';
+                steps.append(h('li', { class: cls, title: cls === 'skip' ? 'Not needed' : null }, text));
+            }
+            steps.append(h('li', { class: finishedHere ? 'done' : d.phase === 'gaston' ? 'now' : '' }, 'Gaston · report'));
+            const calls = S.mode === 'replay' ? undefined : committee?.calls ?? live?.calls;
+            $('stats').textContent = [d.contested.length ? `${d.contested.length} contested` : null,
+                calls !== undefined ? `${calls} AI call${calls === 1 ? '' : 's'}` : null,
+                `${d.reprompts} re-prompt${d.reprompts === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+            $('see-results').hidden = !(S.mode === 'live' && committee && all);
+            $('replaybar').hidden = S.mode !== 'replay';
+            $('rp-play').textContent = S.paused ? (all ? 'Replay again' : 'Play') : 'Pause';
+
+            renderB1(d, rk);
+            renderB2(d, rk);
+            renderB3(d);
+            renderB4();
+            renderChat(d, running && all ? live : null);
+            renderRace(d, rk);
+        }
+
+        function renderMembers(d, live) {
+            const box = $('members'); box.replaceChildren();
+            const skipped = S.results?.committee?.skipped || live?.skipped || S.results?.live?.skipped || {};
+            const speaking = live?.speaking || d.speaking;
+            for (const m of [...MEMBERS, 'gaston']) {
+                let state, cls = 'member';
+                if (m in skipped) { state = 'Not launched'; cls += ' off'; }
+                else if (m === 'gaston') state = d.gaston === 'done' ? 'Report written' : d.gaston === 'writing' || speaking === 'gaston' ? 'Writing the report…' : 'Waits for the end';
+                else if (speaking === m) { state = d.round === 0 ? 'Reading the finalists…' : 'Answering…'; }
+                else if (!d.sitting.includes(m) && d.round === 0) state = 'Waiting';
+                else state = d.phase === 'done' ? 'Done' : 'Listening';
+                if (speaking === m) cls += ' active';
+                box.append(h('span', { class: cls }, avatar(m), h('span', null, h('b', null, NAME[m]), h('small', null, state))));
+            }
+        }
+
+        function whyDebated(cid, d, rk) {
+            if (d.round === 0 || d.phase === 'round0') return 'Round 0: each member scores every finalist on their own.';
+            const sc = MEMBERS.filter(m => d.pos[m]?.[cid]).map(m => d.pos[m][cid]);
+            const spread = sc.length > 1 ? Math.max(...sc.map(p => p.score)) - Math.min(...sc.map(p => p.score)) : 0;
+            const vs = new Set(sc.map(p => p.verdict));
+            const at = rk.findIndex(r => r.cid === cid) + 1;
+            if (!d.contested.includes(cid)) return d.stop ? 'The debate is closed for this candidate.' : 'Not debated this round: the members agree closely enough.';
+            const why = [];
+            if (spread >= 3) why.push(`scores ${fmt(spread)} points apart`);
+            if (vs.has('advance') && vs.has('reject')) why.push('“advance” next to “reject”');
+            if (at >= 4 && at <= 7 && spread >= 2) why.push(`close to the top-5 cut (#${at})`);
+            if (d.rescue.has(cid)) why.push('Victor is rescuing a low score from Hélène');
+            return 'Why it is debated: ' + (why.join(', ') || 'the members disagree') + '.';
+        }
+
+        function renderB1(d, rk) {
+            const cid = S.focus, c = cands()[cid] || {};
+            $('b1-name').textContent = cid ? nameOf(cid) : '–';
+            $('b1-id').textContent = cid ? [cid, S.apps[cid]?.cvName].filter(Boolean).join(' · ') : '';
+            const tag = $('b1-tag'); tag.replaceChildren();
+            if (cid && d.contested.includes(cid)) tag.append(h('span', { class: 'pill contested' }, 'Contested'));
+            else if (S.pinned && !S.evaluation) tag.append(h('button', { type: 'button', class: 'pill', style: 'border:0;cursor:pointer', onclick: () => { S.pinned = false; renderLive(); } }, 'Follow the debate'));
+            const chips = $('b1-chips'); chips.replaceChildren();
+            if (c.jules_rank) chips.append(h('span', { class: 'chip' }, `Jules #${c.jules_rank}` + (c.jules ? ` · ${c.jules}` : '')));
+            if (typeof c.remi === 'number') chips.append(h('span', { class: 'chip' }, `Remi ${fmt(c.remi * 100)}%`));
+            const appl = applicationText(cid);
+            if (appl) chips.append(h('span', { class: 'chip', style: 'background:var(--blue-soft);color:var(--blue-ink)' }, appl));
+            if (S.apps[cid]?.appliedAt) chips.append(h('span', { class: 'chip' }, 'Applied ' + new Date(S.apps[cid].appliedAt).toLocaleDateString()));
+            $('b1-why').textContent = cid ? whyDebated(cid, d, rk) : '';
+            $('b1-cv').href = cid ? `/api/admin/applicants/${encodeURIComponent(cid)}/cv` : '#';
+            const order = d.round > 0 ? d.contested : finalistIds();
+            const i = order.indexOf(cid);
+            const next = order.slice(i + 1).concat(order.slice(0, Math.max(i, 0))).filter(x => x !== cid).slice(0, 3);
+            const nx = $('b1-next'); nx.replaceChildren();
+            if (next.length && !d.stop) nx.append(d.round > 0 ? 'Also debated this round: ' : 'Next: ', ...next.flatMap((x, k) =>
+                [k ? ' · ' : '', h('button', { type: 'button', style: 'border:0;background:none;padding:0;font:inherit;color:var(--ink);font-weight:700;cursor:pointer', onclick: () => pick(x) }, nameOf(x))]));
+        }
+
+        function renderB2(d, rk) {
+            const cid = S.focus, box = $('b2-rows'); box.replaceChildren();
+            const moved = [];
+            for (const m of d.sitting) {
+                const p = d.pos[m]?.[cid];
+                const before = d.start?.[m]?.[cid];
+                const row = h('div', { class: 'srow' }, h('b', { style: `color:${COLOR[m]}` }, NAME[m]));
+                const track = h('span', { class: 'track' });
+                if (p) {
+                    track.append(h('span', { class: 'fill', style: `width:${p.score * 10}%;background:${COLOR[m]}` }));
+                    if (before !== undefined && before !== p.score) { track.append(h('span', { class: 'mark', style: `left:${before * 10}%` })); moved.push(`${NAME[m]} ${fmt(before)} → ${fmt(p.score)}`); }
                 }
-                const p = finalOf(m, cid);
-                if (!p) return h('article', { class: 'card col', style: `--c: var(--${m})` },
-                    h('div', { class: 'mname', text: NAME[m] }), h('p', { class: 'none', text: 'No valid position on this candidate.' }));
-                return h('article', { class: 'card col', style: `--c: var(--${m})` },
-                    h('div', { class: 'top' }, h('div', { class: 'mname', text: NAME[m] }), verdictEl(p.verdict)),
-                    h('div', { class: 'lens', text: LENS[m] }),
-                    h('div', { class: 'line' }, scoreEl(p.score), moveEl(movement(m, cid))),
-                    h('div', { class: 'label', text: 'Final arguments' }), argsEl(p.arguments, m),
-                    h('div', { class: 'label', text: 'Concerns' }), listEl(p.concerns, 'None raised.'),
-                    h('div', { class: 'more' }, h('button', { class: 'linkbtn', type: 'button', onclick: () => go(cid, m),
-                        text: `Read ${NAME[m]}'s full report →` })));
-            });
-            const g = gastonOn(cid);
-            const gCard = h('article', { class: 'card col', style: '--c: var(--gaston)' },
-                h('div', { class: 'top' }, h('div', { class: 'mname', text: 'Gaston' }),
-                    h('span', { class: 'fact', text: g.top ? `Top 5 · #${g.top.rank}` : `#${rankOf(cid)} · outside the top 5` })),
-                h('div', { class: 'lens', text: LENS.gaston }),
-                g.top ? h('p', { class: 'comment', text: g.top.comment || '' }) : h('p', { class: 'none', text: 'Gaston writes up the top 5 only.' }),
-                g.dis ? [h('div', { class: 'label', text: 'Unresolved disagreement' }), h('p', { style: 'margin:0', text: g.dis.summary })] : '',
-                h('div', { class: 'more' }, h('button', { class: 'linkbtn', type: 'button', onclick: () => go(cid, 'gaston'), text: "Read Gaston's notes →" })));
-            return [h('div', { class: 'cols', style: '--n: 3' }, cols), gCard];
+                row.append(track, h('span', { class: 'sval' }, h('b', null, p ? fmt(p.score) : '…'),
+                    h('small', { class: p ? `v-${p.verdict}` : '' }, p ? p.verdict : (d.speaking === m ? 'reading' : 'waiting'))));
+                box.append(row);
+            }
+            $('b2-mark').hidden = !moved.length;
+            $('b2-mark-t').textContent = 'score at the start of this round · ' + moved.join(' · ');
+            const r = rk.find(x => x.cid === cid), at = rk.findIndex(x => x.cid === cid) + 1;
+            $('b2-avg').textContent = r?.avg != null ? fmt(r.avg) : '–';
+            $('b2-spread').textContent = r && r.scores.length > 1 ? `${fmt(r.spread)} · ${r.spread <= 2 ? 'agree' : 'split'}` : '–';
+            $('b2-rank').textContent = r?.avg != null ? `#${at}` : '–';
+            $('b2-rank-box').className = at >= 4 && at <= 7 ? 'hot' : '';
+            $('b2-cut').textContent = r?.avg == null ? '' : at <= 5 ? (at === 5 ? 'Last place inside the top 5.' : 'Inside the top 5.')
+                : at === 6 ? 'One place below the top-5 cut.' : `${at - 5} places below the top-5 cut.`;
+            $('b2-cut').style.color = at >= 4 && at <= 7 ? 'var(--accent-ink)' : 'var(--muted)';
         }
 
-        function viewMember(cid, m) {
-            const sat = (C.members || []).includes(m);
-            const head = h('div', { class: 'card mhead', style: `--c: var(--${m})` },
-                h('div', {}, h('div', { class: 'mname', text: `${NAME[m]} on ${names[cid] || cid}` }), h('div', { class: 'lens', text: LENS[m] })));
-            if (!sat) return [head, h('div', { class: 'card' }, h('p', { class: 'none',
-                text: C.skipped?.[m] ? `${NAME[m]} was not called for this role. ${C.skipped[m]}` : `${NAME[m]} gave no valid position in this committee.` }))];
-            const p = finalOf(m, cid);
-            if (p) head.append(h('div', { class: 'finals' }, moveEl(movement(m, cid), true), scoreEl(p.score), verdictEl(p.verdict)));
-            const { entries, legacy } = timeline(m, cid);
-            if (!entries.length) return [head, h('div', { class: 'card' }, h('p', { class: 'none', text: `${NAME[m]} gave no valid position on this candidate.` }))];
-            const bad = new Set((C.unreliable || []).filter(u => u.member === m).map(u => u.round));
-            let prev = null, said = null, saidIn = 0;
-            const items = entries.map(e => {
-                const d = prev == null ? null : Math.round((e.score - prev.score) * 10) / 10;
-                prev = e;
-                // the same arguments, concerns and question as the round before: say so instead of repeating them
-                const key = e.missing ? null : JSON.stringify([e.arguments, e.concerns, e.question]);
-                const same = key != null && key === said;
-                if (!same) { said = key; saidIn = e.round; }
-                const tag = e.round === 0 ? 'Round 0 · on their own' : `Debate round ${e.round}`;
-                return h('li', { style: `--c: var(--${m})` }, h('article', { class: 'card' },
-                    h('div', { class: 'rhead' }, h('span', { class: 'rn', text: tag }),
-                        e.round ? h('span', { class: 'why', text: `Called in: ${e.reason || 'contested candidate'}` }) : '',
-                        h('span', { class: 'right' },
-                            d == null ? '' : h('span', { class: `move ${d > 0 ? 'up' : d < 0 ? 'down' : 'hold'}`, text: d ? `${d > 0 ? '+' : ''}${fmt(d)}` : '= held' }),
-                            scoreEl(e.score), verdictEl(e.verdict))),
-                    e.reply ? h('p', { class: 'reply', text: e.reply }) : '',
-                    e.missing ? h('p', { class: 'none', style: 'margin-top:10px', text: 'Arguments for this round were not saved in this older run (re-run the pipeline to keep every round).' })
-                    : same ? h('p', { class: 'none', style: 'margin-top:10px', text: `Same arguments, concerns and interview question as in ${saidIn ? `round ${saidIn}` : 'round 0'}.` }) : [
-                        h('div', { class: 'label', text: e.kept_previous_arguments ? 'Arguments (kept from before: this round’s quotes did not check out)' : 'Arguments' }),
-                        argsEl(e.arguments, m),
-                        h('div', { class: 'label', text: 'Concerns' }), listEl(e.concerns, 'None raised.'),
-                        e.question ? [h('div', { class: 'label', text: 'Would ask in the interview' }), h('p', { class: 'q', text: e.question })] : '',
-                    ],
-                    bad.has(e.round) ? h('p', { class: 'warn', text: `${NAME[m]} answered badly twice in this round; the invalid parts were dropped.` }) : ''));
-            });
-            const out = [head, h('ol', { class: 'tl' }, items)];
-            const rounds = (C.rounds || []).length - 1;
-            if (entries.length === 1 && rounds > 0) out.push(h('p', { class: 'info', text: `${names[cid] || cid} was not contested in the debate, so ${NAME[m]} was not asked again after round 0.` }));
-            if (legacy) out.unshift(h('p', { class: 'info', text: 'This committee ran before every round was saved: earlier arguments are missing, scores and replies are complete.' }));
-            return out;
+        function renderB3(d) {
+            const cid = S.focus, box = $('b3-list'); box.replaceChildren();
+            const concerns = [];
+            for (const m of d.sitting) {
+                const p = d.pos[m]?.[cid];
+                if (!p) continue;
+                if (p.concern) concerns.push(`${NAME[m]}: ${p.concern}`);
+                const a = p.arg;
+                box.append(h('div', { class: 'ev' },
+                    h('div', { class: 'top' }, h('b', { style: `color:${COLOR[m]};font-size:13.5px` }, `${NAME[m]} · ${fmt(p.score)}`),
+                        a ? h('span', { class: 'pill' }, a.source === 'practical' ? 'Practical' : a.source === 'linkedin' ? 'LinkedIn' : 'CV') : null,
+                        a ? h('span', { class: 'checked' }, checkIcon(), 'quote found in the source') : null),
+                    a ? h('div', { class: 'point' }, named(a.point)) : h('div', { class: 'empty' }, 'No verified argument kept.'),
+                    a ? h('blockquote', null, `“${a.quote}”`) : null));
+            }
+            if (!box.childElementCount) box.append(h('p', { class: 'empty', style: 'margin:0' }, 'The members have not spoken about this candidate yet.'));
+            const cc = $('b3-concern'); cc.replaceChildren();
+            if (concerns.length) cc.append(h('b', { style: 'color:var(--ink)' }, 'Concerns: '), named(concerns.join(' · ')));
+        }
+        function checkIcon() {
+            const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            s.setAttribute('width', '13'); s.setAttribute('height', '13'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+            s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2.6'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
+            const p = document.createElementNS('http://www.w3.org/2000/svg', 'path'); p.setAttribute('d', 'M20 6 9 17l-5-5'); s.append(p);
+            return s;
         }
 
-        function gastonOn(cid) {
-            const r = C.report || {};
-            return {
-                top: (r.top5 || []).find(t => t.id === cid),
-                cand: (r.candidates || []).find(t => t.id === cid),
-                dis: (r.disagreements || []).find(t => t.id === cid),
-                qs: (r.interview_questions || []).find(t => t.id === cid),
-                app: (r.appendix || []).find(t => t.id === cid),
-            };
+        function checksList(ul, checks) {
+            ul.replaceChildren();
+            const sorted = [...(checks || [])].sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9));
+            for (const c of sorted) ul.append(h('li', null, h('span', { class: `st st-${c.status}` }, c.status),
+                h('span', null, h('b', null, c.check[0].toUpperCase() + c.check.slice(1)), ' ', h('span', { style: 'color:var(--muted)' }, c.detail))));
+            if (!sorted.length) ul.append(h('li', { class: 'empty' }, 'No practical checks for this candidate.'));
+            return sorted;
         }
-        function viewGaston(cid) {
-            const g = gastonOn(cid);
-            const head = h('div', { class: 'card mhead', style: '--c: var(--gaston)' },
-                h('div', {}, h('div', { class: 'mname', text: `Gaston on ${names[cid] || cid}` }), h('div', { class: 'lens', text: LENS.gaston })));
-            const body = h('div', { class: 'card' });
-            if (g.top) {
-                body.append(h('p', { class: 'comment', text: g.top.comment || '' }));
-                if (g.cand) body.append(
-                    h('div', { class: 'label', text: 'Strengths' }), argsEl(g.cand.strengths, 'gaston'),
-                    h('div', { class: 'label', text: 'Areas for improvement' }), listEl(g.cand.improvements, 'None noted.'),
-                    h('div', { class: 'label', text: "What's missing" }), listEl(g.cand.missing, 'Nothing noted.'));
-                if (g.qs?.questions?.length) body.append(h('div', { class: 'label', text: 'Questions to ask in the interview' }), listEl(g.qs.questions, ''));
+        function renderB4() {
+            const c = cands()[S.focus] || {};
+            const sorted = checksList($('b4-checks'), c.checks);
+            const blockers = sorted.filter(x => x.status === 'blocker').length, risks = sorted.filter(x => x.status === 'risk').length;
+            const cnt = $('b4-count');
+            cnt.textContent = blockers ? `${blockers} blocker${blockers > 1 ? 's' : ''}` : risks ? `${risks} risk${risks > 1 ? 's' : ''}` : sorted.length ? 'No red flag' : '';
+            cnt.style.color = blockers ? 'var(--block)' : risks ? 'var(--accent-ink)' : 'var(--ok)';
+            const car = $('b4-career'); car.replaceChildren();
+            for (const f of c.timeline?.facts || []) car.append(h('span', { class: 'chip' }, f));
+            if (!car.childElementCount) car.append(h('span', { class: 'empty' }, S.results?.live ? 'No dated jobs on the CV.' : 'Shown for committees run after this update.'));
+            const ms = $('b4-missing'); ms.replaceChildren();
+            for (const x of c.missing || []) ms.append(h('span', { class: 'chip' }, x));
+            $('b4-miss-l').hidden = ms.hidden = !(c.missing || []).length;
+        }
+
+        function feedLine(f, d) {
+            const sys = f.member === 'orchestrator';
+            const cids = f.cid ? [f.cid] : f.cids || [];
+            const tag = [f.round === null || f.round === undefined ? 'end' : `R${f.round}`, f.cid ? nameOf(f.cid) : null].filter(Boolean).join(' · ');
+            let move = null;
+            if (f.kind === 'score') move = h('span', { class: 'move' }, `${fmt(f.score)}/10`);
+            if (f.kind === 'change' || f.kind === 'hold') {
+                const up = f.to > f.from;
+                move = h('span', { class: 'move' + (f.kind === 'hold' ? '' : up ? ' up' : ' down') }, f.kind === 'hold' ? `${fmt(f.from)} holds` : `${fmt(f.from)} → ${fmt(f.to)}`);
+            }
+            const cls = (sys ? 'sys' : '') + (cids.includes(S.focus) ? ' focus' : '');
+            return h('li', { class: cls }, avatar(f.member),
+                h('div', { style: 'display:flex;flex-direction:column;gap:4px;min-width:0' },
+                    h('div', { class: 'meta' }, h('b', null, NAME[f.member] || f.member), h('span', { class: 'tag' }, tag), move),
+                    h('div', { class: 'txt' }, named(f.text))));
+        }
+
+        function renderChat(d, live) {
+            $('chat-l').replaceChildren(d.phase === 'gaston' || d.phase === 'done' ? 'Report' : d.round === 0 ? 'Round 0' : `Round ${d.round}`,
+                d.round > 0 && d.phase === 'debate' ? h('span', null, ` of ${S.results?.live?.max_rounds || 3}`) : '');
+            $('chat-about').textContent = S.focus ? `On the table: ${nameOf(S.focus)}` : '';
+            const list = $('feed');
+            const shown = S.feed.slice(0, S.shown).filter(f => S.filter === 'all' ? true
+                : S.filter === 'moves' ? ['score', 'change', 'hold'].includes(f.kind)
+                : (f.cid === S.focus || (f.cids || []).includes(S.focus)));
+            const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+            const prev = list.childElementCount;
+            list.replaceChildren(...shown.map(f => feedLine(f, d)));
+            for (let i = 0; i < Math.max(0, shown.length - 1) && i < prev; i++) list.children[i].style.animation = 'none';
+            if (atBottom || S.stick) { list.scrollTop = list.scrollHeight; S.stick = false; }
+            if (!shown.length) list.append(h('li', { class: 'sys' }, h('span'), h('div', { class: 'txt' }, 'Nothing here yet.')));
+
+            const ty = $('typing'); ty.replaceChildren();
+            const who = live?.speaking || d.speaking;
+            if (who) {
+                const on = (live?.on?.length ? live.on : d.speakingCids) || [];
+                const about = on.length === 1 ? nameOf(on[0]) : on.length ? `${on.length} candidates` : '';
+                ty.append(avatar(who), `${NAME[who]} is ${who === 'gaston' ? 'writing the report' : d.round === 0 ? 'reading' : 'answering on'} ${who === 'gaston' ? '' : about}`,
+                    h('span', { class: 'dots', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')));
+            } else if (d.phase === 'done') ty.append('The committee has finished.');
+            else if (S.mode === 'live' && S.shown >= S.feed.length) ty.append('Waiting for the next answer…');
+        }
+
+        function renderRace(d, rk) {
+            const box = $('race'); box.replaceChildren();
+            rk.forEach((r, i) => {
+                const lane = h('span', { class: 'lane' });
+                if (r.avg != null) lane.append(h('span', { class: 'avg', style: `width:${r.avg * 10}%` }));
+                const placed = [];
+                for (const m of MEMBERS) {
+                    const p = d.pos[m]?.[r.cid];
+                    const same = p ? placed.filter(s => s === p.score).length : 0;   // equal scores sit side by side
+                    if (p) placed.push(p.score);
+                    if (p) lane.append(h('span', { class: 'dot', style: `left:calc(${p.score * 10}% + ${same * 18}px);background:${COLOR[m]}`, title: `${NAME[m]} ${fmt(p.score)}` }, INITIAL[m]));
+                }
+                const tags = h('span', { class: 'chips' });
+                if (r.cid === S.focus) tags.append(h('span', { class: 'pill table' }, 'On the table'));
+                if (d.contested.includes(r.cid)) tags.append(h('span', { class: 'pill contested' }, 'Contested'));
+                if (d.rescue.has(r.cid)) tags.append(h('span', { class: 'pill rescue' }, 'Victor’s rescue'));
+                box.append(h('div', { class: 'rrow' + (r.cid === S.focus ? ' on' : '') + (i === 4 ? ' cut' : '') },
+                    h('span', { class: 'mono small' }, `#${i + 1}`),
+                    h('span', { class: 'nm' }, h('button', { type: 'button', style: 'border:0;background:none;padding:0;font:inherit;text-align:left;cursor:pointer;color:inherit', onclick: () => pick(r.cid) }, h('b', null, nameOf(r.cid))),
+                        h('span', { class: 'mono', style: 'font-size:11.5px;color:var(--faint)' }, r.cid)),
+                    lane, h('b', { style: 'font-size:16px;text-align:right' }, r.avg != null ? fmt(r.avg) : '–'), tags));
+            });
+        }
+
+        /* what they applied for, towards this role (whole-pool runs) */
+        function applicationText(cid) {
+            const l = S.results?.application?.[cid] || S.apps[cid]?.application;
+            if (l?.kind === 'this') return 'Applied for this role';
+            if (l?.kind === 'open') return 'Open application';
+            if (l?.kind === 'other') return `Applied for ${(l.roles || []).join(', ') || 'another role'}`;
+            return cands()[cid]?.application || '';
+        }
+
+        function pick(cid) { S.focus = cid; S.pinned = true; renderLive(); }
+
+        /* ------------------------------------------------------------------ pacing */
+        function delay() {
+            const backlog = S.feed.length - S.shown;
+            const base = S.mode === 'replay' ? 1500 / S.speed : backlog > 12 ? 250 : 1100;
+            const f = S.feed[S.shown];
+            return f && (f.kind === 'score') ? base * 0.55 : base;
+        }
+        function schedule() {
+            clearTimeout(S.timer);
+            if (S.paused || S.shown >= S.feed.length || (S.mode !== 'live' && S.mode !== 'replay')) return;
+            S.timer = setTimeout(() => { S.shown++; renderLive(); schedule(); }, delay());
+        }
+
+        /* ------------------------------------------------------------------ finished */
+        function renderDone() {
+            const c = S.results.committee, rep = c.report, hd = rep.header;
+            renderMembers(derive(S.feed.length), null);
+            const conf = rep.recommendation.confidence;
+            $('v-conf').className = `conf conf-${conf}`; $('v-conf').textContent = `Confidence: ${conf}`;
+            $('v-text').textContent = named(rep.recommendation.text);
+            $('v-reasons').replaceChildren(...(rep.recommendation.reasons || []).map(r => h('li', null, named(r[0].toUpperCase() + r.slice(1) + '.'))));
+            $('v-report').href = `report.html?role=${encodeURIComponent(S.roleId)}`;
+            $('v-md').href = `/api/admin/roles/${encodeURIComponent(S.roleId)}/report.md`;
+            $('v-replay').hidden = !S.feed.length;
+
+            const steps = [['Applications received', hd.applications, '#D6CFC8'], ['Readable CVs', hd.readable, '#D6CFC8'],
+                ['Passed the must-haves (Remi)', hd.passed_must_haves, '#BDB3A9'], ['Read in full by Jules', hd.read_by_jules, '#8C8178'],
+                ['Debated by the committee', hd.debated, '#5C5551'], ['Top 5', Math.min(5, rep.top5.length), 'var(--accent)']].filter(s => typeof s[1] === 'number');
+            const max = Math.max(1, ...steps.map(s => s[1]));
+            $('f-rows').replaceChildren(...steps.map(([l, n, col]) => h('div', { class: 'frow' },
+                h('div', null, h('span', { class: 'small', style: 'display:inline;height:auto;margin:0' }, l), h('span', { style: `width:${Math.max(4, n / max * 100)}%;background:${col}` })),
+                h('b', null, n))));
+            $('f-stats').textContent = `${hd.rounds} debate round${hd.rounds === 1 ? '' : 's'} · ${hd.stop_reason} · ${hd.ai_calls} AI calls · ${hd.reprompts} re-prompt${hd.reprompts === 1 ? '' : 's'}`;
+
+            $('top5').replaceChildren(...rep.top5.map(t => h('article', { class: 'card t5' + (t.rank === 1 ? ' first' : '') },
+                h('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, h('span', { class: 'mono small' }, `#${t.rank}`),
+                    h('span', { class: 'pill ' + (t.agreement === 'agreement' ? 'ok' : 'split') }, t.agreement === 'agreement' ? 'Agreement' : 'Split')),
+                h('div', null, h('div', { style: 'font-size:18px;font-weight:800;line-height:1.2' }, t.name), h('div', { class: 'mono', style: 'font-size:11.5px;color:var(--faint)' }, t.id)),
+                h('div', { class: 'score' }, h('b', null, fmt(t.score)), h('span', { class: 'small' }, '/ 10')),
+                h('div', { class: 'chips' }, ...Object.entries(t.scores).map(([m, s]) => h('span', { class: 'chip', style: 'padding:2px 8px' },
+                    h('b', { style: `color:${COLOR[BY_DISPLAY[m]] || 'inherit'}` }, m[0]), ' ', fmt(s)))),
+                h('p', null, named(t.comment)),
+                h('a', { href: `report.html?role=${encodeURIComponent(S.roleId)}#${encodeURIComponent(t.id)}` }, 'Strengths, gaps & interview questions →'))));
+
+            const moves = [];
+            for (const a of rep.appendix || []) for (const r of a.rows || []) if (r.after !== r.before || r.because)
+                moves.push({ who: r.member, cid: a.id, from: r.before, to: r.after, why: r.because });
+            moves.sort((a, b) => Math.abs(b.to - b.from) - Math.abs(a.to - a.from));
+            const LIMIT = 8, showAll = S.allMoves || moves.length <= LIMIT + 2;
+            const rows = (moves.length ? (showAll ? moves : moves.slice(0, LIMIT)).map(m => {
+                const dl = m.to - m.from;
+                return h('div', { class: 'mrow' }, h('b', { style: `color:${COLOR[BY_DISPLAY[m.who]] || 'inherit'}` }, m.who), h('span', null, nameOf(m.cid)),
+                    h('span', { style: 'font-weight:800' }, `${fmt(m.from)} → ${fmt(m.to)} `, h('span', { class: 'pill ' + (dl > 0 ? 'ok' : dl < 0 ? 'split' : '') }, dl ? (dl > 0 ? '+' : '') + fmt(dl) : 'held')),
+                    h('span', { class: 'why' }, named(m.why)));
+            }) : [h('p', { class: 'empty', style: 'margin:0' }, 'Nobody was asked to defend a score: the committee agreed from round 0.')]);
+            if (!showAll) rows.push(h('button', { type: 'button', class: 'btn btn-sm', style: 'align-self:flex-start',
+                onclick: () => { S.allMoves = true; renderDone(); } }, `Show all ${moves.length}`));
+            $('m-rows').replaceChildren(...rows);
+
+            $('o-rows').replaceChildren(...((rep.disagreements || []).length ? rep.disagreements.map(x => h('div', { class: 'orow' },
+                h('div', { style: 'display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap' },
+                    h('b', { style: 'font-size:14.5px' }, nameOf(x.id), ' ', h('span', { class: 'mono', style: 'font-size:11.5px;color:var(--faint);font-weight:400' }, x.id)),
+                    h('span', { class: 'small' }, Object.entries(x.scores).map(([m, s]) => `${m} ${fmt(s)}`).join(' · '))),
+                h('span', { style: 'font-size:13px;color:#4A413B' }, named(x.summary)))) : [h('p', { class: 'empty', style: 'margin:0' }, 'None: the committee settled every candidate near the top.')]));
+
+            const n = rep.notes || {};
+            const extra = [];
+            if (Object.keys(n.skipped || {}).length) extra.push('Not launched: ' + Object.entries(n.skipped).map(([m, w]) => `${m} (${w})`).join('; '));
+            if ((n.unreliable || []).length) extra.push('Answered badly twice: ' + n.unreliable.map(u => `${u.member} (round ${u.round})`).join(', '));
+            if ((n.filled_by_code || []).length) extra.push('Completed from the members’ own verified arguments: ' + named(n.filled_by_code.join(', ')));
+            $('foot').textContent = 'Scores, ranking, confidence and disagreements are computed by code. Gaston only writes. Every quoted strength was checked word for word against the CV or the practical answers.'
+                + (extra.length ? ' ' + extra.join('. ') + '.' : '');
+        }
+
+        /* ------------------------------------------------------------------ applicant dialog */
+        const ARR = { onsite: 'On-site', hybrid: 'Hybrid', remote: 'Remote' };
+        const TRAVEL = { none: 'No travel', occasional: 'Occasionally', frequent: 'Frequently' };
+        const AUTH = { yes: 'Yes', no: 'No', sponsorship: 'Needs sponsorship' };
+        const REL = { yes: 'Yes', no: 'No', open: 'Open to it' };
+        async function openApp() {
+            const cid = S.focus;
+            if (!cid) return;
+            const c = cands()[cid] || {}, a = S.apps[cid] || {};
+            $('app-name').textContent = nameOf(cid);
+            $('app-sub').textContent = [cid, applicationText(cid) || null, a.appliedAt ? 'applied ' + new Date(a.appliedAt).toLocaleDateString() : null, S.results?.role?.title].filter(Boolean).join(' · ');
+            $('app-cv').href = `/api/admin/applicants/${encodeURIComponent(cid)}/cv`;
+            $('app-cvname').textContent = a.cvName || 'Original file';
+            $('app-full').href = `/api/admin/applicants/${encodeURIComponent(cid)}/full`;
+            const hasLi = Boolean(a.hasLinkedinPdf ?? a.linkedinFile ?? c.linkedin);
+            $('app-li').href = hasLi ? `/api/admin/applicants/${encodeURIComponent(cid)}/linkedin` : '#';
+            $('app-li').classList.toggle('off', !hasLi);
+            $('app-lit').textContent = hasLi ? 'Uploaded' : 'Not provided';
+            checksList($('app-checks'), c.checks);
+            const ul = $('app-answers');
+            ul.replaceChildren(h('li', null, h('span', null, 'Loading…')));
+            $('app').showModal();
+            try {
+                const p = await api(`/api/admin/applicants/${encodeURIComponent(cid)}/practical`);
+                const loc = [p.location?.city, p.location?.country].filter(Boolean).join(', ');
+                const rows = [
+                    ['Salary expectation', p.salary ? `${p.salary.amount} ${p.salary.currency || ''} per ${p.salary.period || 'month'}` : null],
+                    ['Earliest start date', p.available_from ? new Date(p.available_from).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : null],
+                    ['Notice period', p.notice_weeks != null ? `${p.notice_weeks} weeks` : null],
+                    ['Lives in', loc || null],
+                    ['Willing to relocate', REL[p.relocate] || p.relocate],
+                    ['Willing to travel', TRAVEL[p.travel] || p.travel],
+                    ['Preferred way of working', ARR[p.arrangement] || p.arrangement],
+                    ['Right to work', AUTH[p.work_authorization] || p.work_authorization],
+                    ...(p.languages || []).map(l => [`Language: ${l.language}`, l.level]),
+                    ['LinkedIn link', a.linkedinUrl || null],
+                ].filter(r => r[1]);
+                ul.replaceChildren(...rows.map(([k, v]) => h('li', null, h('span', null, k), h('b', null, v))));
+            } catch (err) {
+                ul.replaceChildren(h('li', null, h('span', { class: 'empty' }, err.message)));
+            }
+        }
+        $('b1-app').addEventListener('click', openApp);
+        $('app-x').addEventListener('click', () => $('app').close());
+        $('app-close').addEventListener('click', () => $('app').close());
+        $('app').addEventListener('click', e => { if (e.target === $('app')) $('app').close(); });
+
+        /* ------------------------------------------------------------------ controls */
+        function setFilter(f) {
+            S.filter = f; S.stick = true;
+            document.querySelectorAll('.filters button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.filter === f)));
+        }
+        document.querySelectorAll('.filters button').forEach(b => b.addEventListener('click', () => { setFilter(b.dataset.filter); renderLive(); }));
+        document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+            S.speed = Number(b.dataset.speed);
+            document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+            schedule();
+        }));
+        $('rp-play').addEventListener('click', () => {
+            if (S.shown >= S.feed.length) { S.shown = 0; S.paused = false; }
+            else S.paused = !S.paused;
+            renderLive(); schedule();
+        });
+        $('rp-end').addEventListener('click', () => { S.shown = S.feed.length; S.paused = true; renderLive(); schedule(); });
+        $('rp-close').addEventListener('click', () => { S.evaluation = false; S.pinned = false; setFilter('all'); show('done'); });
+        $('v-replay').addEventListener('click', () => { S.evaluation = false; S.shown = 0; S.paused = false; S.pinned = false; S.stick = true; show('replay'); });
+        $('see-results').addEventListener('click', e => { e.preventDefault(); show('done'); });
+
+        function show(mode) {
+            S.mode = mode;
+            $('waiting').hidden = mode !== 'none';
+            $('liveView').hidden = !(mode === 'live' || mode === 'replay');
+            $('doneView').hidden = mode !== 'done';
+            if (mode === 'done') { clearTimeout(S.timer); renderDone(); }
+            if (mode === 'live' || mode === 'replay') { renderLive(); schedule(); }
+        }
+
+        /* ------------------------------------------------------------------ load + poll */
+        let pollTimer = null;
+        async function load(first) {
+            const res = await api(`/api/admin/roles/${encodeURIComponent(S.roleId)}/results`);
+            S.results = res;
+            S.feed = res.feed || [];
+            const ag = res.role.agents || {};
+            const committeeRunning = ag.committee?.state === 'running';
+            const pipelineRunning = ag.pipeline?.state === 'running';
+            if (first) {
+                $('role').textContent = `${res.role.title} · ${res.role.id}`;
+                document.title = `Committee · ${res.role.title}`;
+                try {
+                    const list = await api(`/api/admin/applicants?role=${encodeURIComponent(S.roleId)}`);
+                    S.apps = Object.fromEntries(list.map(a => [a.id, a]));
+                } catch { /* names still come from live.json */ }
+            }
+            const wanted = first ? new URLSearchParams(location.search).get('cid') : null;
+            if (wanted && finalistIds().includes(wanted)) { S.focus = wanted; S.pinned = true; setFilter('cid'); }
+            if (res.committee?.report && !committeeRunning) {
+                // opened from a lobby card: that candidate's evaluation (the end of the debate, pinned on them)
+                if (first && S.pinned && S.feed.length) { S.evaluation = true; S.shown = S.feed.length; S.paused = true; show('replay'); }
+                else if (first) show('done');
+                else if (S.mode === 'live') { renderLive(); schedule(); }   // finished while watching: "See the results"
+                stopPolling();
+            } else if (committeeRunning || S.feed.length) {
+                if (S.mode !== 'live') { S.shown = S.pinned ? S.feed.length : Math.max(0, S.feed.length - 3); S.stick = true; show('live'); }
+                else { renderLive(); schedule(); }
+                if (!committeeRunning && ag.committee?.state === 'failed') notice(`The committee stopped: ${ag.committee.message || 'see the pipeline page'}.`);
             } else {
-                body.append(h('p', { class: 'none', text: `Gaston writes up the top 5 only. ${names[cid] || cid} finished #${rankOf(cid)}.` }));
+                show('none');
+                const failed = ag.committee?.state === 'failed' || ag.pipeline?.state === 'failed';
+                $('wait-title').textContent = pipelineRunning ? 'The pipeline is running' : failed ? 'The last run stopped' : 'The committee has not met yet';
+                $('wait-text').textContent = pipelineRunning ? 'The committee sits as soon as Jules has his top 10. This page follows it live.'
+                    : failed ? 'Open “Edit pipeline” in the lobby to see what went wrong and run it again.'
+                    : 'Run the pipeline from the lobby: Oscar, Remi and Jules first, then the committee debates the top 10 here.';
+                if (!pipelineRunning) stopPolling();
             }
-            if (g.dis) body.append(h('div', { class: 'label', text: 'Unresolved disagreement' }), h('p', { style: 'margin:0', text: g.dis.summary }));
-            const out = [head, body];
-            if (g.app?.rows?.length) out.push(h('div', { class: 'card' },
-                h('div', { class: 'label', style: 'margin-top:0', text: 'Positions before and after the debate' }),
-                h('table', {}, h('thead', {}, h('tr', {}, ['Member', 'Before', 'After', 'Why'].map(t => h('th', { text: t })))),
-                    h('tbody', {}, g.app.rows.map(x => h('tr', {},
-                        h('td', { text: x.member }), h('td', { text: `${fmt(x.before)} (${x.verdict_before})` }),
-                        h('td', {}, `${fmt(x.after)} (${x.verdict_after}) `, x.after === x.before ? '' :
-                            h('span', { class: `move ${x.after > x.before ? 'up' : 'down'}`, text: `${x.after > x.before ? '+' : ''}${fmt(x.after - x.before)}` })),
-                        h('td', { text: x.because || '–' })))))));
-            return out;
         }
-
-        // ---------- page ----------
-        const rankOf = cid => order.indexOf(cid) + 1;
-
-        function renderList() {
-            const top = new Set(C.top5 || []);
-            const items = [];
-            order.forEach((cid, i) => {
-                const r = C.ranking.find(x => x.id === cid);
-                if (i === 5) items.push(h('li', { class: 'cut', 'aria-hidden': 'true', text: 'top 5 cut-off' }));
-                items.push(h('li', {}, h('button', { class: 'fin', type: 'button', 'aria-current': state.cand === cid ? 'true' : 'false',
-                    onclick: () => go(cid, state.member) },
-                    h('span', { class: 'rk', text: `#${i + 1}` }),
-                    h('span', { style: 'min-width:0' }, h('span', { class: 'nm', text: names[cid] || cid }),
-                        h('span', { class: 'id' }, cid, top.has(cid) ? h('span', { class: 't5', text: 'Top 5' }) : '')),
-                    h('span', { class: 'sc', text: fmt(r?.score) }))));
-            });
-            $('fin-list').replaceChildren(...items);
-        }
-
-        function renderCand() {
-            const cid = state.cand, r = C.ranking.find(x => x.id === cid) || {};
-            const g = gastonOn(cid);
-            const sat = C.members || [];
-            const tabs = ['all', ...MEMBERS, 'gaston'];
-            const chips = tabs.map(t => {
-                const off = MEMBERS.includes(t) && !sat.includes(t);
-                const s = MEMBERS.includes(t) ? (off ? 'not called' : fmt(r.scores?.[t])) : t === 'gaston' ? (g.top ? '✎' : '–') : '';
-                return h('button', { class: `chip${off ? ' off' : ''}`, type: 'button', role: 'tab', id: `tab-${t}`,
-                    'aria-selected': state.member === t ? 'true' : 'false', 'aria-controls': 'panel', tabindex: state.member === t ? '0' : '-1',
-                    style: t === 'all' ? '' : `--c: var(--${t})`, onclick: () => go(cid, t) },
-                    t === 'all' ? '' : h('span', { class: 'dot', 'aria-hidden': 'true' }),
-                    t === 'all' ? 'All' : NAME[t], s ? h('span', { class: 's', text: s }) : '');
-            });
-            const bar = h('div', { class: 'bar', role: 'tablist', 'aria-label': 'Committee members', onkeydown: e => {
-                const i = tabs.indexOf(state.member);
-                const j = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length : -1;
-                if (j < 0) return;
-                e.preventDefault(); go(cid, tabs[j]); $(`tab-${tabs[j]}`)?.focus();
-            } }, chips);
-            const app = RES.application?.[cid] || g.cand?.application;
-            const head = h('div', { class: 'card' },
-                h('div', { class: 'chead' }, h('h2', { text: names[cid] || cid }), h('span', { class: 'cid', text: cid })),
-                h('div', { class: 'facts' },
-                    h('span', { class: 'fact' }, 'Final rank ', h('b', { text: `#${rankOf(cid)}` }), ` of ${order.length}`),
-                    h('span', { class: 'fact' }, 'Committee score ', h('b', { text: `${fmt(r.score)}/10` })),
-                    h('span', { class: 'fact' }, 'Spread ', h('b', { text: fmt(r.spread) }), r.spread > 2 ? ' · split' : ' · agreement'),
-                    r.jules != null ? h('span', { class: 'fact' }, 'Jules ', h('b', { text: fmt(r.jules) })) : '',
-                    app ? h('span', { class: 'fact', text: app }) : ''));
-            const panel = h('div', { id: 'panel', role: 'tabpanel', 'aria-labelledby': `tab-${state.member}`, style: 'display:flex;flex-direction:column;gap:14px' },
-                state.member === 'all' ? viewAll(cid) : state.member === 'gaston' ? viewGaston(cid) : viewMember(cid, state.member));
-            $('cand').replaceChildren(head, bar, panel);
-        }
-
-        function go(cid, member, push = true) {
-            state = { cand: cid, member: ['all', 'gaston', ...MEMBERS].includes(member) ? member : 'all' };
-            const q = new URLSearchParams({ role: ROLE, cand: cid });
-            if (state.member !== 'all') q.set('member', state.member);
-            if (push) history.replaceState(null, '', `?${q}`);
-            renderList(); renderCand();
-        }
+        function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+        function notice(t) { $('notice').hidden = false; $('notice').textContent = t; }
 
         (async () => {
             try {
                 const me = await api('/api/admin/me');
                 $('who').textContent = me.user;
-                const params = new URLSearchParams(location.search);
-                let id = params.get('role');
+                let id = new URLSearchParams(location.search).get('role');
                 if (!id) { try { id = localStorage.getItem('lobby.role'); } catch { /* storage off */ } }
-                if (!id) { $('ph-title').textContent = 'No role chosen'; $('ph-text').textContent = 'Choose a role in the lobby first.'; return; }
-                ROLE = id;
+                if (!id) { show('none'); $('wait-text').textContent = 'Choose a role in the lobby first.'; return; }
+                S.roleId = id;
                 $('back').href = `adminlobby.html?role=${encodeURIComponent(id)}`;
-                RES = await api(`/api/admin/roles/${encodeURIComponent(id)}/results`);
-                $('role').textContent = `${RES.role.title} · ${RES.role.id}`;
-                document.title = `Committee · ${RES.role.title}`;
-                C = RES.committee;
-                $('report').href = `report.html?role=${encodeURIComponent(id)}`;
-                $('report-md').href = `/api/admin/roles/${encodeURIComponent(id)}/report.md`;
-                // member reports open once Gaston has written the report (the debate is over by then)
-                if (!C?.report) {
-                    $('ph-title').textContent = 'The committee has not finished';
-                    $('ph-text').textContent = 'Each member’s report on each finalist opens here once Gaston has written the final report.';
-                    return;
+                await load(true);
+                if (S.mode === 'live' || S.mode === 'none') {
+                    pollTimer = setInterval(() => load(false).catch(err => notice(err.message)), 2500);
                 }
-                $('actions').hidden = false;
-                $('placeholder').hidden = true;
-                $('layout').hidden = false;
-                order = (C.ranking || []).map(r => r.id);
-                for (const f of RES.jules?.finalists || []) names[f.candidate_id] = RES.names?.[f.candidate_id] || f.personal?.name || '';
-                for (const cid of order) names[cid] ||= RES.names?.[cid] || '';
-                const want = params.get('cand');
-                if (want && !order.includes(want)) {
-                    $('info').hidden = false;
-                    $('info').textContent = `${want} was not one of the ${order.length} finalists the committee debated, so the members have no report on them. Showing the committee’s #1 instead.`;
-                }
-                go(order.includes(want) ? want : order[0], params.get('member') || 'all', false);
             } catch (err) {
-                $('notice').hidden = false;
-                $('notice').textContent = err.message;
-                $('placeholder').hidden = true;
+                notice(err.message);
             }
         })();
     </script>

@@ -41,6 +41,7 @@ python -m hiring remi  --job job.json --runs out --out remi.json [--ids C0001,C0
 python -m hiring jules --job job.json --runs out --remi remi.json --out jules.json   # keeps --top 10
 python -m hiring committee --job job.json --runs out --jules jules.json --input committee_in.json \
                            --out committee.json [--report report.md] [--trace trace.jsonl] [--feed feed.json]
+                           [--live live.json]
 ```
 `cv_reader` exit codes: per-file status is `ok`/`warning`/`failed` (never aborts a batch). `hiring` exit
 codes: 0 ok, 2 bad input, 3 the LLM could not be used.
@@ -181,7 +182,13 @@ prompt (`personas/<name>.md` + shared `RULES`). Everything else is plain code.
 - `orchestrator.py` — round 0 alone (Hélène → Victor → Nina; Nina skipped if nothing practical), then up
   to 3 debate rounds on `contested()` candidates with `assignments()` (highest/lowest scorer, the middle one once, + Victor's
   rescue), one re-prompt on validation errors, stop on consensus / deadlock / max rounds, `rank()` =
-  average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`. `history` (member → cid → one entry per round: score, verdict, verified arguments, concerns, question, reply, why they were called) is saved in `committee.json` for the committee page; `positions` only holds the final round.
+  average score (ties: direct applicants first when the role's tie-break is on, then Jules, Remi). `Trace` writes `trace.jsonl` (prompts, raw answers) and `feed.json`; feed lines carry `cid`/`cids`,
+  `score`, `verdict`, `from`/`to`, `arg`, `concern` so the committee page can redraw the debate from the feed alone.
+  `history` (member → cid → one entry per round: score, verdict, verified arguments, concerns, question, reply,
+  why they were called) is saved in `committee.json` for the member reports; `positions` only holds the final round.
+- `live.py` — `live.json` while the committee sits (`--live`): phase, who is speaking, current positions,
+  ranking, and each finalist's facts (name, application label, Nina's checks, Victor's timeline, what is missing).
+  Names are for the admin page only.
 - `gaston.py` — `confidence()` and every fact by code; one AI call for the wording; strengths' quotes
   verified; one re-prompt; `fill()` completes from the members' verified arguments; works with the AI down.
 - `report.py` — `to_markdown()`; `pages/report.html` renders the same report JSON (print → PDF).
@@ -198,7 +205,10 @@ poll and show a live progress indicator while an agent runs in the background.
 - **Admin pages**: `adminlobby.html` (top 10 / top 5 board + live timeline; the timeline's "Applications in",
   "Job & criteria" and "Practical requirements" steps are buttons that open `<dialog>` cards over a blurred
   page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
-  `committee.html` (opened by "3 · Committee"; once Gaston's report exists: the 10 finalists, then per candidate All · Hélène · Victor · Nina · Gaston, All by default, each member's position round by round from `committee.history`; deep links `?role=&cand=&member=`), `report.html` (Gaston's report).
+  `committee.html` (opened by "3 · Committee": the live debate drawn from `feed.json` + `live.json` with
+  B#1 on the table / B#2 scores / B#3 evidence / B#4 fit & red flags, the chat and the race; then the results
+  and a replay; once Gaston's report exists the members bar at the top right opens each member's report on a
+  finalist, round by round, in a dialog: All (default) · Hélène · Victor · Nina · Gaston), `report.html` (Gaston's report).
   The criteria, CV-section and practical-requirement editors live once in `pages/admin-forms.js`
   (`window.AdminForms`) and are used by both the lobby cards and `roles.html`: change them there.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the
