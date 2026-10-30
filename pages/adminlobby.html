@@ -184,7 +184,7 @@
         .tl-head h2 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -.01em; }
         .tl-head p { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
         .rail {
-            position: relative; overflow-y: auto; height: min(600px, calc(100vh - 260px)); min-height: 360px;
+            position: relative; overflow-y: auto; height: min(600px, calc(100vh - 334px)); min-height: 360px;   /* 334 = the head + the foot (Edit pipeline + Reset) */
             padding: 6px 18px 20px 10px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
             /* steps fade in and out at the edges as the timeline scrolls */
             -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px, #000 calc(100% - 28px), transparent);
@@ -252,6 +252,18 @@
 
         .tl-foot { padding: 14px 24px 22px; border-top: 1px solid var(--line); margin-top: auto; }
         .tl-foot .btn { width: 100%; min-height: 50px; font-size: 15px; }
+        .tl-foot { display: flex; flex-direction: column; gap: 10px; }
+        .tl-foot .btn.reset { min-height: 44px; font-size: 14px; color: var(--error); border-color: #F1C9C4; }
+        .tl-foot .btn.reset:hover:not(:disabled) { background: #FDF1EF; }
+        /* "Stop & reset": a short confirmation card */
+        .card-dialog.small { width: min(560px, calc(100vw - 32px)); }
+        .reset-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .reset-lists h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+        .reset-lists ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--muted); }
+        .reset-lists li + li { margin-top: 3px; }
+        .btn.danger-fill { background: var(--error); border-color: var(--error); color: #FFF; }
+        .btn.danger-fill:hover:not(:disabled) { background: #912018; }
+        @media (max-width: 560px) { .reset-lists { grid-template-columns: 1fr; } }
 
 
         /* ---------- clickable timeline steps: they open a card; blue on hover / keyboard focus ---------- */
@@ -467,6 +479,11 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                 </a>
+                <button type="button" class="btn reset" id="reset-run" aria-haspopup="dialog" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+                    <span id="reset-label">Reset timeline</span>
+                </button>
             </div>
         </aside>
     </div>
@@ -568,6 +585,43 @@
     </dialog>
 
     <!-- "Practical requirements": what Nina checks the top 10 against -->
+    <dialog id="card-reset" class="card-dialog small" aria-labelledby="reset-title">
+        <header class="cd-head">
+            <div>
+                <h2 id="reset-title">Reset this hire's timeline?</h2>
+                <p class="cd-lead" id="reset-lead"></p>
+            </div>
+            <button type="button" class="cd-close" data-close aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+        </header>
+        <div class="cd-body">
+            <div class="reset-lists">
+                <div>
+                    <h3>Cleared</h3>
+                    <ul>
+                        <li>Remi's shortlist and Jules's top 10</li>
+                        <li>The committee's debate, top 5 and Gaston's report</li>
+                        <li>The timeline's steps, back to “Run full pipeline”</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Kept</h3>
+                    <ul>
+                        <li>The job, its criteria and practical requirements</li>
+                        <li>Every CV and application, and Oscar's readings of them</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <footer class="cd-foot">
+            <p class="msg" id="reset-msg" role="status" aria-live="polite"></p>
+            <button type="button" class="btn" data-close>Cancel</button>
+            <button type="button" class="btn danger-fill" id="reset-go">Reset</button>
+        </footer>
+    </dialog>
+
     <dialog id="card-practical" class="card-dialog narrow" aria-labelledby="prac-title">
         <header class="cd-head">
             <div>
@@ -1031,7 +1085,55 @@
             $('committee').href = `committee.html?role=${encodeURIComponent(roleId)}`;
             $('committee-hint').textContent = results.committee?.report ? '' : 'The committee has not met for this role yet.';
             $('pipeline').href = pipelineHref();
+            renderReset();
         }
+
+        // ---------------- "Stop & reset": stop what runs for this role, clear the run, back to "Run full pipeline" ----------------
+        const RUN_STEPS = ['pipeline', 'oscar', 'remi', 'jules', 'committee'];
+        let resetting = false;
+        function resetState() {
+            const ag = results?.role?.agents || {};
+            const running = Object.values(ag).some(a => a.state === 'running');
+            const something = running || RUN_STEPS.some(k => ag[k]) || Boolean(results?.remi || results?.jules || results?.committee);
+            return { running, something };
+        }
+        function renderReset() {
+            const { running, something } = resetState();
+            $('reset-label').textContent = resetting ? (running ? 'Stopping…' : 'Resetting…') : running ? 'Stop & reset' : 'Reset timeline';
+            $('reset-run').disabled = resetting || !something;
+            $('reset-run').title = something ? '' : 'Nothing to reset yet: the pipeline has not run for this role.';
+        }
+        $('reset-run').addEventListener('click', () => {
+            if (!results) return;
+            const { running } = resetState();
+            opener = $('reset-run');
+            $('reset-title').textContent = running ? 'Stop the run and reset?' : 'Reset this hire\u2019s timeline?';
+            $('reset-lead').textContent = running
+                ? 'The step running now stops at once (AI calls in progress are cancelled). Then everything this run produced is cleared, so you can start again from scratch.'
+                : 'Everything the last run produced is cleared, so you can start again from scratch with “Run full pipeline”.';
+            $('reset-go').textContent = running ? 'Stop & reset' : 'Reset';
+            $('reset-go').disabled = false;
+            say('reset-msg', '');
+            $('card-reset').showModal();
+            $('reset-go').focus();
+        });
+        $('reset-go').addEventListener('click', async () => {
+            const id = roleId;
+            resetting = true; renderReset();
+            $('reset-go').disabled = true;
+            say('reset-msg', resetState().running ? 'Stopping the run…' : 'Resetting…');
+            try {
+                await api(`/api/admin/roles/${encodeURIComponent(id)}/reset`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+                runError = '';
+                $('card-reset').close();
+            } catch (err) {
+                say('reset-msg', err.message, true);
+                $('reset-go').disabled = false;
+            }
+            resetting = false;
+            if (roleId === id) await refresh().catch(err => say('reset-msg', err.message, true));
+        });
         const pipelineHref = () => `roles.html${roleId ? `?role=${encodeURIComponent(roleId)}` : ''}`;
 
         function render() {

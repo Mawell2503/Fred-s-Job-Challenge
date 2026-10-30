@@ -41,9 +41,9 @@ export function staleCount(role, list) {
  * Make sure every applicant in `list` has an up-to-date read for this role, reading only what is missing
  * or stale. Returns { readable: [candidateIds], total: reads done, failed }.
  */
-export async function ensureReads(role, list, onProgress) {
+export async function ensureReads(role, list, onProgress, signal) {
     if (usesArrivalReads(role)) {
-        const r = await refreshDefaultReads(list, onProgress);
+        const r = await refreshDefaultReads(list, onProgress, signal);
         return { ...r, readable: list.filter(a => a.cvStatus !== 'failed').map(a => a.candidateId) };
     }
     const key = rulesKey(role.rules);
@@ -53,7 +53,9 @@ export async function ensureReads(role, list, onProgress) {
     const stale = list.filter(a => index[a.candidateId]?.key !== key);
     let done = 0, failed = 0;
     for (const a of stale) {
+        if (signal?.aborted) break;                     // stopped: the CV being read finishes, the rest wait
         await inQueue(async () => {
+            if (signal?.aborted) return;
             let entry;
             try {
                 const r = await runCvReader(path.join(UPLOAD_DIR, a.cvFile), a.number, rules, root);

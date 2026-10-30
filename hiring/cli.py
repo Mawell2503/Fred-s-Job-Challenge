@@ -96,6 +96,8 @@ def _committee(a) -> int:
 
 
 def main(argv=None) -> int:
+    from .llm import install_stop_handler
+    install_stop_handler()                        # "Stop & reset" in the lobby: the AI calls stop with this process
     ap = argparse.ArgumentParser(prog="hiring", description="Clara, Remi and Jules.")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

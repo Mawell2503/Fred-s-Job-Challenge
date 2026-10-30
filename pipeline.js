@@ -32,28 +32,63 @@ export const readJson = file => { try { return JSON.parse(fs.readFileSync(file, 
 const lastLine = text => String(text).trim().split('\n').filter(Boolean).pop() || '';
 
 /** Start `work` for one agent of one role unless something is already running for that role. */
+// the work running in this server, per role: what "Stop & reset" stops
+const active = new Map();          // roleId -> { agent, controller, done }
+const STOPPED = 'Stopped by an admin.';
+
 export function startAgent(role, agent, work) {
     role.agents ||= {};
-    if (Object.values(role.agents).some(a => a.state === 'running')) {
+    if (active.has(role.id) || Object.values(role.agents).some(a => a.state === 'running')) {
         return 'Something is already running for this role. Wait for it to finish.';
     }
     role.agents[agent] = { state: 'running', startedAt: new Date().toISOString(), message: '' };
     saveRoles();
     const progressFile = path.join(roleDir(role.id), 'progress.json');
     fs.rmSync(progressFile, { force: true });
-    Promise.resolve()
-        .then(() => work(progressFile))
+    const controller = new AbortController();
+    const done = Promise.resolve()
+        .then(() => work(progressFile, controller.signal))
         .then(message => Object.assign(role.agents[agent], { state: 'done', message: message || '' }))
-        .catch(err => Object.assign(role.agents[agent], { state: 'failed', message: String(err.message || err).slice(0, 800) }))
+        .catch(err => Object.assign(role.agents[agent], controller.signal.aborted
+            ? { state: 'stopped', message: STOPPED }
+            : { state: 'failed', message: String(err.message || err).slice(0, 800) }))
         .finally(() => {
             role.agents[agent].finishedAt = new Date().toISOString();
+            active.delete(role.id);
             saveRoles();
         });
+    active.set(role.id, { agent, controller, done });
     return null;
 }
 
-export async function runHiring(args, agent) {
-    const { code, stdout, stderr } = await runPython(['-m', 'hiring', ...args], TIMEOUTS[agent]);
+/**
+ * The lobby's "Stop & reset": stop whatever runs for this role in this server, then clear the run's results
+ * and the timeline's steps, so the role is back to "Run full pipeline". The job, its criteria, the CVs and
+ * Oscar's reads of them are kept (they are not the sorting; reading the pool again would only cost time).
+ * Returns what was stopped (an agent name) or null.
+ */
+export async function stopAndReset(role, { waitMs = 30000 } = {}) {
+    const run = active.get(role.id);
+    if (run) {
+        run.controller.abort(new Error(STOPPED));
+        let timer;
+        const waited = await Promise.race([run.done.then(() => true),
+            new Promise(r => { timer = setTimeout(() => r(false), waitMs); })]);
+        clearTimeout(timer);
+        if (!waited) throw new Error('The run did not stop in time. Try again in a moment.');
+    }
+    const dir = roleDir(role.id);
+    for (const f of [...OUTPUTS, 'progress.json']) fs.rmSync(path.join(dir, f), { force: true });
+    role.agents ||= {};
+    for (const k of ['pipeline', ...STEPS]) delete role.agents[k];
+    // a step marked running with nothing behind it (a run from the terminal, or a crash): cleared too
+    for (const [k, a] of Object.entries(role.agents)) if (a.state === 'running' || a.state === 'stopped') delete role.agents[k];
+    saveRoles();
+    return run?.agent || null;
+}
+
+export async function runHiring(args, agent, signal) {
+    const { code, stdout, stderr } = await runPython(['-m', 'hiring', ...args], TIMEOUTS[agent], signal);
     if (code !== 0) throw new Error(lastLine(stderr) || `${agent} failed (exit ${code}).`);
     return lastLine(stdout);
 }
@@ -91,7 +126,7 @@ export function pipelineProblem(role) {
     return null;
 }
 
-export async function runPipeline(role, { llmGate = false } = {}, progressFile) {
+export async function runPipeline(role, { llmGate = false } = {}, progressFile, signal) {
     const dir = roleDir(role.id);
     const file = name => path.join(dir, name);
     progressFile ||= file('progress.json');
@@ -102,6 +137,7 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
     saveRoles();
 
     const step = async (name, fn) => {
+        signal?.throwIfAborted();
         role.agents[name] = { state: 'running', startedAt: new Date().toISOString(), message: '' };
         saveRoles();
         progress({ stage: name, done: 0, total: 0 });
@@ -111,9 +147,10 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
             saveRoles();
             return message;
         } catch (err) {
-            Object.assign(role.agents[name], { state: 'failed', message: String(err.message || err).slice(0, 800),
-                finishedAt: new Date().toISOString() });
+            Object.assign(role.agents[name], signal?.aborted ? { state: 'stopped', message: STOPPED, finishedAt: new Date().toISOString() }
+                : { state: 'failed', message: String(err.message || err).slice(0, 800), finishedAt: new Date().toISOString() });
             saveRoles();
+            if (signal?.aborted) throw signal.reason;
             throw new Error(`${STEP_LABEL[name]} failed: ${err.message || err}`);
         }
     };
@@ -125,7 +162,8 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
     // 1. Oscar: only what is missing or stale for this role's CV sections
     let ids = [];
     await step('oscar', async () => {
-        const r = await ensureReads(role, apps, (done, total) => progress({ stage: 'oscar', done, total }));
+        const r = await ensureReads(role, apps, (done, total) => progress({ stage: 'oscar', done, total }), signal);
+        signal?.throwIfAborted();
         ids = r.readable;
         return r.total ? `Read ${r.total} CV(s) with this role's sections${r.failed ? `, ${r.failed} unreadable` : ''}.`
             : `Every CV was already read with this role's sections (${ids.length} readable).`;
@@ -141,14 +179,14 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
         const args = ['remi', '--job', job, '--runs', runs, '--ids-file', idsFile, '--out', file('remi.json'),
             '--progress', progressFile];
         if (llmGate) args.push('--llm-gate');
-        return runHiring(args, 'remi');
+        return runHiring(args, 'remi', signal);
     });
     const remi = readJson(file('remi.json'));
     if (!remi?.shortlist?.length) throw new Error('Remi shortlisted nobody: every candidate failed a must-have.');
 
     // 3. Jules: full read of the 20, keeps 10
     await step('jules', () => runHiring(['jules', '--job', job, '--runs', runs, '--remi', file('remi.json'),
-        '--out', file('jules.json'), '--top', '10', '--progress', progressFile], 'jules'));
+        '--out', file('jules.json'), '--top', '10', '--progress', progressFile], 'jules', signal));
     const jules = readJson(file('jules.json'));
     const finalists = (jules?.finalists || []).map(f => f.candidate_id);
     if (!finalists.length) throw new Error('Jules produced no finalists.');
@@ -173,7 +211,7 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
     await step('committee', () => runHiring(['committee', '--job', job, '--runs', runs, '--jules', file('jules.json'),
         '--input', file('committee_in.json'), '--out', file('committee.json'), '--report', file('report.md'),
         '--trace', file('trace.jsonl'), '--feed', file('feed.json'), '--live', file('live.json'),
-        '--progress', progressFile], 'committee'));
+        '--progress', progressFile], 'committee', signal));
 
     const c = readJson(file('committee.json'));
     return `Done: ${apps.length} application(s) → ${remi.counts.shortlisted} shortlisted → ${finalists.length} finalists → ` +

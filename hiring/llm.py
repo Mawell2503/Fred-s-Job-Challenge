@@ -30,8 +30,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -78,6 +80,38 @@ def _extract_json(text: str):
     raise LLMError(f"The model did not return valid JSON: {text[:300]!r}")
 
 
+# ---------------- stopping a run ----------------
+# The server stops a run with SIGTERM (the lobby's "Stop & reset"). The claude processes this one started must
+# go down with it, or they keep answering (and using the plan) after the run is gone; and no new one may start
+# while the remaining threads (Jules reads several CVs at once) wind down.
+_live: set = set()
+_live_lock = threading.Lock()
+_stopping = False
+
+
+def stop_children() -> None:
+    global _stopping
+    _stopping = True
+    with _live_lock:
+        procs = list(_live)
+    for p in procs:
+        try:
+            p.kill()
+        except OSError:
+            pass
+
+
+def install_stop_handler() -> None:
+    """On SIGTERM: kill the claude processes still running, refuse new calls, exit (143)."""
+    def handler(signum, frame):
+        stop_children()
+        raise SystemExit(128 + signum)
+    try:
+        signal.signal(signal.SIGTERM, handler)
+    except (ValueError, OSError, AttributeError):    # not the main thread, or no SIGTERM on this platform
+        pass
+
+
 # ---------------- backends ----------------
 def _claude_cli(system: str, prompt: str, schema: dict, temperature) -> dict:
     cmd = [os.environ.get("CLAUDE_BIN", "claude"), "-p",
@@ -90,21 +124,34 @@ def _claude_cli(system: str, prompt: str, schema: dict, temperature) -> dict:
     if os.environ.get("LLM_MODEL"):
         cmd += ["--model", os.environ["LLM_MODEL"]]
     # run from an empty folder so no project settings or files are picked up
+    if _stopping:
+        raise LLMError("The run was stopped.")
     with tempfile.TemporaryDirectory() as cwd:
         try:
-            p = subprocess.run(cmd, input=prompt, capture_output=True, text=True,
-                               timeout=_timeout(), cwd=cwd)
+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 text=True, cwd=cwd)
         except FileNotFoundError:
             raise LLMError("The `claude` command was not found. Install Claude Code and log in "
                            "with your subscription on this machine, or set CLAUDE_BIN.")
+        with _live_lock:
+            _live.add(p)
+        try:
+            stdout, stderr = p.communicate(prompt, timeout=_timeout())
         except subprocess.TimeoutExpired:
+            p.kill()
+            p.communicate()
             raise LLMError(f"Claude did not answer within {_timeout()} s.")
-    if p.returncode != 0 and not p.stdout.strip():
-        raise LLMError(f"claude exited with code {p.returncode}: {p.stderr.strip()[:500]}")
+        finally:
+            with _live_lock:
+                _live.discard(p)
+    if _stopping:
+        raise LLMError("The run was stopped.")
+    if p.returncode != 0 and not stdout.strip():
+        raise LLMError(f"claude exited with code {p.returncode}: {stderr.strip()[:500]}")
     try:
-        out = json.loads(p.stdout)
+        out = json.loads(stdout)
     except json.JSONDecodeError:
-        raise LLMError(f"Unexpected output from claude: {p.stdout[:300]!r}")
+        raise LLMError(f"Unexpected output from claude: {stdout[:300]!r}")
     if out.get("is_error"):
         raise LLMError(f"Claude reported an error: {str(out.get('result'))[:500]}")
     if isinstance(out.get("structured_output"), dict):
@@ -197,6 +244,8 @@ def complete_json(system: str, prompt: str, schema: dict, retries: int = 1,
         raise LLMError(f"Unknown LLM_BACKEND {backend()!r} (use {', '.join(_BACKENDS)}).")
     last, attempt, pauses = None, 0, 0
     while attempt <= retries:
+        if _stopping:                                 # every backend: no new call once the run is stopped
+            raise LLMError("The run was stopped.")
         try:
             out = fn(system, prompt, schema, temperature)
             if not isinstance(out, dict):

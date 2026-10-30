@@ -206,12 +206,13 @@ export async function submitApplication({ roleId = null, cvPath, cvName = '', li
  * Runs through the queue, one CV at a time; each CV is checked again inside the queue, so two roles
  * refreshing at once never read the same CV twice.
  */
-export async function refreshDefaultReads(list, onProgress) {
+export async function refreshDefaultReads(list, onProgress, signal) {
     const stale = list.filter(a => a.rulesKey !== DEFAULT_KEY);
     let done = 0, failed = 0;
     for (const a of stale) {
+        if (signal?.aborted) break;                     // stopped: the CV being read finishes, the rest wait
         await inQueue(async () => {
-            if (a.rulesKey === DEFAULT_KEY) return;
+            if (signal?.aborted || a.rulesKey === DEFAULT_KEY) return;
             try {
                 const r = await runCvReader(path.join(UPLOAD_DIR, a.cvFile), a.number, DEFAULT_RULES);
                 Object.assign(a, { cvStatus: r.status, cvCodes: r.codes, rulesKey: DEFAULT_KEY, processedAt: new Date().toISOString() });
