@@ -16,13 +16,19 @@
 //                                                            sections it was read with, see DEFAULT_RULES)
 //     linkedinFile,                                          <- optional LinkedIn PDF (for Helene; parser to come)
 //     practical: { salary, available_from, ... },            <- for Nina only, never through the funnel
-//     source: 'form' | 'import' | 'demo' }
+//     source: 'form' | 'import' | 'demo' | 'batch',          <- 'batch': uploaded into a named batch (no form)
+//     batch: 'B003',                                         <- the ONE batch it belongs to (batches.js)
+//     archived: true }                                       <- archived: out of every run and list, restorable
+//
+// Archived CVs stay in this file (and their files and reads stay on disk) but are not "active": runs,
+// counts and the applicant lists only see active ones. Deleting is in batchOps.js.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { runCvReader } from './cvRunner.js';
 import { DEFAULT_RULES, getRole, rulesKey } from './rolesStore.js';
 import { upgradePractical } from './practical.js';
+import { getBatch, initialBatch, listBatches, nextNumber, noteNumber, weeklyBatch } from './batches.js';
 
 export const DATA_DIR = path.resolve('data');
 export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
@@ -72,6 +78,15 @@ export function cleanFileName(name, storedPath) {
         }
         if (upgradePractical(a.practical, getRole(a.appliedFor[0]))) changed = true;
     }
+    // batches: on the first start with them, every CV goes into Batch 0 (and any CV whose batch is gone)
+    const known = new Set(listBatches().map(b => b.id));
+    const homeless = applicants.filter(a => !known.has(a.batch));
+    if (homeless.length) {
+        const b0 = initialBatch();
+        for (const a of homeless) a.batch = b0.id;
+        changed = true;
+    }
+    for (const a of applicants) noteNumber(a.number || 0);
     if (changed) saveApplicants();
 }
 
@@ -79,12 +94,35 @@ export function cleanFileName(name, storedPath) {
 let queue = Promise.resolve();
 export const inQueue = job => (queue = queue.then(job, job));
 
+/** Every record, archived ones included (duplicate checks, scripts). */
 export const listApplicants = () => applicants;
+/** Take these records out of the pool for good (batchOps.deleteCvs removes their files first). */
+export function removeApplicants(candidateIds) {
+    const gone = new Set(candidateIds);
+    const before = applicants.length;
+    for (let i = applicants.length - 1; i >= 0; i--) if (gone.has(applicants[i].candidateId)) applicants.splice(i, 1);
+    if (applicants.length !== before) saveApplicants();
+    return before - applicants.length;
+}
+/** The CVs that count: everything not archived. */
+export const activeApplicants = () => applicants.filter(a => !a.archived);
 export const findApplicant = candidateId => applicants.find(a => a.candidateId === candidateId) || null;
-/** People who chose this role on the form. */
-export const directApplicants = roleId => applicants.filter(a => a.appliedFor.includes(roleId));
-/** Who a run of this role reads: the whole pool, or only its direct applicants (role.scope). */
-export const applicantsInScope = role => (role?.scope === 'direct' ? directApplicants(role.id) : applicants);
+/** People who chose this role on the form (archived ones left out). */
+export const directApplicants = roleId => applicants.filter(a => !a.archived && a.appliedFor.includes(roleId));
+/**
+ * Who a run of this role reads (role.scope), archived CVs never included:
+ *   'pool'     the whole CV pool
+ *   'direct'   only the people who applied for this role
+ *   'batches'  only the CVs in the batches ticked in role.batches
+ */
+export function applicantsInScope(role) {
+    if (role?.scope === 'direct') return directApplicants(role.id);
+    if (role?.scope === 'batches') {
+        const chosen = new Set(role.batches || []);
+        return applicants.filter(a => !a.archived && chosen.has(a.batch));
+    }
+    return activeApplicants();
+}
 
 /**
  * How this applicant stands towards `roleId`:
@@ -94,6 +132,8 @@ export const applicantsInScope = role => (role?.scope === 'direct' ? directAppli
  */
 export function applicationFor(a, roleId) {
     if (a.appliedFor.includes(roleId)) return { kind: 'this' };
+    // uploaded by an admin into a named batch: no application form, so not an "open application" either
+    if (!a.appliedFor.length && a.source === 'batch') return { kind: 'batch', batch: getBatch(a.batch)?.name || 'a batch' };
     if (!a.appliedFor.length) return { kind: 'open' };
     return { kind: 'other', roles: [...a.appliedFor] };
 }
@@ -104,25 +144,42 @@ export function applicationFor(a, roleId) {
  * Returns one of:
  *   { duplicate: true }                    this CV is already in the pool for that choice (nothing changed)
  *   { added: true, applicant }             this CV was already in the pool: `roleId` added to what they applied for
+ *   { restored: true, applicant }          this CV was ARCHIVED: it is active again, in this upload's batch
+ *   { moved: true, from, applicant }       (`batchId` given) the CV was in another batch: it now belongs to this one
  *   { applicant, result }                  new (result.status: ok | warning)
  *   { applicant: null, result }            Oscar could not read the CV at all (status failed): NOT recorded, so
  *                                          the applicant can send another file (or the same one) at once
  * The caller deletes the uploads in every case but the new one.
  * `nameFromCv`: use the name Oscar finds in the CV, `name` only as the fallback (the import uses this).
+ * `batchId`: the batch it goes into (an upload); none = this week's batch (the public form).
  */
 export async function submitApplication({ roleId = null, cvPath, cvName = '', linkedinPath = null, name, linkedinUrl = '',
-    instagramUrl = '', practical, source = 'form', nameFromCv = false, appliedAt = null }) {
+    instagramUrl = '', practical, source = 'form', nameFromCv = false, appliedAt = null, batchId = null }) {
     const sha = fileHash(cvPath);
     return inQueue(async () => {
+        const batchFor = () => batchId || weeklyBatch(appliedAt ? new Date(appliedAt) : new Date()).id;
         // checked inside the queue so two identical uploads at once can't both get in
         const same = applicants.find(a => a.cvSha256 === sha);
         if (same) {
-            if (!roleId || same.appliedFor.includes(roleId)) return { duplicate: true };
-            same.appliedFor.push(roleId);
+            const addsRole = Boolean(roleId) && !same.appliedFor.includes(roleId);
+            if (addsRole) same.appliedFor.push(roleId);
+            if (same.archived) {                        // sent again: back from the archive, into this batch
+                delete same.archived;
+                same.batch = batchFor();
+                saveApplicants();
+                return { restored: true, applicant: same };
+            }
+            if (batchId && same.batch !== batchId) {    // uploaded into a batch: it belongs to that batch now
+                const from = getBatch(same.batch)?.name || same.batch;
+                same.batch = batchId;
+                saveApplicants();
+                return { moved: true, from, applicant: same };
+            }
+            if (!addsRole) return { duplicate: true };
             saveApplicants();
             return { added: true, applicant: same };
         }
-        const number = applicants.reduce((m, a) => Math.max(m, a.number), 0) + 1;
+        const number = nextNumber(applicants);
         const r = await runCvReader(cvPath, number, DEFAULT_RULES);
         if (r.status === 'failed') {
             fs.rmSync(r.runDir, { recursive: true, force: true });     // the number is free for the next applicant
@@ -135,10 +192,11 @@ export async function submitApplication({ roleId = null, cvPath, cvName = '', li
             cvStatus: r.status, cvCodes: r.codes,
             cvFile: path.basename(cvPath), cvName: cleanFileName(cvName, cvPath), cvSha256: sha, rulesKey: DEFAULT_KEY,
             linkedinFile: linkedinPath ? path.basename(linkedinPath) : null,
-            practical, source,
+            practical, source, batch: batchFor(),
         };
         applicants.push(applicant);
         saveApplicants();
+        noteNumber(number);                             // never given again, even if this CV is deleted later
         return { applicant, result: r };
     });
 }

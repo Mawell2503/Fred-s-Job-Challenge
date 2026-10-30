@@ -93,6 +93,25 @@
         .feed li.reprompt, .feed li.warning, .feed li.error { border-left: 3px solid var(--fail); }
         .feed li.stop, .feed li.result { border-left: 3px solid var(--pass); font-weight: 600; }
         @media (max-width: 700px) { .feed li { grid-template-columns: 1fr; gap: .1rem; } }
+        /* CV batches */
+        .review { border: 1px solid var(--unk); background: var(--unk-bg); border-radius: 8px; padding: .6rem .8rem; margin-top: .6rem;
+            display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+        .review b { color: var(--ink); }
+        .review .grow, .grow { flex: 1; }
+        .batch-table td, .batch-table th { vertical-align: middle; }
+        .batch-table tr.archived td { color: var(--muted); }
+        .batch-table input[type="checkbox"], .cv-table input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+        .kind { font-size: .75rem; color: var(--muted); }
+        .upload-box { border: 1px dashed var(--line); border-radius: 8px; padding: .8rem; margin-top: .7rem; }
+        .drop { border: 2px dashed var(--line); border-radius: 8px; padding: 1.1rem; text-align: center; color: var(--muted); margin-top: .5rem; }
+        .drop.over { border-color: var(--accent); color: var(--accent); }
+        .results { list-style: none; margin: .5rem 0 0; padding: 0; font-size: .85rem; max-height: 12rem; overflow: auto; }
+        .results li { padding: .15rem 0; }
+        .batch-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .3rem .8rem; margin: .3rem 0 0 1.6rem; }
+        .batch-pick label { display: flex; gap: .4rem; align-items: center; margin: 0; color: var(--ink); }
+        .batch-pick input { width: auto; }
+        dialog.small { width: min(480px, 94vw); }
+        dialog .body { padding: 1rem; }
         .conf { font-weight: 700; }
         .conf.High { color: var(--pass); } .conf.Medium { color: var(--unk); } .conf.Low { color: var(--fail); }
     </style>
@@ -118,6 +137,53 @@
         </aside>
 
         <main>
+            <!-- CV BATCHES: the whole pool, not one role -->
+            <section class="card" id="batches-card" aria-labelledby="batches-title">
+                <h2 id="batches-title">CV batches <small>every CV belongs to one batch: archive, restore or delete a whole batch, upload a new one, run a role on chosen batches</small></h2>
+                <div id="reviews"></div>
+                <div class="row">
+                    <button class="btn primary" type="button" id="new-batch">New batch</button>
+                    <span class="grow"></span>
+                    <label for="review-days" style="margin:0">Ask about weekly batches</label>
+                    <select id="review-days" style="width:auto">
+                        <option value="7">7 days after the week</option>
+                        <option value="14">14 days after the week</option>
+                        <option value="30">30 days after the week</option>
+                    </select>
+                </div>
+                <div class="upload-box" id="upload-box" hidden>
+                    <div class="grid2">
+                        <div>
+                            <label for="batch-name">Batch name</label>
+                            <input id="batch-name" maxlength="80" placeholder="e.g. Client X · 31 Oct">
+                        </div>
+                        <div>
+                            <label for="batch-files">CV files (PDF, DOCX or TXT, 5 MB each)</label>
+                            <input id="batch-files" type="file" multiple accept=".pdf,.docx,.txt">
+                        </div>
+                    </div>
+                    <div class="drop" id="drop">…or drop the CV files here <span id="drop-count"></span></div>
+                    <p class="muted" style="margin:.5rem 0 0">Uploaded CVs have no application form: no practical details and no LinkedIn. Names come from the CV, else from the file name. A CV already in another batch moves into this one; an archived one is restored.</p>
+                    <div class="row">
+                        <button class="btn primary" type="button" id="upload-go">Create batch and upload</button>
+                        <button class="btn" type="button" id="upload-cancel">Cancel</button>
+                        <span class="muted" id="upload-label"></span>
+                    </div>
+                    <div class="progress" id="upload-progress" hidden><div></div></div>
+                    <ul class="results" id="upload-results"></ul>
+                </div>
+                <div class="row" id="batch-actions">
+                    <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                        <input type="checkbox" id="batch-all" style="width:auto"> Select all</label>
+                    <button class="btn" type="button" id="batch-archive" disabled>Archive</button>
+                    <button class="btn" type="button" id="batch-restore" disabled>Restore</button>
+                    <button class="btn" type="button" id="batch-delete" disabled style="color:var(--fail)">Delete</button>
+                    <span class="muted" id="batch-selected"></span>
+                </div>
+                <div class="scroll" style="margin-top:.5rem"><table class="batch-table" id="batches"></table></div>
+                <p class="status" id="batch-status"></p>
+            </section>
+
             <div class="card empty" id="no-role">Create or choose a role to start.</div>
 
             <div id="role" hidden>
@@ -228,11 +294,14 @@
                             <input type="radio" name="scope" value="pool" style="width:auto"> Whole CV pool <span class="muted" id="scope-pool"></span></label>
                         <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
                             <input type="radio" name="scope" value="direct" style="width:auto"> Only people who applied for this role <span class="muted" id="scope-direct"></span></label>
+                        <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                            <input type="radio" name="scope" value="batches" style="width:auto"> Only these batches <span class="muted" id="scope-batches"></span></label>
                     </div>
+                    <div class="batch-pick" id="batch-pick" hidden></div>
                     <div class="row">
                         <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
                             <input type="checkbox" id="tie-break" style="width:auto">
-                            On a tied committee score, people who applied for this role rank first (whole pool only)
+                            On a tied committee score, people who applied for this role rank first (whole pool or batches)
                         </label>
                     </div>
                     <div class="row">
@@ -275,6 +344,38 @@
     <dialog id="viewer">
         <header><h1 id="viewer-title"></h1><button type="button" id="viewer-close">Close</button></header>
         <pre id="viewer-body"></pre>
+    </dialog>
+
+    <!-- one batch: its CVs, to archive / restore / delete some of them -->
+    <dialog id="batch-dialog" aria-labelledby="bd-title">
+        <header><h1 id="bd-title"></h1><button type="button" id="bd-close">Close</button></header>
+        <div class="body">
+            <div class="row" style="margin-top:0">
+                <button class="btn" type="button" id="bd-rename">Rename</button>
+                <button class="btn" type="button" id="bd-add" hidden>Add CVs</button>
+                <span class="grow"></span>
+                <label style="display:flex;gap:.4rem;align-items:center;margin:0;color:var(--ink)">
+                    <input type="checkbox" id="bd-all" style="width:auto"> Select all</label>
+                <button class="btn" type="button" id="bd-archive" disabled>Archive</button>
+                <button class="btn" type="button" id="bd-restore" disabled>Restore</button>
+                <button class="btn" type="button" id="bd-delete" disabled style="color:var(--fail)">Delete</button>
+            </div>
+            <p class="status" id="bd-status"></p>
+            <div class="scroll" style="max-height:60vh;overflow:auto"><table class="cv-table" id="bd-cvs"></table></div>
+            <div class="row"><button class="btn" type="button" id="bd-more" hidden>Show 100 more</button></div>
+        </div>
+    </dialog>
+
+    <!-- are you sure? (archive / delete) -->
+    <dialog id="confirm" class="small" aria-labelledby="cf-title">
+        <div class="body">
+            <h2 id="cf-title" style="margin:0 0 .5rem;font-size:1.05rem"></h2>
+            <p id="cf-text" style="margin:0"></p>
+            <div class="row" style="justify-content:flex-end">
+                <button class="btn" type="button" id="cf-no">Cancel</button>
+                <button class="btn primary" type="button" id="cf-yes"></button>
+            </div>
+        </div>
     </dialog>
 
     <script src="admin-forms.js"></script>
@@ -325,7 +426,7 @@
             list.replaceChildren(...roles.map(r => h('li', {}, h('button', {
                 type: 'button', 'aria-current': String(r.id === (selectId || current?.id)),
                 onclick: () => openRole(r.id),
-            }, r.title, h('span', { class: 'meta', text: `${r.id} · ${r.status} · ${r.direct} applied · runs on ${r.scope === 'direct' ? 'them' : 'the pool'}` })))));
+            }, r.title, h('span', { class: 'meta', text: `${r.id} · ${r.status} · ${r.direct} applied · runs on ${r.scope === 'direct' ? 'them' : r.scope === 'batches' ? `${(r.batches || []).length} batch(es)` : 'the pool'}` })))));
             if (!roles.length) list.append(h('li', { class: 'muted', text: 'No roles yet.' }));
         }
 
@@ -469,7 +570,7 @@
         // the role's applicants (its scope: the whole pool or its direct applicants), newest first, 50 at a time
         const APP_PAGE = 50;
         let appShown = 0, appQuery = '', appSeq = 0;
-        const APP_KIND = { this: 'this role', open: 'open application' };
+        const APP_KIND = { this: 'this role', open: 'open application', batch: 'uploaded (no form)' };
         async function renderApplicants(more = false) {
             const id = current.id, seq = ++appSeq;
             if (!more) appShown = 0;
@@ -482,6 +583,7 @@
                 h('td', { text: a.id }), h('td', { text: a.name }),
                 h('td', { text: new Date(a.appliedAt).toLocaleDateString() }),
                 h('td', { text: a.application.kind === 'other' ? `other: ${a.application.roles.join(', ')}` : APP_KIND[a.application.kind] }),
+                h('td', { class: 'muted', text: a.batch?.name || '' }),
                 h('td', {}, h('span', { class: `chip ${a.cvStatus === 'failed' ? 'failed' : 'done'}`, text: a.cvStatus })),
                 h('td', { class: 'muted', text: (a.cvCodes || []).join(', ') }),
                 h('td', {}, a.cvStatus === 'failed' ? '' : h('div', { class: 'row', style: 'margin:0' },
@@ -492,14 +594,14 @@
                     : h('span', { class: 'muted', text: '—' }))));
             if (!more) {
                 $('applicants').replaceChildren(
-                    h('tr', {}, ...['ID', 'Name', 'Applied', 'Applied for', 'CV', 'Notes', '', 'Practical', 'LinkedIn'].map(t => h('th', { text: t }))));
-                if (!page.total) $('applicants').append(h('tr', {}, h('td', { colspan: 9, class: 'muted',
+                    h('tr', {}, ...['ID', 'Name', 'Applied', 'Applied for', 'Batch', 'CV', 'Notes', '', 'Practical', 'LinkedIn'].map(t => h('th', { text: t }))));
+                if (!page.total) $('applicants').append(h('tr', {}, h('td', { colspan: 10, class: 'muted',
                     text: appQuery ? 'Nobody matches this search.' : 'No applications in what this role runs on yet.' })));
             }
             $('applicants').append(...rows);
             appShown += page.items.length;
             $('app-count').textContent = `${page.total.toLocaleString()} ${appQuery ? 'matching' : current.scope === 'direct'
-                ? 'applied for this role' : 'in the CV pool'} · showing ${appShown.toLocaleString()}`;
+                ? 'applied for this role' : current.scope === 'batches' ? 'in the chosen batches' : 'in the CV pool'} · showing ${appShown.toLocaleString()}`;
             $('app-more').hidden = appShown >= page.total;
         }
         $('app-more').addEventListener('click', () => renderApplicants(true));
@@ -516,6 +618,7 @@
             $('scope-direct').textContent = `(${current.direct.toLocaleString()} CVs)`;
             $('tie-break').checked = current.tieBreak === true;
             $('tie-break').disabled = current.scope === 'direct';
+            renderBatchPick();
             $('reads-note').textContent = current.ownReads
                 ? `This role keeps other sections than the default, so Oscar reads its CVs for it.${current.toRead ? ` ${current.toRead.toLocaleString()} CV(s) to read on the next run.` : ' All read.'}`
                 : 'Every CV is read with the default sections when it arrives; a role keeping other sections gets its own reads on its next pipeline run.';
@@ -537,6 +640,303 @@
         }
         for (const r of document.getElementsByName('scope')) r.addEventListener('change', e => saveScope({ scope: e.target.value }));
         $('tie-break').addEventListener('change', e => saveScope({ tieBreak: e.target.checked }));
+
+
+        // ================= CV batches (the whole pool) =================
+        const KIND_LABEL = { initial: 'Batch 0', weekly: 'Weekly (form)', upload: 'Uploaded' };
+        let batches = [], pendingWeeks = [], batchSel = new Set(), uploadTarget = null, droppedFiles = [];
+        const roleTitle = id => roles.find(r => r.id === id)?.title || id;
+        const day = iso => (iso ? new Date(iso).toLocaleDateString() : '');
+        const plural = (n, w) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`;
+
+        async function loadBatches() {
+            const data = await api('GET', '/api/admin/batches');
+            batches = data.batches; pendingWeeks = data.pending;
+            $('review-days').value = String(data.settings.reviewAfterDays);
+            batchSel = new Set([...batchSel].filter(id => batches.some(b => b.id === id)));
+            renderBatches();
+            renderReviews();
+            if (current) renderBatchPick();
+        }
+
+        function renderBatches() {
+            const head = h('tr', {}, h('th', {}), ...['Batch', 'Type', 'CVs', 'Arrived', 'Status', 'Roles running on it', ''].map(t => h('th', { text: t })));
+            const rows = batches.map(b => {
+                const box = h('input', { type: 'checkbox', 'aria-label': `Select ${b.name}`, onchange: e => {
+                    e.target.checked ? batchSel.add(b.id) : batchSel.delete(b.id); syncBatchActions(); } });
+                box.checked = batchSel.has(b.id);
+                const status = b.due ? chip('running', 'Waiting for keep / archive / delete', 'question due')
+                    : b.status === 'archived' ? chip('failed', 'Every CV in it is archived', 'archived')
+                        : b.decision === 'kept' ? chip('done', 'You chose to keep this week', 'kept') : chip('done', '', 'active');
+                return h('tr', { class: b.status === 'archived' ? 'archived' : '' },
+                    h('td', {}, box),
+                    h('td', {}, h('button', { class: 'btn', type: 'button', style: 'border:0;padding:0;background:none;color:var(--accent);font-weight:600',
+                        text: b.name, onclick: () => openBatch(b.id) })),
+                    h('td', { class: 'kind', text: KIND_LABEL[b.kind] || b.kind }),
+                    h('td', { text: `${b.active.toLocaleString()} active${b.archived ? ` · ${b.archived.toLocaleString()} archived` : ''}` }),
+                    h('td', { class: 'muted', text: b.first ? (day(b.first) === day(b.last) ? day(b.first) : `${day(b.first)} – ${day(b.last)}`) : 'empty' }),
+                    h('td', {}, status),
+                    h('td', { class: 'muted', text: (b.usedBy || []).map(roleTitle).join(', ') }),
+                    h('td', {}, h('button', { class: 'btn', type: 'button', text: 'Open', onclick: () => openBatch(b.id) })));
+            });
+            $('batches').replaceChildren(head, ...rows);
+            if (!batches.length) $('batches').append(h('tr', {}, h('td', { colspan: 8, class: 'muted', text: 'No CVs yet. Applications from the form arrive in weekly batches; or make a new batch and upload CVs.' })));
+            syncBatchActions();
+        }
+
+        function syncBatchActions() {
+            const sel = batches.filter(b => batchSel.has(b.id));
+            $('batch-archive').disabled = !sel.some(b => b.active);
+            $('batch-restore').disabled = !sel.some(b => b.archived);
+            $('batch-delete').disabled = !sel.length;
+            $('batch-all').checked = batches.length > 0 && sel.length === batches.length;
+            $('batch-selected').textContent = sel.length ? `${plural(sel.length, 'batch')} selected · ${plural(sel.reduce((n, b) => n + b.total, 0), 'CV')}` : '';
+        }
+        $('batch-all').addEventListener('change', e => {
+            batchSel = e.target.checked ? new Set(batches.map(b => b.id)) : new Set();
+            renderBatches();
+        });
+
+        // ---- are you sure? ----
+        function confirmBox(title, text, yes) {
+            return new Promise(resolve => {
+                $('cf-title').textContent = title; $('cf-text').textContent = text; $('cf-yes').textContent = yes;
+                $('cf-yes').style.background = /delete/i.test(yes) ? 'var(--fail)' : '';
+                $('cf-yes').style.borderColor = /delete/i.test(yes) ? 'var(--fail)' : '';
+                const done = v => { $('confirm').close(); resolve(v); };
+                $('cf-yes').onclick = () => done(true);
+                $('cf-no').onclick = () => done(false);
+                $('confirm').oncancel = () => resolve(false);
+                $('confirm').showModal();
+            });
+        }
+        const DELETE_NOTE = 'The CVs, LinkedIn PDFs and Oscar\'s reads are removed for good: this cannot be undone. Finished reports keep mentioning them.';
+
+        async function batchAction(kind) {
+            const sel = batches.filter(b => batchSel.has(b.id));
+            const list = kind === 'archive' ? sel.filter(b => b.active) : kind === 'restore' ? sel.filter(b => b.archived) : sel;
+            if (!list.length) return;
+            const n = list.reduce((s, b) => s + (kind === 'archive' ? b.active : kind === 'restore' ? b.archived : b.total), 0);
+            const names = list.length === 1 ? `"${list[0].name}"` : plural(list.length, 'batch');
+            if (kind === 'delete' && !await confirmBox(`Delete ${names}?`, `${plural(n, 'CV')} will be deleted. ${DELETE_NOTE}`, `Delete ${plural(n, 'CV')}`)) return;
+            if (kind === 'archive' && !await confirmBox(`Archive ${names}?`, `${plural(n, 'CV')} leave every run and list. You can restore them at any time.`, 'Archive')) return;
+            say('batch-status', `${kind === 'delete' ? 'Deleting' : kind === 'archive' ? 'Archiving' : 'Restoring'}…`);
+            try {
+                for (const b of list) {
+                    if (kind === 'delete') await api('DELETE', `/api/admin/batches/${b.id}`);
+                    else await api('POST', `/api/admin/batches/${b.id}/${kind}`);
+                }
+                batchSel.clear();
+                say('batch-status', `${plural(n, 'CV')} ${kind === 'delete' ? 'deleted' : kind === 'archive' ? 'archived' : 'restored'}.`);
+            } catch (err) { say('batch-status', err.message, true); }
+            await afterPoolChange();
+        }
+        $('batch-archive').addEventListener('click', () => batchAction('archive'));
+        $('batch-restore').addEventListener('click', () => batchAction('restore'));
+        $('batch-delete').addEventListener('click', () => batchAction('delete'));
+
+        /** The pool changed: batches, the roles' counts and the open role's applicants follow. */
+        async function afterPoolChange() {
+            await loadBatches().catch(err => say('batch-status', err.message, true));
+            await loadRoles().catch(() => {});
+            if (current) {
+                current = roles.find(r => r.id === current.id) || current;
+                renderScope(); renderPipeline(); renderApplicants().catch(() => {});
+            }
+        }
+
+        // ---- the weekly question ----
+        function renderReviews() {
+            $('reviews').replaceChildren(...pendingWeeks.map(b => h('div', { class: 'review', role: 'group', 'aria-label': `${b.name}: keep, archive or delete?` },
+                h('span', { class: 'grow' }, h('b', { text: b.name }), ` · ${plural(b.active, 'CV')} from the form. Keep them, archive them, or delete them?`),
+                h('button', { class: 'btn', type: 'button', text: 'Keep', onclick: () => review(b, 'keep') }),
+                h('button', { class: 'btn', type: 'button', text: 'Archive', onclick: () => review(b, 'archive') }),
+                h('button', { class: 'btn', type: 'button', text: 'Delete', style: 'color:var(--fail)', onclick: () => review(b, 'delete') }),
+                h('button', { class: 'btn', type: 'button', text: 'Ask me later', onclick: () => review(b, 'later') }))));
+        }
+        async function review(b, action) {
+            if (action === 'delete' && !await confirmBox(`Delete "${b.name}"?`, `${plural(b.total, 'CV')} will be deleted. ${DELETE_NOTE}`, `Delete ${plural(b.total, 'CV')}`)) return;
+            try {
+                await api('POST', `/api/admin/batches/${b.id}/review`, { action });
+                say('batch-status', { keep: `${b.name} kept.`, later: `${b.name}: asked again in a week.`, archive: `${b.name} archived.`, delete: `${b.name} deleted.` }[action]);
+            } catch (err) { say('batch-status', err.message, true); }
+            await afterPoolChange();
+        }
+        $('review-days').addEventListener('change', async e => {
+            try { await api('PUT', '/api/admin/batches-settings', { reviewAfterDays: Number(e.target.value) }); await loadBatches(); }
+            catch (err) { say('batch-status', err.message, true); }
+        });
+
+        // ---- new batch / add CVs ----
+        function showUpload(batch = null) {
+            uploadTarget = batch;
+            droppedFiles = [];
+            $('upload-box').hidden = false;
+            $('batch-name').value = batch ? batch.name : '';
+            $('batch-name').disabled = Boolean(batch);
+            $('batch-files').value = '';
+            $('drop-count').textContent = '';
+            $('upload-results').replaceChildren();
+            $('upload-progress').hidden = true;
+            $('upload-label').textContent = '';
+            $('upload-go').textContent = batch ? `Upload into "${batch.name}"` : 'Create batch and upload';
+            $('upload-go').disabled = false;
+            (batch ? $('batch-files') : $('batch-name')).focus();
+        }
+        $('new-batch').addEventListener('click', () => showUpload(null));
+        $('upload-cancel').addEventListener('click', () => { $('upload-box').hidden = true; });
+        const chosenFiles = () => [...$('batch-files').files, ...droppedFiles];
+        $('batch-files').addEventListener('change', () => { $('drop-count').textContent = `(${plural(chosenFiles().length, 'file')} chosen)`; });
+        for (const ev of ['dragenter', 'dragover']) $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('over'); });
+        for (const ev of ['dragleave', 'drop']) $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('over'); });
+        $('drop').addEventListener('drop', e => {
+            droppedFiles.push(...[...e.dataTransfer.files].filter(f => /\.(pdf|docx|txt)$/i.test(f.name)));
+            $('drop-count').textContent = `(${plural(chosenFiles().length, 'file')} chosen)`;
+        });
+
+        $('upload-go').addEventListener('click', async () => {
+            const files = chosenFiles();
+            if (!uploadTarget && !$('batch-name').value.trim()) return say('batch-status', 'Give the batch a name.', true);
+            if (!files.length) return say('batch-status', 'Choose or drop the CV files first.', true);
+            say('batch-status', '');
+            let batch = uploadTarget;
+            try {
+                if (!batch) batch = await api('POST', '/api/admin/batches', { name: $('batch-name').value });
+            } catch (err) { return say('batch-status', err.message, true); }
+            uploadTarget = batch;                         // a second click adds to the same batch
+            $('batch-name').disabled = true;
+            $('upload-go').disabled = true;
+            $('upload-progress').hidden = false;
+            const counts = { added: 0, moved: 0, restored: 0, duplicate: 0, failed: 0 };
+            const notes = [];
+            for (const [i, f] of files.entries()) {
+                $('upload-label').textContent = `${i + 1} / ${files.length} · Oscar is reading ${f.name}`;
+                $('upload-progress').firstElementChild.style.width = `${Math.round(i / files.length * 100)}%`;
+                let out;
+                if (f.size > 5 * 1024 * 1024) out = { status: 'failed', error: 'Larger than 5 MB.' };
+                else {
+                    try {
+                        const body = new FormData();
+                        body.append('cv', f, f.name);
+                        const res = await fetch(`/api/admin/batches/${batch.id}/cvs`, { method: 'POST', body });
+                        if (res.status === 401) { location.href = '/#admin'; return; }
+                        out = await res.json().catch(() => ({ status: 'failed', error: `Request failed (${res.status})` }));
+                        if (!res.ok && !out.status) out = { status: 'failed', error: out.error || `Request failed (${res.status})` };
+                    } catch (err) { out = { status: 'failed', error: err.message }; }
+                }
+                counts[out.status] = (counts[out.status] || 0) + 1;
+                if (out.status === 'failed') notes.push(`✗ ${f.name}: ${out.error}`);
+                if (out.status === 'moved') notes.push(`↪ ${f.name}: already in the pool (${out.from}), moved into this batch`);
+                if (out.status === 'restored') notes.push(`↺ ${f.name}: was archived, restored into this batch`);
+                if (out.status === 'duplicate') notes.push(`= ${f.name}: already in this batch`);
+            }
+            $('upload-progress').firstElementChild.style.width = '100%';
+            $('upload-label').textContent = `Done: ${counts.added} added` + (counts.moved ? `, ${counts.moved} moved` : '') +
+                (counts.restored ? `, ${counts.restored} restored` : '') + (counts.duplicate ? `, ${counts.duplicate} already there` : '') +
+                (counts.failed ? `, ${counts.failed} not read` : '') + '.';
+            $('upload-results').replaceChildren(...notes.map(t => h('li', { text: t })));
+            $('upload-go').disabled = false;
+            $('upload-go').textContent = `Upload more into "${batch.name}"`;
+            $('batch-files').value = ''; droppedFiles = []; $('drop-count').textContent = '';
+            await afterPoolChange();
+        });
+
+        // ---- one batch: its CVs ----
+        let openId = null, bdShown = 0, bdSel = new Set(), bdRows = [];
+        async function openBatch(id, keep = false) {
+            const b = batches.find(x => x.id === id);
+            if (!b) return;
+            openId = id;
+            if (!keep) bdSel = new Set();
+            $('bd-title').textContent = `${b.name} · ${KIND_LABEL[b.kind] || b.kind} · ${plural(b.total, 'CV')}`;
+            $('bd-add').hidden = b.kind !== 'upload';
+            if (!keep) say('bd-status', '');
+            bdShown = 0; bdRows = [];
+            await loadBatchCvs();
+            if (!$('batch-dialog').open) $('batch-dialog').showModal();
+        }
+        async function loadBatchCvs(more = false) {
+            const page = await api('GET', `/api/admin/applicants?${new URLSearchParams({ batch: openId, archived: 'all', limit: 100, offset: bdShown })}`);
+            bdRows = more ? bdRows.concat(page.items) : page.items;
+            bdShown = bdRows.length;
+            const head = h('tr', {}, h('th', {}), ...['ID', 'Name', 'Arrived', 'Status', 'Source', 'CV'].map(t => h('th', { text: t })));
+            $('bd-cvs').replaceChildren(head, ...bdRows.map(a => {
+                const box = h('input', { type: 'checkbox', 'aria-label': `Select ${a.name}`, onchange: e => {
+                    e.target.checked ? bdSel.add(a.id) : bdSel.delete(a.id); syncBdActions(); } });
+                box.checked = bdSel.has(a.id);
+                return h('tr', { class: a.archived ? 'archived' : '' }, h('td', {}, box), h('td', { text: a.id }), h('td', { text: a.name }),
+                    h('td', { class: 'muted', text: day(a.appliedAt) }),
+                    h('td', {}, a.archived ? chip('failed', '', 'archived') : chip('done', '', 'active')),
+                    h('td', { class: 'muted', text: { form: 'form', import: 'import', demo: 'demo', batch: 'upload' }[a.source] || a.source }),
+                    h('td', {}, h('a', { href: `/api/admin/applicants/${encodeURIComponent(a.id)}/cv`, target: '_blank', rel: 'noopener', text: a.cvName })));
+            }));
+            if (!bdRows.length) $('bd-cvs').append(h('tr', {}, h('td', { colspan: 7, class: 'muted', text: 'This batch is empty.' })));
+            $('bd-more').hidden = bdShown >= page.total;
+            syncBdActions();
+        }
+        function syncBdActions() {
+            const sel = bdRows.filter(a => bdSel.has(a.id));
+            $('bd-archive').disabled = !sel.some(a => !a.archived);
+            $('bd-restore').disabled = !sel.some(a => a.archived);
+            $('bd-delete').disabled = !sel.length;
+            $('bd-all').checked = bdRows.length > 0 && sel.length === bdRows.length;
+        }
+        $('bd-all').addEventListener('change', e => {
+            bdSel = e.target.checked ? new Set(bdRows.map(a => a.id)) : new Set();
+            for (const box of $('bd-cvs').querySelectorAll('input[type="checkbox"]')) box.checked = e.target.checked;
+            syncBdActions();
+        });
+        $('bd-more').addEventListener('click', () => loadBatchCvs(true));
+        $('bd-close').addEventListener('click', () => $('batch-dialog').close());
+        async function cvAction(kind) {
+            const sel = bdRows.filter(a => bdSel.has(a.id));
+            const list = kind === 'archive' ? sel.filter(a => !a.archived) : kind === 'restore' ? sel.filter(a => a.archived) : sel;
+            if (!list.length) return;
+            if (kind === 'delete' && !await confirmBox(`Delete ${plural(list.length, 'CV')}?`, DELETE_NOTE, `Delete ${plural(list.length, 'CV')}`)) return;
+            try {
+                const out = await api('POST', `/api/admin/cvs/${kind}`, { ids: list.map(a => a.id) });
+                bdSel.clear();
+                say('bd-status', `${plural(out.archived ?? out.restored ?? out.deleted ?? 0, 'CV')} ${kind === 'delete' ? 'deleted' : kind + 'd'}.`);
+            } catch (err) { return say('bd-status', err.message, true); }
+            await afterPoolChange();
+            if (batches.some(b => b.id === openId)) await openBatch(openId, true);
+        }
+        $('bd-archive').addEventListener('click', () => cvAction('archive'));
+        $('bd-restore').addEventListener('click', () => cvAction('restore'));
+        $('bd-delete').addEventListener('click', () => cvAction('delete'));
+        $('bd-rename').addEventListener('click', async () => {
+            const b = batches.find(x => x.id === openId);
+            const name = prompt('New name for this batch:', b?.name || '');
+            if (name === null) return;
+            try { await api('PATCH', `/api/admin/batches/${openId}`, { name }); await afterPoolChange(); await openBatch(openId, true); }
+            catch (err) { say('bd-status', err.message, true); }
+        });
+        $('bd-add').addEventListener('click', () => {
+            const b = batches.find(x => x.id === openId);
+            $('batch-dialog').close();
+            showUpload(b);
+            $('batches-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        // ---- the role runs on chosen batches ----
+        function renderBatchPick() {
+            const on = current.scope === 'batches';
+            const chosen = new Set(current.batches || []);
+            const list = batches.filter(b => b.active || chosen.has(b.id));
+            const n = list.filter(b => chosen.has(b.id)).reduce((s, b) => s + b.active, 0);
+            $('scope-batches').textContent = on ? `(${plural(n, 'CV')} in ${plural(chosen.size, 'batch')})` : `(${plural(list.length, 'batch')} to choose from)`;
+            $('batch-pick').hidden = !on;
+            $('batch-pick').replaceChildren(...list.map(b => {
+                const box = h('input', { type: 'checkbox', onchange: () => {
+                    const ids = [...$('batch-pick').querySelectorAll('input:checked')].map(x => x.value);
+                    saveScope({ scope: 'batches', batches: ids });
+                } });
+                box.value = b.id;
+                box.checked = chosen.has(b.id);
+                return h('label', {}, box, `${b.name} `, h('span', { class: 'muted', text: `(${b.active.toLocaleString()})` }));
+            }));
+            if (on && !list.length) $('batch-pick').append(h('span', { class: 'muted', text: 'No batch with active CVs yet: make one above.' }));
+        }
 
         // ---------------- the full pipeline (everything after Clara) ----------------
         $('run-pipeline').addEventListener('click', async () => {
@@ -707,6 +1107,7 @@
 
         // ?role=R001 (from the lobby's Edit pipeline button) opens that role straight away
         const wanted = new URLSearchParams(location.search).get('role');
+        loadBatches().catch(err => say('batch-status', err.message, true));
         loadRoles().then(() => {
             if (wanted && roles.some(r => r.id === wanted)) openRole(wanted);
             else if (roles.length === 1) openRole(roles[0].id);

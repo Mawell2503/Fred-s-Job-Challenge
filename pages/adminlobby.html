@@ -136,6 +136,13 @@
         }
         .app-badge.this { background: #E3F4E8; color: #1F6B35; }
         .app-badge.other { background: #FFF1D6; color: #7A4A00; }
+        .app-badge.batch { background: var(--blue-soft); color: var(--blue-ink); }
+        /* the weekly batch question: keep, archive or delete? */
+        .reviews { display: flex; flex-direction: column; gap: 10px; }
+        .review { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px;
+            background: #FFF6E5; border: 1px solid #F5DDB4; font-size: 14px; }
+        .review .txt { flex: 1 1 260px; }
+        .review .btn.danger { color: var(--error); }
         .cv .bars { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
         .cv .bars i { display: block; height: 5px; border-radius: 3px; background: var(--soft); }
         .cv .foot { margin-top: auto; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -431,6 +438,7 @@
             </div>
 
             <p class="notice" id="notice" role="alert" hidden></p>
+            <div class="reviews" id="reviews" aria-label="Weekly batches waiting for an answer"></div>
             <div id="board" aria-live="polite"></div>
 
             <div class="bottom">
@@ -547,9 +555,11 @@
                 <label><input type="radio" name="c-scope" value="pool"> <span><b>The whole CV pool</b> <span class="hint" id="c-scope-pool"></span><br>
                     <span class="hint">Everyone who sent a CV, whatever position they chose. Nina is told who applied for this role.</span></span></label>
                 <label><input type="radio" name="c-scope" value="direct"> <span><b>Only people who applied for this role</b> <span class="hint" id="c-scope-direct"></span></span></label>
+                <label><input type="radio" name="c-scope" value="batches"> <span><b>Only chosen batches</b> <span class="hint" id="c-scope-batches"></span><br>
+                    <span class="hint">Pick the batches, upload new ones or clear old ones in <a href="roles.html" id="c-batches-link">Edit pipeline › CV batches</a>.</span></span></label>
             </fieldset>
             <label class="check"><input type="checkbox" id="c-tiebreak">
-                <span>On a tied committee score, people who applied for this role rank first <span class="hint">(whole pool only)</span></span></label>
+                <span>On a tied committee score, people who applied for this role rank first <span class="hint">(whole pool or batches)</span></span></label>
         </div>
         <footer class="cd-foot">
             <p class="msg" id="c-msg" role="status" aria-live="polite"></p>
@@ -721,8 +731,9 @@
             // applications
             const n = role.applicants;
             add({ key: 'received', icon: 'inbox', label: 'Applications in', time: dayRange(role.appliedFrom, role.appliedTo), card: 'apps',
-                sub: !n ? (role.scope === 'direct' ? 'Nobody applied for this role yet' : 'The CV pool is empty')
+                sub: !n ? (role.scope === 'direct' ? 'Nobody applied for this role yet' : role.scope === 'batches' ? 'No CVs in the chosen batches' : 'The CV pool is empty')
                     : role.scope === 'direct' ? `${plural(n, 'CV')} from people who applied for this role`
+                    : role.scope === 'batches' ? `${plural(n, 'CV')} in ${plural((role.batches || []).length, 'chosen batch', 'chosen batches')}`
                         : `${plural(n, 'CV')} in the pool · ${count(role.direct)} applied for this role`,
                 status: n ? 'done' : 'now', idle: !n, tag: n ? '' : 'Waiting for applicants' });
 
@@ -933,6 +944,7 @@
             if (!l || results?.role?.scope === 'direct') return null;     // direct only: everyone applied for it
             if (l.kind === 'this') return { text: 'Applied for this role', cls: 'this' };
             if (l.kind === 'open') return { text: 'Open application', cls: 'open' };
+            if (l.kind === 'batch') return { text: `Uploaded · ${l.batch}`, cls: 'batch' };
             return { text: `Applied for ${(l.roles || []).join(', ') || 'another role'}`, cls: 'other' };
         }
         const appBadge = l => { const b = appLabel(l); return b ? h('span', { class: `app-badge ${b.cls}`, text: b.text }) : ''; };
@@ -1198,6 +1210,8 @@
             const role = results.role;
             $('apps-lead').textContent = role.scope === 'direct'
                 ? `${plural(role.applicants, 'application')} for ${role.title} (this role runs only on people who applied for it), shown exactly as submitted.`
+                : role.scope === 'batches'
+                ? `${plural(role.applicants, 'CV')} in the batches this role runs on, shown exactly as received.`
                 : `The whole CV pool (${plural(role.applicants, 'application')}), which this role runs on, shown exactly as submitted. ${count(role.direct)} applied for ${role.title}.`;
             appsQuery = '';
             $('apps-q').value = '';
@@ -1226,6 +1240,8 @@
             for (const r of document.getElementsByName('c-scope')) r.checked = r.value === (role.scope || 'pool');
             $('c-scope-pool').textContent = `(${plural(role.pool, 'CV')})`;
             $('c-scope-direct').textContent = `(${plural(role.direct, 'CV')})`;
+            $('c-scope-batches').textContent = `(${plural((role.batches || []).length, 'batch', 'batches')} chosen)`;
+            $('c-batches-link').href = `roles.html?role=${encodeURIComponent(role.id)}#batches-card`;
             $('c-tiebreak').checked = role.tieBreak === true;
             syncTieBreak();
             $('c-reads').textContent = role.ownReads
@@ -1337,6 +1353,27 @@
             location.href = '/';
         });
 
+        // ---------------- the weekly batch question (also on the pipeline page) ----------------
+        async function loadReviews() {
+            let pending = [];
+            try { pending = (await api('/api/admin/batches')).pending; } catch { return; }
+            $('reviews').replaceChildren(...pending.map(b => h('div', { class: 'review', role: 'group', 'aria-label': `${b.name}: keep, archive or delete?` },
+                h('span', { class: 'txt' }, h('b', { text: b.name }), ` · ${plural(b.active, 'CV')} from the application form. Keep them, archive them, or delete them?`),
+                h('button', { type: 'button', class: 'btn btn-sm', text: 'Keep', onclick: () => answer(b, 'keep') }),
+                h('button', { type: 'button', class: 'btn btn-sm', text: 'Archive', onclick: () => answer(b, 'archive') }),
+                h('button', { type: 'button', class: 'btn btn-sm danger', text: 'Delete', onclick: () => answer(b, 'delete') }),
+                h('button', { type: 'button', class: 'btn btn-sm', text: 'Ask me later', onclick: () => answer(b, 'later') }))));
+        }
+        async function answer(b, action) {
+            if (action === 'delete' && !confirm(`Delete "${b.name}" for good?\n\n${plural(b.total, 'CV')}, their files and Oscar's reads are removed. This cannot be undone.`)) return;
+            try {
+                await api(`/api/admin/batches/${encodeURIComponent(b.id)}/review`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+            } catch (err) { return showError(err); }
+            await loadReviews();
+            if (roleId && action !== 'keep' && action !== 'later') await refresh().catch(showError);
+        }
+
         function showError(err) {
             $('notice').hidden = false;
             $('notice').textContent = err.message;
@@ -1346,6 +1383,7 @@
             try {
                 const me = await api('/api/admin/me');
                 $('who').textContent = me.user;
+                loadReviews();
                 roles = await api('/api/admin/roles');
                 const sel = $('role');
                 if (!roles.length) {

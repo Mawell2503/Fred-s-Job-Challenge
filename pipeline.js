@@ -7,7 +7,8 @@
 // scripts/run-pipeline.js (the same thing from the terminal).
 //
 // Data flow worth knowing:
-//   - A run reads the whole CV pool, or only the role's direct applicants (role.scope).
+//   - A run reads the whole CV pool, only the role's direct applicants, or only the CVs in the batches
+//     ticked in role.batches (role.scope). Archived CVs are never read.
 //   - Oscar only reads what is missing or stale for this role (reads.js): nothing at all for a role on
 //     the default CV sections whose CVs were read on arrival.
 //   - The practical answers (Nina) and LinkedIn PDFs (Helene) never enter Oscar / Remi / Jules:
@@ -66,6 +67,7 @@ export function writeJob(role) {
 /**
  * What the applicant chose, towards `role`, with role titles (for the committee, the report and the badges):
  *   { kind: 'this' } | { kind: 'open' } | { kind: 'other', roles: ['Backend Developer'] }
+ *   | { kind: 'batch', batch: 'Client X · 31 Oct' }     uploaded into a batch by an admin: no application form
  */
 export function applicationLabel(a, role) {
     const l = applicationFor(a, role.id);
@@ -78,9 +80,13 @@ export function pipelineProblem(role) {
     if (!role.job?.must_haves?.length && !role.job?.nice_to_haves?.length) {
         return 'Save the criteria first (ask Clara, check them, then "Save criteria").';
     }
+    if (role.scope === 'batches' && !(role.batches || []).length) {
+        return 'Choose at least one batch to run on (or run it on the whole CV pool).';
+    }
     if (!applicantsInScope(role).length) {
         return role.scope === 'direct' ? 'Nobody applied for this role yet (or run it on the whole CV pool).'
-            : 'The CV pool is empty: no applications yet.';
+            : role.scope === 'batches' ? 'The batches you chose have no active CVs.'
+                : 'The CV pool is empty: no applications yet.';
     }
     return null;
 }
@@ -161,7 +167,7 @@ export async function runPipeline(role, { llmGate = false } = {}, progressFile) 
         application: pool ? Object.fromEntries(finalists.filter(c => byId[c]).map(c => [c, applicationLabel(byId[c], role)])) : {},
         tie_break_direct: pool && role.tieBreak === true,
         funnel: { applications: apps.length, readable: ids.length, passed_gate: remi.counts?.passed_gate,
-            read_by_jules: jules.counts?.read, scope: pool ? 'pool' : 'direct' },
+            read_by_jules: jules.counts?.read, scope: role.scope || 'pool' },
     };
     fs.writeFileSync(file('committee_in.json'), JSON.stringify(cin, null, 2), { mode: 0o600 });
     await step('committee', () => runHiring(['committee', '--job', job, '--runs', runs, '--jules', file('jules.json'),

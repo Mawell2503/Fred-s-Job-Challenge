@@ -72,3 +72,14 @@ export async function ensureReads(role, list, onProgress) {
     return { total: stale.length, failed,
         readable: list.filter(a => index[a.candidateId]?.status && index[a.candidateId].status !== 'failed').map(a => a.candidateId) };
 }
+
+/** Forget deleted CVs in this role's own reads: their folders and their lines in reads.json. */
+export function forgetReads(role, candidateIds) {
+    const index = loadIndex(role);
+    let changed = false;
+    for (const cid of candidateIds) {
+        fs.rmSync(path.join(roleDir(role.id), 'runs', cid), { recursive: true, force: true });
+        if (cid in index) { delete index[cid]; changed = true; }
+    }
+    if (changed) saveIndex(role, index);
+}

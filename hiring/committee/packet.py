@@ -43,7 +43,7 @@ class Packet:
     missing: dict = field(default_factory=dict)  # cid -> [what is missing, plain words]
     names: dict = field(default_factory=dict)   # cid -> name (report only, never sent to the LLM)
     has_practical_data: bool = False
-    applied: dict = field(default_factory=dict)  # cid -> {"kind": this|open|other, "roles": [...]} (whole-pool runs)
+    applied: dict = field(default_factory=dict)  # cid -> {"kind": this|open|other|batch, "roles"|"batch"} (pool / batch runs)
     tie_break_direct: bool = False               # a tied average: people who applied for this role first
 
     def job_text(self) -> str:
@@ -79,6 +79,8 @@ def application_line(a: dict | None) -> str:
     if a.get("kind") == "other":
         roles = ", ".join(a.get("roles") or []) or "another position"
         return f"Application: applied for another position ({roles})"
+    if a.get("kind") == "batch":
+        return f"Application: uploaded in batch {a.get('batch') or 'a batch'} (no application form)"
     return ""
 
 
@@ -164,6 +166,10 @@ def _application_check(a: dict | None) -> dict | None:
         roles = ", ".join(a.get("roles") or []) or "another position"
         return {"check": "application", "status": "risk",
                 "detail": f"Applied for another position ({roles}), not this one: interest in this one is not confirmed."}
+    if kind == "batch":
+        return {"check": "application", "status": "unknown",
+                "detail": f"Uploaded in batch {a.get('batch') or 'a batch'} (no application form): "
+                          "interest in this position and practical details are not known."}
     return None
 
 

@@ -3,11 +3,13 @@
 //                                                     application), name, linkedinUrl, resume (file),
 //                                                     linkedin (optional LinkedIn PDF), practical (JSON
 //                                                     string, required, for Nina). Everything joins the CV pool.
-//   GET  /api/admin/applicants[?role=R001][&details=1][&q=][&offset=&limit=]  (admin)
-//                                                     the CV pool. role=: only who that role's run reads (its
-//                                                     scope), each with `application` (applied for this role /
-//                                                     open / other roles). details=1: with practical answers.
-//                                                     q=: name, id or file name. limit=: { total, items } page.
+//   GET  /api/admin/applicants[?role=R001][&batch=B003][&archived=only|all][&details=1][&q=][&offset=&limit=]  (admin)
+//                                                     the CV pool (archived CVs left out unless archived=). role=:
+//                                                     only who that role's run reads (its scope), each with
+//                                                     `application` (applied for this role / open / other roles /
+//                                                     uploaded in a batch). batch=: one batch. details=1: with
+//                                                     practical answers. q=: name, id or file name.
+//                                                     limit=: { total, items } page.
 //   GET  /api/admin/applicants/:id/cv       (admin)   the CV file exactly as uploaded
 //   GET  /api/admin/applicants/:id/text     (admin)   the cleaned CV text block (kept sections)
 //   GET  /api/admin/applicants/:id/full     (admin)   every section, personal details removed (what Jules reads)
@@ -23,8 +25,10 @@ import { getRole } from './rolesStore.js';
 import { applicationLabel } from './pipeline.js';
 import { cleanPractical } from './practical.js';
 import {
-    DATA_DIR, UPLOAD_DIR, applicantsInScope, cleanFileName, findApplicant, listApplicants, submitApplication,
+    DATA_DIR, UPLOAD_DIR, activeApplicants, applicantsInScope, cleanFileName, findApplicant, listApplicants,
+    submitApplication,
 } from './applicants.js';
+import { getBatch } from './batches.js';
 
 
 const ALLOWED = { resume: new Set(['.pdf', '.docx', '.txt']), linkedin: new Set(['.pdf']) };
@@ -96,6 +100,10 @@ export function applyRoutes({ requireAuth }) {
                     return res.status(409).json({ error: open ? 'We already have this CV. No need to send it again.'
                         : 'We already have this CV for this position. No need to send it again.' });
                 }
+                if (out.restored) {
+                    discard();                                  // an archived CV sent again: it is back in the pool
+                    return res.status(200).json({ received: true });
+                }
                 if (out.added) {
                     discard();                                  // the CV we have is kept; nothing new to store
                     return res.status(200).json({ received: true, added: true,
@@ -119,15 +127,19 @@ export function applyRoutes({ requireAuth }) {
         const role = req.query.role ? getRole(String(req.query.role)) : null;
         if (req.query.role && !role) return res.status(404).json({ error: 'Unknown role.' });
         const details = req.query.details === '1';
-        let list = role ? applicantsInScope(role) : listApplicants();
+        const archived = String(req.query.archived ?? '');
+        let list = role ? applicantsInScope(role)
+            : archived === 'all' ? listApplicants() : archived === 'only' ? listApplicants().filter(a => a.archived) : activeApplicants();
+        if (req.query.batch) list = list.filter(a => a.batch === String(req.query.batch));
         const q = String(req.query.q ?? '').trim().toLowerCase().slice(0, 100);
         if (q) list = list.filter(a => [a.name, a.candidateId, a.cvName].some(v => String(v ?? '').toLowerCase().includes(q)));
         const view = ({ candidateId, appliedFor, name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes, cvFile, cvName,
-            linkedinFile, practical, source }) => ({
+            linkedinFile, practical, source, batch, archived: isArchived }) => ({
             id: candidateId, appliedFor: appliedFor.map(id => ({ id, title: getRole(id)?.title || id })),
             name, instagramUrl, linkedinUrl, appliedAt, cvStatus, cvCodes,
             cvName: cvName || cleanFileName('', cvFile),
             hasLinkedinPdf: Boolean(linkedinFile), hasPractical: Boolean(practical), source: source || 'form',
+            batch: batch ? { id: batch, name: getBatch(batch)?.name || batch } : null, archived: Boolean(isArchived),
             ...(role ? { application: applicationLabel({ appliedFor }, role) } : {}),
             ...(details ? { practical: practical || null } : {}),
         });

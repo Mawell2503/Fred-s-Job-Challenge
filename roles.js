@@ -3,7 +3,8 @@
 //   GET    /api/admin/roles                    (admin)  all roles, with applicant counts and agent states
 //   POST   /api/admin/roles                    (admin)  { title } -> new role
 //   PATCH  /api/admin/roles/:id                (admin)  { title, status, adText, mustText, niceText, job, rules, logistics,
-//                                                        scope: 'pool' | 'direct', tieBreak: boolean }
+//                                                        scope: 'pool' | 'direct' | 'batches', batches: [batchIds],
+//                                                        tieBreak: boolean }
 //   POST   /api/admin/roles/:id/clara          (admin)  CLARA proposes criteria (admin reviews, then PATCHes job)
 //   POST   /api/admin/roles/:id/pipeline       (admin)  { llmGate } Oscar -> Remi -> Jules -> Committee -> Gaston
 //   GET    /api/admin/roles/:id/results        (admin)  every step's output + live progress + debate feed
@@ -13,7 +14,8 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { cleanLogistics, publicRoleInfo } from './practical.js';
-import { applicantsInScope, directApplicants, findApplicant, listApplicants } from './applicants.js';
+import { activeApplicants, applicantsInScope, directApplicants, findApplicant } from './applicants.js';
+import { getBatch } from './batches.js';
 import { staleCount, usesArrivalReads } from './reads.js';
 import {
     listRoles, getRole, createRole, saveRoles, roleDir, cleanJob, cleanRules, SCOPES,
@@ -32,7 +34,7 @@ function summary(role) {
         ...role,
         applicants: apps.length,                                // who a run reads (role.scope)
         readable: apps.filter(a => a.cvStatus !== 'failed').length,
-        pool: listApplicants().length,                          // the whole CV pool
+        pool: activeApplicants().length,                        // the whole CV pool (archived CVs left out)
         direct: directApplicants(role.id).length,               // people who chose this role on the form
         appliedFrom: first, appliedTo: last,
         ownReads: !usesArrivalReads(role),                      // its CV sections differ from the default
@@ -86,6 +88,9 @@ export function roleRoutes({ requireAuth }) {
         if (b.rules !== undefined) role.rules = cleanRules(b.rules);
         if (b.logistics !== undefined) role.logistics = cleanLogistics(b.logistics);
         if (b.scope !== undefined) role.scope = SCOPES.includes(b.scope) ? b.scope : 'pool';
+        if (b.batches !== undefined) {
+            role.batches = [...new Set((Array.isArray(b.batches) ? b.batches : []).map(String))].filter(id => getBatch(id)).slice(0, 200);
+        }
         if (b.tieBreak !== undefined) role.tieBreak = b.tieBreak === true;
         saveRoles();
         res.json(summary(role));
