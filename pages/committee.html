@@ -815,6 +815,7 @@
             if (l?.kind === 'this') return 'Applied for this role';
             if (l?.kind === 'open') return 'Open application';
             if (l?.kind === 'other') return `Applied for ${(l.roles || []).join(', ') || 'another role'}`;
+            if (l?.kind === 'batch') return `Uploaded · ${l.batch}`;
             return cands()[cid]?.application || '';
         }
 

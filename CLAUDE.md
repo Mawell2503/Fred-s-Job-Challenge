@@ -26,7 +26,7 @@ npm run create-admin -- <username> <password>
 npm run create-admin -- --list
 npm run demo                     # demo role + 15 fictional applications (demo/)
 npm run pipeline -- <roleId>     # the full pipeline from the terminal (stop the server first)
-npm run import -- <folder>       # a folder of CVs into the pool, invented practical details (stop the server first)
+npm run import -- <folder>       # a folder of CVs into the pool (one batch, --batch "Name"), invented practical details (stop the server first)
 npm test                         # node --test tests/*.test.mjs && python3 -m unittest discover -s tests
 ```
 
@@ -60,19 +60,37 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   lives under `data/roles/<id>/` (`job.json`, `clara_out.json`, `remi.json`, `jules.json`,
   `progress.json`, and `runs/` + `reads.json` when it has its own reads). Owns the validation/sanitizing
   of what the admin UI sends (`cleanJob`, `cleanRules`, `cleanCriterion`), `DEFAULT_RULES` (the sections
-  every CV is read with on arrival), `rulesKey`, and per role `scope` (`pool` | `direct`) and `tieBreak`.
+  every CV is read with on arrival), `rulesKey`, and per role `scope` (`pool` | `direct` | `batches`), `batches`
+  (the batch ids a `batches` run reads) and `tieBreak`.
 - `apply.js` — routes only: multipart upload (multer, 5 MB, fields `resume` pdf/docx/txt and optional
   `linkedin` pdf, plus a required `practical` JSON string) → `submitApplication`. Admin reads:
   `GET /api/admin/applicants?role=&details=1` (with practical answers), `.../:id/cv` (the original file,
   `nosniff`, sandboxed unless PDF), `.../:id/{text,full,record,practical,linkedin}`.
 - `applicants.js` — no express: the **CV pool** (`data/applicants.json`, written compact), the single
   `Promise` queue (`inQueue`, one Python subprocess at a time so candidate numbering stays safe),
-  `submitApplication({ roleId | null, ... })`, `refreshDefaultReads`, `applicantsInScope(role)`,
-  `directApplicants`, `applicationFor(a, roleId)` → `this | open | other`. Applicants do NOT belong to a
+  `submitApplication({ roleId | null, batchId, ... })`, `refreshDefaultReads`, `applicantsInScope(role)`,
+  `activeApplicants`, `directApplicants`, `removeApplicants`, `applicationFor(a, roleId)` → `this | open | other |
+  batch` (`batch`: uploaded into a named batch, no application form). Applicants do NOT belong to a
   role: each stores `appliedFor` (role ids; `[]` = open application), `cvSha256` (one CV once in the whole
   pool; the same CV for another role is added to `appliedFor`), `rulesKey` (the sections its arrival read
-  used), `cvName`, `linkedinFile`, `practical`, `source` (`form` | `import` | `demo`). On start, records from
-  before the pool are converted once (`roleId` → `appliedFor`, right-to-work → `work_countries`).
+  used), `cvName`, `linkedinFile`, `practical`, `source` (`form` | `import` | `demo` | `batch`), `batch` (the ONE batch
+  it belongs to) and `archived` (out of every run, count and list; files and reads kept). A CV sent again while
+  archived is restored into the new upload's batch; one uploaded into another batch moves there. On start, records
+  from before the pool are converted once (`roleId` → `appliedFor`, right-to-work → `work_countries`), and CVs
+  without a batch go into Batch 0.
+- `batches.js` — no express, never imports `applicants.js`: `data/batches.json` (batches, `settings.reviewAfterDays`
+  7 | 14 | 30, `lastNumber`). Kinds: `initial` (Batch 0: the pool before batches), `weekly` (the form's CVs, one per
+  Monday-to-Sunday week, made on the first arrival), `upload` (named by an admin; also the import and the demo).
+  `nextNumber`/`noteNumber`: a candidate number is never given twice, even after a delete. The weekly question
+  (`dueBatches`) comes `reviewAfterDays` after a weekly batch's week ends; "Ask me later" snoozes it a week.
+- `batchOps.js` — no express: `archiveCvs`/`restoreCvs`/`deleteCvs` and the same per batch, `answerReview`
+  (keep | archive | delete | later), `batchSummaries`. Delete is permanent (record, CV and LinkedIn files, the
+  arrival read and every role's own read via `reads.forgetReads`); finished reports are left as they are.
+  Archive and delete wait while any pipeline runs (`poolBusy`); a batch fully archived or deleted is unticked
+  from every role that ran on it.
+- `batchRoutes.js` — `/api/admin/batches` (list, create, rename, one-file `cvs` upload into an `upload` batch,
+  archive, restore, delete, weekly `review`), `/api/admin/batches-settings`, `/api/admin/cvs/{archive,restore,delete}`.
+  These routes parse their own JSON bodies (`ownBodies` in `index.js`): id lists outgrow the global 10 kB limit.
 - `reads.js` — no express: Oscar's reads per role. A role whose sections equal `DEFAULT_RULES` uses the
   arrival reads in `data/runs/`; any other role gets its own in `data/roles/<id>/runs/`, indexed by
   `reads.json` (`{cid: {key, status, ...}}`) and only redone when its `rulesKey` changes
@@ -203,6 +221,9 @@ poll and show a live progress indicator while an agent runs in the background.
 - **Admin pages**: `adminlobby.html` (top 10 / top 5 board + live timeline; the timeline's "Applications in",
   "Job & criteria" and "Practical requirements" steps are buttons that open `<dialog>` cards over a blurred
   page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
+  `roles.html` also has the **CV batches** section (pool-wide: archive / restore / delete batches or single CVs,
+  new batch + upload, the weekly question, and the "Only these batches" choice of who a role runs on); the lobby
+  shows the weekly question too.
   `committee.html` (opened by "3 · Committee": the live debate drawn from `feed.json` + `live.json` with
   B#1 on the table / B#2 scores / B#3 evidence / B#4 fit & red flags, the chat and the race; then the results
   and a replay), `report.html` (Gaston's report).
@@ -211,6 +232,9 @@ poll and show a live progress indicator while an agent runs in the background.
 - **Practical answers and LinkedIn PDFs never go through Oscar / Remi / Jules.** They are stored on the
   applicant record and only handed to the committee (for Jules's 10 finalists) in `pipeline.js`. The same
   goes for what someone applied for: it is a fact for the committee (Nina's lane), never a funnel score.
+- **Archived CVs don't count; deleted CVs are gone.** Anything that counts or runs on CVs uses `activeApplicants` /
+  `applicantsInScope`; only duplicate checks and scripts read `listApplicants`. Never remove an applicant any
+  other way than `batchOps.deleteCvs` (files, reads and candidate numbers stay consistent).
 - **One CV pool, roles run on it.** Never tie an applicant to one role again; use `appliedFor`,
   `applicantsInScope`, `applicationFor`. Anything that depends on a role's CV sections must go through
   `reads.js` (`runsDirFor(role)`), never straight to `data/runs/`.

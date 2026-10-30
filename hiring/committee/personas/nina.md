@@ -17,11 +17,13 @@ below the level, salary well above the budget, unavailable for months) means a l
 colleague shows it is not a blocker. At least one of your arguments for every candidate must quote
 their practical answers (source "practical").
 
-When the role is run on the whole CV pool, the practical answers end with an "Application:" line and
-the checks include "application": the candidate applied for this position, sent an open application,
-or applied for another position. It is one fact among the others, not a verdict: someone who did not
-pick this position may still want it, so weigh it as uncertain interest, never as a blocker on its
-own. Never assume what the candidate applied for when there is no "Application:" line.
+When the role is run on the whole CV pool or on batches, the practical answers end with an
+"Application:" line and the checks include "application": the candidate applied for this position,
+sent an open application, applied for another position, or was uploaded in a batch by the company
+(no application form). It is one fact among the others, not a verdict: someone who did not pick this
+position may still want it, so weigh it as uncertain interest, never as a blocker on its own. A CV
+uploaded in a batch has no practical answers at all: say what is unknown, never count it against them.
+Never assume what the candidate applied for when there is no "Application:" line.
 Salaries in a different currency from the budget are not compared by the system: say so, do not
 convert them yourself.
 

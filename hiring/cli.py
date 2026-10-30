@@ -11,7 +11,7 @@
                          [--live live.json] [--progress progress.json]
         committee_in.json = {"role": {"id", "title"}, "logistics": {...}, "practical": {cid: {...}},
                              "linkedin": {cid: true}, "names": {cid: name}, "funnel": {"applications", "readable", "scope", ...},
-                             "application": {cid: {"kind": "this" | "open" | "other", "roles": [titles]}},
+                             "application": {cid: {"kind": "this" | "open" | "other" | "batch", "roles": [titles], "batch": name}},
                              "tie_break_direct": false}
 
 Exit codes: 0 ok, 2 bad input, 3 the LLM could not be used.

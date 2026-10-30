@@ -12,6 +12,8 @@
 //   linkedin   a made-up LinkedIn URL for about 45% of them (no LinkedIn PDF)
 //   applied    about half are open applications, the rest applied for one of your existing roles
 //   applied at spread over the last 60 days
+//   batch      all of them go into one batch: "Import · <folder> · <date>", or the name given with --batch
+//              (running the same command again fills the same batch)
 //
 // Safe to stop (Ctrl+C finishes the current CV, then stops) and to run again: a CV already in the pool
 // is skipped. Unreadable files are listed at the end and in data/import-<date>.log.
@@ -23,11 +25,13 @@
 //                             the "home" job market the invented answers are built around
 //   --limit 100               only the first 100 files (a quick try)
 //   --seed anything           other invented answers for the same files
+//   --batch "Client X"        the batch they go into (made if it doesn't exist)
 import '../env.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { listRoles } from '../rolesStore.js';
+import { batchNamed } from '../batches.js';
 import { cleanPractical } from '../practical.js';
 import { DATA_DIR, UPLOAD_DIR, fileHash, listApplicants, saveApplicants, submitApplication } from '../applicants.js';
 
@@ -56,6 +60,7 @@ const HOME = {
 const OPEN_SHARE = Math.min(1, Math.max(0, Number(opt('open', 0.5))));
 const LIMIT = Number(opt('limit', 0)) || Infinity;
 const SEED = String(opt('seed', ''));
+const BATCH_NAME = String(opt('batch', `Import · ${path.basename(path.resolve(folder))} · ${new Date().toISOString().slice(0, 10)}`));
 
 // ---------------- the server must not be running ----------------
 try {
@@ -163,11 +168,13 @@ for (const f of all) {
     else files.push(f);
 }
 const todo = files.slice(0, LIMIT);
+const batch = todo.length ? batchNamed(BATCH_NAME) : null;
 const roles = listRoles();
 console.log(`${files.length} CV file(s) found${skipped.length ? `, ${skipped.length} other file(s) skipped` : ''}` +
     `${todo.length < files.length ? `; importing the first ${todo.length}` : ''}.`);
 console.log(roles.length ? `Applied for: ${Math.round(OPEN_SHARE * 100)}% open applications, the rest spread over ${roles.map(r => r.id).join(', ')}.`
     : 'No roles yet: every CV is an open application.');
+if (batch) console.log(`Batch: ${batch.name} (${batch.id}).`);
 console.log(`Home market for the invented answers: ${HOME.country}${HOME.city ? ` (${HOME.city})` : ''}, ${HOME.currency}, ${HOME.languages.join(' + ')}.\n`);
 
 let stop = false;
@@ -206,8 +213,8 @@ for (const [i, file] of todo.entries()) {
         const wantsLinkedin = p.chance(0.45), liTail = crypto.createHash('sha1').update(file).digest('hex').slice(0, 4);
 
         const out = await submitApplication({ roleId: role?.id || null, cvPath: copy, cvName: path.basename(file),
-            name: '', practical: practical.value, source: 'import', nameFromCv: true, appliedAt });
-        if (out.duplicate || out.added) {
+            name: '', practical: practical.value, source: 'import', nameFromCv: true, appliedAt, batchId: batch.id });
+        if (out.duplicate || out.added || out.restored || out.moved) {
             counts.already++;
             console.log(`${tag} already in the pool, skipped   ${path.basename(file)}`);
             continue;

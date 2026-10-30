@@ -11,12 +11,14 @@ import { createRole, saveRoles } from '../rolesStore.js';
 import { cleanJob } from '../rolesStore.js';
 import { cleanLogistics, cleanPractical } from '../practical.js';
 import { UPLOAD_DIR, submitApplication } from '../applicants.js';
+import { batchNamed } from '../batches.js';
 
 const DEMO = path.resolve('demo');
 const roleSpec = JSON.parse(fs.readFileSync(path.join(DEMO, 'role.json'), 'utf8'));
 const people = JSON.parse(fs.readFileSync(path.join(DEMO, 'candidates.json'), 'utf8'));
 
 const role = createRole(roleSpec.title);
+const demoBatch = batchNamed('Demo applications');   // the 15 demo CVs form one batch
 role.adText = roleSpec.adText;
 role.job = cleanJob(roleSpec.job, role.title);
 role.jobUpdatedAt = new Date().toISOString();
@@ -38,10 +40,10 @@ for (const p of people) {
     const practical = cleanPractical(p.practical, role);
     if (practical.error) throw new Error(`${p.name}: ${practical.error}`);
     const out = await submitApplication({ roleId: role.id, cvPath, cvName: p.cv, linkedinPath, name: p.name,
-        practical: practical.value, source: 'demo' });
-    if (out.duplicate || out.added) {
+        practical: practical.value, source: 'demo', batchId: demoBatch.id });
+    if (out.duplicate || out.added || out.restored || out.moved) {
         for (const f of [cvPath, linkedinPath]) if (f) fs.rmSync(f, { force: true });
-        console.log(`  - ${p.name}: already in the CV pool${out.added ? ', now also applying for this role' : ', skipped'}`);
+        console.log(`  - ${p.name}: already in the CV pool${out.added || out.moved || out.restored ? ', now also applying for this role' : ', skipped'}`);
         continue;
     }
     if (!out.applicant) {

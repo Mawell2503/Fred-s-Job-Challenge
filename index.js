@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyRoutes } from './apply.js';
 import { roleRoutes } from './roles.js';
+import { batchRoutes } from './batchRoutes.js';
 import {
     SESSION_TTL_MS,
     createUser,
@@ -29,8 +30,10 @@ const COOKIE = 'sid';
 
 app.disable('x-powered-by');
 const smallJson = express.json({ limit: '10kb' });
-// role routes parse their own (larger) bodies: job descriptions can be long
-app.use((req, res, next) => (req.path.startsWith('/api/admin/roles') ? next() : smallJson(req, res, next)));
+// role and batch routes parse their own (larger) bodies: job descriptions can be long, and archiving or
+// deleting CVs sends their ids (thousands of them for a big batch)
+const ownBodies = ['/api/admin/roles', '/api/admin/cvs', '/api/admin/batches'];
+app.use((req, res, next) => (ownBodies.some(p => req.path.startsWith(p)) ? next() : smallJson(req, res, next)));
 
 // ---------- helpers ----------
 function readCookie(req, name) {
@@ -128,6 +131,7 @@ app.post('/api/admin/logout', (req, res) => {
 app.get('/api/admin/me', requireAuth, (req, res) => res.json({ user: req.user }));
 app.use(roleRoutes({ requireAuth }));
 app.use(applyRoutes({ requireAuth }));
+app.use(batchRoutes({ requireAuth }));
 // ---------- pages ----------
 // Only these public files are served (not index.js, package.json, data/, .git, etc.)
 const publicFile = file => (req, res) => res.sendFile(path.join(__dirname, file));

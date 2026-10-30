@@ -49,6 +49,14 @@ class ApplicationLabel(unittest.TestCase):
         self.assertIn("Application: open application", practical_text(None, "", OPEN))
         self.assertEqual(statuses(None, OPEN)["application"], "unknown")
 
+    def test_a_cv_uploaded_in_a_batch_is_neither_an_application_nor_an_open_one(self):
+        batch = {"kind": "batch", "batch": "Client X · 31 Oct"}
+        text = practical_text(None, "Mauritius", batch)             # uploaded CVs have no practical answers
+        self.assertIn("Application: uploaded in batch Client X · 31 Oct (no application form)", text.splitlines())
+        self.assertIn("No practical details were provided.", text)
+        self.assertEqual(statuses(None, batch)["application"], "unknown")
+        self.assertEqual(application_label(batch), "Uploaded in batch Client X · 31 Oct (no application form)")
+
 
 class CurrencyAndWorkCountries(unittest.TestCase):
     def test_a_salary_in_another_currency_is_not_compared(self):
