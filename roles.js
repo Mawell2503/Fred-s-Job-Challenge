@@ -20,7 +20,7 @@ import { staleCount, usesArrivalReads } from './reads.js';
 import {
     listRoles, getRole, createRole, saveRoles, roleDir, cleanJob, cleanRules, SCOPES,
 } from './rolesStore.js';
-import { applicationLabel, pipelineProblem, readJson, runHiring, runPipeline, startAgent } from './pipeline.js';
+import { applicationLabel, pipelineProblem, readJson, runHiring, runPipeline, startAgent, stopAndReset } from './pipeline.js';
 
 function summary(role) {
     const apps = applicantsInScope(role);
@@ -102,11 +102,11 @@ export function roleRoutes({ requireAuth }) {
         if (!(role.adText.trim() || role.mustText.trim() || role.niceText.trim())) {
             return res.status(400).json({ error: 'Paste the job description or write the must-haves first.' });
         }
-        const busy = startAgent(role, 'clara', async () => {
+        const busy = startAgent(role, 'clara', async (progressFile, signal) => {
             const dir = roleDir(role.id);
             const input = path.join(dir, 'clara_in.json'), out = path.join(dir, 'clara_out.json');
             fs.writeFileSync(input, JSON.stringify({ title: role.title, ad_text: role.adText, must_text: role.mustText, nice_text: role.niceText }));
-            const msg = await runHiring(['clara', '--input', input, '--out', out], 'clara');
+            const msg = await runHiring(['clara', '--input', input, '--out', out], 'clara', signal);
             role.claraProposal = { ...readJson(out), proposedAt: new Date().toISOString() };
             return msg + ' Review them, then save.';
         });
@@ -120,9 +120,20 @@ export function roleRoutes({ requireAuth }) {
         const problem = pipelineProblem(role);
         if (problem) return res.status(400).json({ error: problem });
         const llmGate = req.body?.llmGate === true;
-        const busy = startAgent(role, 'pipeline', progressFile => runPipeline(role, { llmGate }, progressFile));
+        const busy = startAgent(role, 'pipeline', (progressFile, signal) => runPipeline(role, { llmGate }, progressFile, signal));
         if (busy) return res.status(409).json({ error: busy });
         res.status(202).json({ started: true });
+    });
+
+    // The lobby's "Stop & reset": stop what runs for this role, clear the run's results and the timeline
+    router.post('/api/admin/roles/:id/reset', json, async (req, res, next) => {
+        try {
+            const stopped = await stopAndReset(req.role);
+            res.json({ reset: true, stopped });
+        } catch (err) {
+            if (/did not stop in time/.test(err.message)) return res.status(409).json({ error: err.message });
+            next(err);
+        }
     });
 
     router.get('/api/admin/roles/:id/results', (req, res) => {

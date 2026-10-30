@@ -104,7 +104,10 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   `ids.txt`, `--ids-file`: Windows command lines are too short for big pools) → Jules `--top 10` → writes
   `committee_in.json` (practical answers, LinkedIn flags, `names`, and on whole-pool runs `application`
   labels + `tie_break_direct`) → `hiring committee`; sets `role.agents[step]` for each step;
-  `startAgent`, `runHiring`, `pipelineProblem`, `applicationLabel` live here too.
+  `startAgent`, `runHiring`, `pipelineProblem`, `applicationLabel` live here too. `startAgent` keeps each role's
+  running work with an `AbortController`; `stopAndReset(role)` (the lobby's "Stop & reset") aborts it (Oscar
+  finishes the CV it is reading; the Python step is killed with SIGTERM), then deletes `OUTPUTS` + `progress.json`
+  and the `pipeline`/step states. The job, criteria, CVs and Oscar's reads are kept.
 - `scripts/import-cvs.js` — `npm run import -- <folder>`: every CV through `submitApplication` (name from
   the CV via `nameFromCv`, else "Test subject #N"), invented practical details seeded by the file's sha256
   (same file → same answers), never touches applicants already in the pool.
@@ -121,10 +124,11 @@ cookie-session auth, mounts `roleRoutes` (`roles.js`) and `applyRoutes` (`apply.
   (everything else, one button). Work runs in the background via `startAgent`: one thing per role at a
   time, state in `role.agents` (`pipeline`, `clara`, and per step `oscar`/`remi`/`jules`/`committee`),
   polled from the admin UI via `GET .../results` (also returns `progress.json`, the committee and the live
-  `feed.json`). `GET .../report.md` downloads the report. On server restart, anything left `running` is
+  `feed.json`). `GET .../report.md` downloads the report. `POST .../reset` = `stopAndReset`. On server restart, anything left `running` is
   marked `failed` on disk (see `rolesStore.js`).
 - `pyRunner.js` — the only place that spawns Python (`execFile`, no shell — untrusted filenames/text
-  can never become shell commands). `PYTHON_BIN` env var picks the interpreter.
+  can never become shell commands). `PYTHON_BIN` env var picks the interpreter. `runPython(args, ms, signal)`:
+  aborting the signal kills the process.
 
 Data directories (`data/uploads`, `data/runs`, `data/roles`) and JSON files are all git-ignored and
 created on demand; there is no database.
@@ -175,6 +179,8 @@ Runs against Oscar's output in `--runs` dir. All three subcommands go through `h
   - `api` — Anthropic API, needs `ANTHROPIC_API_KEY`.
   - `ollama` — local model via `OLLAMA_URL` (default `http://localhost:11434`).
   Switch backends purely via `.env`; agent code never hardcodes a provider.
+  `install_stop_handler()` (called by `hiring/cli.py`): on SIGTERM the claude processes still running are killed
+  and no new call starts (Jules's threads wind down), then the process exits 143.
 - `store.py` — reads candidate data (`load_candidate`, `load_personal`, `list_candidates`) from the
   `--runs` directory structure that `cv_reader` produces.
 - `criteria.py` — shared cleaning/normalizing of must-have/nice-to-have criteria structures (mirrors
@@ -222,7 +228,7 @@ poll and show a live progress indicator while an agent runs in the background.
   `pages/roles.html`, `pages/committee.html`, and all `/api/admin/*` routes — requires a logged-in admin session.
 - **Admin pages**: `adminlobby.html` (top 10 / top 5 board + live timeline; the timeline's "Applications in",
   "Job & criteria" and "Practical requirements" steps are buttons that open `<dialog>` cards over a blurred
-  page), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
+  page; under "Edit pipeline", "Stop & reset" / "Reset timeline" asks for confirmation then calls `POST .../reset`), `roles.html` (the pipeline page: every input and output on one page, "Edit pipeline" in the lobby),
   `roles.html` also has the **CV batches** section (pool-wide: archive / restore / delete batches or single CVs,
   new batch + upload, the weekly question, and the "Only these batches" choice of who a role runs on); the lobby
   shows the weekly question too.
